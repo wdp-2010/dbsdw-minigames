@@ -6,8 +6,9 @@ Runs on Paper 26.3 (Java 25).
 | Path | What it is |
 |------|------------|
 | `travel/` | Plain-Java transfer tickets (HMAC-signed cookie, single use, 60 s), shared by both plugins below |
-| `core/` | **MinigameCore** plugin (minigame server): refuses joins without a valid ticket, `/survival`; later: lobby, queue, teams, arenas, stats, resource pack |
+| `core/` | **MinigameCore** plugin (minigame server): refuses joins without a valid ticket, `/survival`, lobby, queue menus and game NPCs, arenas, teams, match lifecycle, the game API; later: stats, resource pack |
 | `bridge/` | **DbsdwBridge** plugin (survival server, Paper and Folia): `/minigames`, the minigames NPC, ticket login on return via AuthMe |
+| `testgame/` | **MgTestGame**: test-only game (first team to 3 points) for the e2e checks. **Never deploy it.** |
 | `paintball/` | **Paintball** plugin: team deathmatch and capture the flag, built on MinigameCore |
 | `resourcepack/` | The required resource pack (models, textures, sounds, HUD) |
 | `tools/` | Resource pack validation and build script; `tools/e2e/` throwaway test servers and bots |
@@ -53,3 +54,42 @@ build. Jars and the pack are uploaded as workflow artifacts.
 4. Admins place the survival NPC with `/minigames npc set` (`/minigames npc remove` within 5 blocks).
 
 End-to-end checks: `tools/e2e/README.md`.
+
+## Lobby and arenas (minigame server)
+
+Admin commands need `minigames.admin` (ops have it). Positions are taken from where you stand.
+
+- `/mg setlobby` sets the lobby spawn. Players arrive there in adventure mode with two items:
+  **Spellen** (queue menu) and **Terug naar survival**. No damage or hunger anywhere on the server.
+- `/mg npc set <game>` places a game NPC (a Mannequin) that opens that game's queue menu;
+  `/mg npc remove` removes game NPCs within 5 blocks.
+- Arenas: `/mg arena create <name>`, then `modes <game:mode,…>`, `setspawn <team>` (repeat for
+  more spawns), `setflag <team>` (modes that need flags), `addpowerup`, `setbounds 1` and
+  `setbounds 2` (two opposite corners), and `save`. Saving checks that every point lies inside the
+  bounds and that each registered mode has a spawn (and flag, if needed) for every team; nothing
+  is saved while there are errors. `/mg arena list` and `/mg arena delete <name>` also work from
+  the console. The arena's world must be loaded at startup.
+- Arena files live in `plugins/MinigameCore/arenas/<name>.yml`:
+
+  ```yaml
+  world: world
+  modes: [paintball:tdm, paintball:ctf]
+  corner1: {x: 10, y: -64, z: -10}
+  corner2: {x: 40, y: -50, z: 10}
+  spawns:
+    "0": [{x: 15.5, y: -62.0, z: 0.5, yaw: -90.0, pitch: 0.0}]
+    "1": [{x: 35.5, y: -62.0, z: 0.5, yaw: 90.0, pitch: 0.0}]
+  flags:
+    "0": {x: 12.5, y: -62.0, z: 0.5, yaw: 0.0, pitch: 0.0}
+    "1": {x: 38.5, y: -62.0, z: 0.5, yaw: 0.0, pitch: 0.0}
+  powerups: []
+  ```
+
+- Queue rules: one queue per player. When a mode has its start minimum queued and a fitting arena
+  is free, the arena is reserved and a countdown runs (`queue.countdown-seconds`, 30; cut to
+  `queue.full-countdown-seconds`, 10, once the queue is full). Players beyond the maximum stay
+  queued for the next match. Results show for `match.results-seconds` (10), then everyone returns
+  to the lobby. `/leave` leaves the queue or the match.
+
+Games register through `be.dbsdw.minigames.core.api.GameRegistry` (a Bukkit service);
+`testgame/` is the smallest example.
