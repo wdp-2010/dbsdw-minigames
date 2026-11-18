@@ -36,7 +36,10 @@ Bot dependencies: `cd bot && npm install --ignore-scripts` (inside `node:22-book
   `held_items`, `window_open`, `title`, `position`, ...). See the header of `hop.js` for all flags.
 - Lobby and menu steps run after the last join, in order: `--do use:0` (right-click hotbar slot 0),
   `--do click:11` (click a slot of the open menu), `--do cmd:/leave`, `--do wait:3`,
-  `--do interact:mannequin`, `--do drop:0`, `--do quit`.
+  `--do interact:mannequin`, `--do drop:0`, `--do quit`,
+  `--do aim:<player>` (look at that player), `--do fire:<n>` (n right-clicks 200 ms apart, like
+  holding the button). Extra events: `actionbar`, `entity_spawn` (snowballs), `visible`, `aimed`.
+- A match countdown is 30 s unless the queue is full; time bot steps after `Start!`.
   `--stay` also ends earlier legs of the trip, so keep it at 3 or more (the `--command` goes out
   1.5 s after a join).
 - Paper's `connection-throttle` (in `bukkit.yml`) kicks bots that join within 4 s of each other;
