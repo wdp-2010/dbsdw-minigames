@@ -1,0 +1,6 @@
+# Player messages (MiniMessage format).
+no-ticket: "<red>Je kunt hier alleen binnenkomen via de survivalserver.<newline><gray>Ga naar survival en typ <white>/minigames</white>."
+unavailable: "<red>De minigames zijn nu niet beschikbaar. Probeer het later opnieuw."
+survival-unavailable: "<red>Survival is nu niet bereikbaar. Probeer het later opnieuw."
+to-survival: "<green>Je gaat terug naar survival..."
+shutdown: "<yellow>De minigameserver start opnieuw op."

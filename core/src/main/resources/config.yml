@@ -1,0 +1,10 @@
+# MinigameCore
+
+survival:
+  # Public survival address players are sent back to.
+  host: "play.dbsdw.com"
+  port: 25565
+
+# Shared secret for transfer tickets. Generated on first start if empty.
+# Copy it to plugins/DbsdwBridge/config.yml on the survival server. Never share it.
+ticket-secret: ""

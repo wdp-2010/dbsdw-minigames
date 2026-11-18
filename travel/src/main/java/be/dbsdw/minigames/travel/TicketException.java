@@ -18,4 +18,12 @@ public final class TicketException extends Exception {
     public Reason reason() {
         return reason;
     }
+
+    /** One-line reason for server logs. Never contains ticket bytes or the secret. */
+    public String logText() {
+        if (reason == Reason.BAD_SIGNATURE) {
+            return "ticket signature invalid — check that ticket-secret is the same on both servers";
+        }
+        return reason.name();
+    }
 }
