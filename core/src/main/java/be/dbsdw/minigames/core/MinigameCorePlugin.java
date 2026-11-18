@@ -6,6 +6,10 @@ import be.dbsdw.minigames.core.arena.ArenaPool;
 import be.dbsdw.minigames.core.arena.ArenaStore;
 import be.dbsdw.minigames.core.match.MatchManager;
 import be.dbsdw.minigames.core.npc.GameNpc;
+import be.dbsdw.minigames.core.pack.PackHost;
+import be.dbsdw.minigames.core.stats.Leaderboards;
+import be.dbsdw.minigames.core.stats.StatsCommands;
+import be.dbsdw.minigames.core.stats.StatsStore;
 import be.dbsdw.minigames.core.queue.QueueBook;
 import be.dbsdw.minigames.core.queue.QueueTimings;
 import java.io.IOException;
@@ -36,6 +40,9 @@ public final class MinigameCorePlugin extends JavaPlugin {
     private final GameRegistryImpl games = new GameRegistryImpl();
     private CoreTravel travel;
     private MatchManager matches;
+    private StatsStore stats;
+    private PackHost pack;
+    private Leaderboards leaderboards;
 
     @Override
     public void onEnable() {
@@ -50,7 +57,16 @@ public final class MinigameCorePlugin extends JavaPlugin {
             travel = new CoreTravel(this, new TicketIssuer(signer, clock, new SecureRandom()),
                     getConfig().getString("survival.host"), getConfig().getInt("survival.port"), messages);
         }
-        getServer().getPluginManager().registerEvents(new ArrivalListener(verifier, messages, getLogger()), this);
+        String packUrl = getConfig().getString("pack.public-url", "");
+        if (packUrl.isBlank()) {
+            getLogger().warning("[pack] pack.public-url is empty - players join without a resource pack");
+        } else {
+            pack = PackHost.start(getDataFolder().toPath().resolve(getConfig().getString("pack.file", "pack.zip")),
+                    getConfig().getString("pack.bind", "0.0.0.0"), getConfig().getInt("pack.port"), packUrl,
+                    messages, getLogger());
+        }
+        getServer().getPluginManager().registerEvents(new ArrivalListener(verifier, messages, getLogger(), pack), this);
+        stats = StatsStore.open(getDataFolder().toPath().resolve("stats.db"), getLogger());
 
         ArenaStore store = new ArenaStore(getDataFolder().toPath().resolve("arenas"), getLogger());
         List<ArenaDefinition> arenas;
@@ -70,27 +86,34 @@ public final class MinigameCorePlugin extends JavaPlugin {
             getLogger().warning("[lobby] lobby spawn not set — use /mg setlobby");
         }
         MatchManager manager = new MatchManager(this, games, pool, queues, lobby, messages,
-                getConfig().getInt("match.results-seconds") * 20, rnd);
+                getConfig().getInt("match.results-seconds") * 20, rnd, stats);
         matches = manager;
         GameNpc npc = new GameNpc(games::game, manager::openModes);
+        StatsCommands statsCommands = new StatsCommands(this, stats, games, messages);
+        Leaderboards boards = new Leaderboards(this, stats, games, messages);
+        leaderboards = boards;
 
         PluginManager plugins = getServer().getPluginManager();
-        plugins.registerEvents(new LobbyListener(lobby, travel, messages, manager::openGames, manager::quit,
+        plugins.registerEvents(new LobbyListener(lobby, travel, messages, manager::openGames,
+                statsCommands.ownStats(), manager::quit,
                 getLogger()), this);
         plugins.registerEvents(manager.menuListener(), this);
         plugins.registerEvents(npc, this);
         plugins.registerEvents(manager, this);
 
         CoreTravel commandTravel = travel;
-        MgCommand mg = new MgCommand(games, pool, store, lobby, npc, getLogger());
+        MgCommand mg = new MgCommand(games, pool, store, lobby, npc, boards, getLogger());
         getLifecycleManager().registerEventHandler(LifecycleEvents.COMMANDS, event -> {
             if (commandTravel != null) {
                 event.registrar().register("survival", "Terug naar survival", new SurvivalCommand(commandTravel));
             }
             event.registrar().register("leave", "Verlaat de wachtrij of het spel", new LeaveCommand(manager::leave));
             event.registrar().register("mg", "Minigames beheer", mg);
+            event.registrar().register("stats", "Bekijk statistieken", statsCommands.statsCommand());
+            event.registrar().register("top", "Bekijk de ranglijst", statsCommands.topCommand());
         });
         getServer().getScheduler().runTaskTimer(this, manager::tick, 1, 1);
+        getServer().getScheduler().runTaskTimer(this, boards::tick, 1, 1);
         getLogger().info("MinigameCore " + getPluginMeta().getVersion() + " enabled");
     }
 
@@ -101,6 +124,15 @@ public final class MinigameCorePlugin extends JavaPlugin {
         }
         if (travel != null) {
             travel.sendAllToSurvivalForShutdown();
+        }
+        if (leaderboards != null) {
+            leaderboards.removeAll();
+        }
+        if (pack != null) {
+            pack.stop();
+        }
+        if (stats != null) {
+            stats.close();
         }
     }
 

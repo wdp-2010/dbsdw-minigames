@@ -21,6 +21,7 @@ import org.bukkit.potion.PotionEffect;
 public final class LobbyService {
     public enum LobbyItem {
         GAMES(0, Material.COMPASS, "item.games"),
+        STATS(4, Material.BOOK, "item.stats"),
         SURVIVAL(8, Material.RED_BED, "item.survival");
 
         final int slot;

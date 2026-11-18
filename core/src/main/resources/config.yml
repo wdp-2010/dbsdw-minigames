@@ -27,3 +27,16 @@ queue:
 match:
   # How long the results show before everyone returns to the lobby.
   results-seconds: 10
+
+# Required resource pack, served by MinigameCore itself over HTTP.
+# Put the zip at plugins/MinigameCore/<file>. With an empty public-url or no file, players join without a pack.
+pack:
+  file: "pack.zip"
+  bind: "0.0.0.0"
+  # Second port of the minigame server (Pterodactyl allocation).
+  port: 25600
+  # Base URL players download from, e.g. "http://62.83.125.228:25600" (no trailing path).
+  public-url: ""
+
+# Lobby leaderboards, managed with /mg leaderboard add|remove.
+leaderboards: []

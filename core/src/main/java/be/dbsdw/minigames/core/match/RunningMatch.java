@@ -8,6 +8,10 @@ import be.dbsdw.minigames.core.api.MatchHandler;
 import be.dbsdw.minigames.core.api.MatchOutcome;
 import be.dbsdw.minigames.core.api.ModeSpec;
 import be.dbsdw.minigames.core.lobby.LobbyService;
+import be.dbsdw.minigames.core.stats.StatsStore;
+import java.util.HashMap;
+import java.util.LinkedHashMap;
+import java.util.Map;
 import java.util.List;
 import java.util.Objects;
 import java.util.OptionalInt;
@@ -31,17 +35,22 @@ final class RunningMatch implements MatchContext {
     private final Messages messages;
     private final Logger log;
     private MatchHandler handler;
+    private final StatsStore stats;
+    private final Map<UUID, String> names = new LinkedHashMap<>();
+    private final Map<UUID, Map<String, Long>> deltas = new HashMap<>();
     private long ticks;
     private boolean failed;
+    private boolean statsSaved;
 
     RunningMatch(GameType game, ModeSpec mode, ArenaView arena, List<List<UUID>> teams, int resultsTicks,
-                 Messages messages, Logger log) {
+                 Messages messages, Logger log, StatsStore stats) {
         this.game = game;
         this.mode = mode;
         this.arena = arena;
         this.state = new MatchState(teams, resultsTicks);
         this.messages = messages;
         this.log = log;
+        this.stats = stats;
     }
 
     GameType game() {
@@ -66,6 +75,8 @@ final class RunningMatch implements MatchContext {
                 if (player == null) {
                     continue;
                 }
+                names.put(player.getUniqueId(), player.getName());
+                add(player.getUniqueId(), "matches", 1);
                 LobbyService.reset(player);
                 player.setGameMode(GameMode.ADVENTURE);
                 player.teleport(spawns.get(i % spawns.size()));
@@ -126,6 +137,7 @@ final class RunningMatch implements MatchContext {
             MatchHandler h = handler;
             guarded(h::end);
         }
+        saveStats();
         log.info("[match] " + mode.key() + " on " + arena.name() + " ended: aborted (" + reason + ")");
     }
 
@@ -137,6 +149,17 @@ final class RunningMatch implements MatchContext {
         if (handler != null) {
             guarded(handler::end);
         }
+        for (UUID id : state.everyone()) {
+            OptionalInt team = state.teamOf(id);
+            if (outcome.winner().isEmpty()) {
+                add(id, "draws", 1);
+            } else if (team.isPresent() && team.getAsInt() == outcome.winner().getAsInt()) {
+                add(id, "wins", 1);
+            } else {
+                add(id, "losses", 1);
+            }
+        }
+        saveStats();
         Component title = outcome.winner().isPresent()
                 ? messages.get("match.win", Placeholder.component("team", teamName(outcome.winner().getAsInt())))
                 : messages.get("match.draw");
@@ -149,6 +172,28 @@ final class RunningMatch implements MatchContext {
         }
         log.info("[match] " + mode.key() + " on " + arena.name() + " ended: "
                 + (outcome.winner().isPresent() ? "winner team " + outcome.winner().getAsInt() : "draw"));
+    }
+
+    @Override
+    public void addStat(Player player, String stat, long amount) {
+        if (names.containsKey(player.getUniqueId()) && amount != 0) {
+            add(player.getUniqueId(), stat, amount);
+        }
+    }
+
+    private void add(UUID id, String stat, long amount) {
+        deltas.computeIfAbsent(id, k -> new HashMap<>()).merge(stat, amount, Long::sum);
+    }
+
+    /** Hands this match's stat increments to the store, once. */
+    private void saveStats() {
+        if (statsSaved) {
+            return;
+        }
+        statsSaved = true;
+        if (stats != null && !deltas.isEmpty()) {
+            stats.add(game.id(), names, deltas);
+        }
     }
 
     @Override

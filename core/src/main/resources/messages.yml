@@ -15,6 +15,7 @@ team:
 # Lobby items
 item:
   games: "<gold><bold>Spellen</bold></gold> <gray>(rechtsklik)"
+  stats: "<aqua><bold>Statistieken</bold></aqua> <gray>(rechtsklik)"
   survival: "<green><bold>Terug naar survival</bold></green> <gray>(rechtsklik)"
 
 leave:
@@ -50,3 +51,34 @@ match:
   win: "<team> <gold>wint!"
   draw: "<yellow>Gelijkspel!"
   error: "<red>Er ging iets mis met dit spel. Je bent terug in de lobby."
+
+# Resource pack
+pack:
+  prompt: "<gold>Deze server gebruikt een eigen resourcepack voor de minigames."
+  declined: "<red>Je hebt de resourcepack nodig om de minigames te spelen.<newline><gray>Zet <white>Server Resource Packs</white> aan bij de serverinstellingen en probeer opnieuw via <white>/minigames</white>."
+  failed: "<red>De resourcepack kon niet geladen worden.<newline><gray>Probeer opnieuw via <white>/minigames</white> op survival."
+
+# Stats
+stats:
+  unavailable: "<red>Statistieken zijn nu niet beschikbaar."
+  usage: "<gray>Gebruik: /stats <speler>"
+  none: "<gray><player> heeft nog geen statistieken."
+  header: "<gold><bold>Statistieken van <player>"
+  game: "<aqua><game>"
+  line: "<gray>  <stat>: <white><value>"
+  top-usage: "<gray>Gebruik: /top <statistiek> [spel]"
+  unknown-stat: "<red>Onbekende statistiek: <stat>"
+  top-header: "<gold><bold>Top 10 <stat></bold> <gray>(<game><gray>)"
+  top-line: "<gray><rank>. <white><player></white> - <yellow><value>"
+  top-empty: "<gray>Nog niemand."
+  name:
+    matches: "Gespeeld"
+    wins: "Gewonnen"
+    losses: "Verloren"
+    draws: "Gelijkspel"
+
+leaderboard:
+  loading: "<gray>Ranglijst laden..."
+  title: "<gold><bold>Top <stat></bold><newline><gray><game>"
+  line: "<gray><rank>. <white><player></white> <yellow><value>"
+  empty: "<gray>Nog niemand"

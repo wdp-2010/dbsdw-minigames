@@ -8,6 +8,8 @@ import be.dbsdw.minigames.core.arena.ArenaStore;
 import be.dbsdw.minigames.core.arena.ArenaValidator;
 import be.dbsdw.minigames.core.arena.Pos;
 import be.dbsdw.minigames.core.lobby.LobbyService;
+import be.dbsdw.minigames.core.stats.Leaderboards;
+import be.dbsdw.minigames.core.stats.StatNames;
 import be.dbsdw.minigames.core.match.GameRegistryImpl;
 import be.dbsdw.minigames.core.npc.GameNpc;
 import io.papermc.paper.command.brigadier.BasicCommand;
@@ -43,16 +45,18 @@ public final class MgCommand implements BasicCommand {
     private final ArenaStore store;
     private final LobbyService lobby;
     private final GameNpc npc;
+    private final Leaderboards leaderboards;
     private final Logger log;
     private final Map<UUID, ArenaDefinition> drafts = new HashMap<>();
 
     public MgCommand(GameRegistryImpl games, ArenaPool pool, ArenaStore store, LobbyService lobby, GameNpc npc,
-                     Logger log) {
+                     Leaderboards leaderboards, Logger log) {
         this.games = games;
         this.pool = pool;
         this.store = store;
         this.lobby = lobby;
         this.npc = npc;
+        this.leaderboards = leaderboards;
         this.log = log;
     }
 
@@ -75,7 +79,27 @@ public final class MgCommand implements BasicCommand {
             });
             case "npc" -> npcCommand(sender, args);
             case "arena" -> arenaCommand(sender, args);
+            case "leaderboard" -> leaderboardCommand(sender, args);
             default -> usage(sender);
+        }
+    }
+
+    private void leaderboardCommand(CommandSender sender, String[] args) {
+        if (args.length >= 4 && args[1].equals("add")) {
+            withPlayer(sender, admin -> {
+                Optional<GameType> game = games.game(args[2]);
+                if (game.isEmpty() || !StatNames.of(game.get()).contains(args[3])) {
+                    error(sender, "Unknown game or stat. Stats of " + args[2] + ": "
+                            + game.map(g -> String.join(", ", StatNames.of(g))).orElse("-"));
+                    return;
+                }
+                leaderboards.add(args[2], args[3], admin.getLocation().add(0, 2, 0));
+                ok(sender, "Leaderboard for " + args[2] + " " + args[3] + " placed (2 blocks above you).");
+            });
+        } else if (args.length == 2 && args[1].equals("remove")) {
+            withPlayer(sender, admin -> ok(sender, "Removed " + leaderboards.removeNear(admin.getLocation()) + " leaderboard(s)."));
+        } else {
+            error(sender, "Usage: /mg leaderboard add <game> <stat> | /mg leaderboard remove");
         }
     }
 
@@ -256,20 +280,23 @@ public final class MgCommand implements BasicCommand {
     public Collection<String> suggest(CommandSourceStack source, String[] args) {
         String last = args.length == 0 ? "" : args[args.length - 1];
         List<String> options = switch (args.length) {
-            case 0, 1 -> List.of("setlobby", "npc", "arena");
+            case 0, 1 -> List.of("setlobby", "npc", "arena", "leaderboard");
             case 2 -> switch (args[0]) {
                 case "npc" -> List.of("set", "remove");
                 case "arena" -> ARENA_SUB;
+                case "leaderboard" -> List.of("add", "remove");
                 default -> List.of();
             };
             case 3 -> switch (args[0] + " " + args[1]) {
-                case "npc set" -> games.games().stream().map(GameType::id).toList();
+                case "npc set", "leaderboard add" -> games.games().stream().map(GameType::id).toList();
                 case "arena modes" -> games.games().stream().flatMap(g -> g.modes().stream()).map(ModeSpec::key).toList();
                 case "arena delete", "arena create" -> pool.all().stream().map(ArenaDefinition::name).toList();
                 case "arena setspawn", "arena setflag" -> List.of("0", "1", "2", "3");
                 case "arena setbounds" -> List.of("1", "2");
                 default -> List.of();
             };
+            case 4 -> args[0].equals("leaderboard") && args[1].equals("add")
+                    ? games.game(args[2]).map(StatNames::of).orElse(List.of()) : List.of();
             default -> List.of();
         };
         return options.stream().filter(o -> o.startsWith(last)).toList();
@@ -278,7 +305,8 @@ public final class MgCommand implements BasicCommand {
     private void usage(CommandSender sender) {
         Stream.of("/mg setlobby", "/mg npc set <game> | /mg npc remove",
                 "/mg arena create <name> | modes <game:mode,…> | setspawn <team> | setflag <team>",
-                "/mg arena addpowerup | setbounds <1|2> | save | list | delete <name>")
+                "/mg arena addpowerup | setbounds <1|2> | save | list | delete <name>",
+                "/mg leaderboard add <game> <stat> | /mg leaderboard remove")
                 .forEach(line -> sender.sendMessage(Component.text(line, NamedTextColor.GRAY)));
     }
 
