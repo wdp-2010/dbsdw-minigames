@@ -1,0 +1,8 @@
+{
+  "name": "dbsdw-e2e-bot",
+  "private": true,
+  "description": "Headless test client for the DBSDW e2e travel checks",
+  "dependencies": {
+    "minecraft-protocol": "1.68.0"
+  }
+}

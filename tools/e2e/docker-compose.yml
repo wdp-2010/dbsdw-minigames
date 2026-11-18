@@ -1,0 +1,41 @@
+# Throwaway servers for end-to-end travel tests. Run them on node1 (the WDP host has no RAM to spare).
+# Ports are bound to 127.0.0.1 only; each container has a hard memory cap.
+# Console: echo '<command>' > tools/e2e/servers/<name>/console.in
+# Run as your own user: HOST_UID=$(id -u) HOST_GID=$(id -g) docker compose -f tools/e2e/docker-compose.yml up -d
+name: dbsdw-e2e
+
+x-server: &server
+  image: eclipse-temurin:25-jdk
+  user: "${HOST_UID:-1000}:${HOST_GID:-1000}"
+  working_dir: /data
+  restart: "no"
+  # Hard cap so a test server can never take memory from anything else on the host.
+  mem_limit: 1536m
+  memswap_limit: 1536m
+
+services:
+  survival:
+    <<: *server
+    command: ["sh", "-c", "rm -f console.in && mkfifo console.in && exec java -Xmx1G -jar /jars/paper.jar --nogui <>console.in"]
+    volumes: ["./servers/survival:/data", "./servers/_jars:/jars:ro"]
+    ports: ["127.0.0.1:25570:25565"]
+
+  minigames:
+    <<: *server
+    command: ["sh", "-c", "rm -f console.in && mkfifo console.in && exec java -Xmx1G -jar /jars/paper.jar --nogui <>console.in"]
+    volumes: ["./servers/minigames:/data", "./servers/_jars:/jars:ro"]
+    ports: ["127.0.0.1:25571:25565"]
+
+  folia:
+    <<: *server
+    profiles: ["folia"]
+    command: ["sh", "-c", "rm -f console.in && mkfifo console.in && exec java -Xmx1G -jar /jars/folia.jar --nogui <>console.in"]
+    volumes: ["./servers/folia:/data", "./servers/_jars:/jars:ro"]
+    ports: ["127.0.0.1:25572:25565"]
+
+  packhost:
+    image: python:3.13-slim
+    user: "${HOST_UID:-1000}:${HOST_GID:-1000}"
+    command: ["python", "-m", "http.server", "8000", "--directory", "/pack"]
+    mem_limit: 128m
+    volumes: ["./servers/pack:/pack:ro"]

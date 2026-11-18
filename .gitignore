@@ -19,3 +19,7 @@ Thumbs.db
 
 # Local session notes
 HANDOFF.md
+
+# e2e harness (throwaway servers, bot deps)
+tools/e2e/servers/
+tools/e2e/bot/node_modules/
