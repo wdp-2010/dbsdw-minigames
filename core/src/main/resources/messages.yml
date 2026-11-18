@@ -37,3 +37,16 @@ queue:
   joined: "<green>Je staat in de wachtrij voor <white><mode></white>."
   left: "<gray>Je hebt de wachtrij verlaten."
   moved: "<green>Je staat nu in de wachtrij voor <white><mode></white>."
+  cancelled: "<red>Te weinig spelers: het aftellen is gestopt."
+  waiting: "<yellow>Genoeg spelers! Wachten op een vrije arena..."
+  closed: "<red>Dit spel is nu niet beschikbaar; je bent uit de wachtrij gehaald."
+  countdown:
+    title: "<yellow><seconds>"
+    subtitle: "<gray>Het spel begint bijna"
+
+match:
+  start: "<green><bold>Start!"
+  start-team: "<gray>Jij zit in team <team>"
+  win: "<team> <gold>wint!"
+  draw: "<yellow>Gelijkspel!"
+  error: "<red>Er ging iets mis met dit spel. Je bent terug in de lobby."

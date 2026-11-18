@@ -162,4 +162,25 @@ class QueueBookTest {
         assertFalse(pool.isBusy("a"));
         assertEquals(Optional.empty(), book.queueOf(p.get(0)));
     }
+
+    @Test
+    void queuedListsInJoinOrder() {
+        join(1, 0);
+        assertEquals(List.of(p.get(1), p.get(0)), book.queued(M.key()));
+    }
+
+    @Test
+    void requeueFrontPutsPlayersFirst() {
+        join(2);
+        book.requeueFront(M.key(), List.of(p.get(0), p.get(1)));
+        assertEquals(List.of(p.get(0), p.get(1), p.get(2)), book.queued(M.key()));
+    }
+
+    @Test
+    void requeueFrontTakesPlayersOutOfOtherQueues() {
+        book.toggle(p.get(0), N.key());
+        book.requeueFront(M.key(), List.of(p.get(0)));
+        assertEquals(Optional.of(M.key()), book.queueOf(p.get(0)));
+        assertEquals(0, book.size(N.key()));
+    }
 }

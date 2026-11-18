@@ -79,6 +79,25 @@ public final class QueueBook {
                 .findFirst();
     }
 
+    /** The players queued for the mode, in join order. */
+    public List<UUID> queued(String key) {
+        ModeQueue queue = queues.get(key);
+        return queue == null ? List.of() : List.copyOf(queue.players);
+    }
+
+    /** Puts players back at the front of a queue, in order (a start that fell through). */
+    public void requeueFront(String key, List<UUID> players) {
+        ModeQueue queue = queues.get(key);
+        if (queue == null) {
+            throw new IllegalArgumentException("unknown mode " + key);
+        }
+        players.forEach(this::remove);
+        List<UUID> rest = List.copyOf(queue.players);
+        queue.players.clear();
+        queue.players.addAll(players);
+        queue.players.addAll(rest);
+    }
+
     public int size(String key) {
         ModeQueue queue = queues.get(key);
         return queue == null ? 0 : queue.players.size();
