@@ -6,12 +6,16 @@ item:
   gun: "<gold><bold>Paintgeweer</bold></gold> <gray>(rechtsklik)"
 
 hud:
-  title: "<aqua><bold>Paintball</bold> <gray>TDM"
+  title-tdm: "<aqua><bold>Paintball</bold> <gray>TDM"
+  title-ctf: "<aqua><bold>Paintball</bold> <gray>CTF"
   score: "<team><gray>: <white><score>"
   time: "<gray>Tijd: <white><time>"
   bossbar: "<white>Tijd over: <yellow><time>"
   protected: " <aqua>Beschermd"
+  shield: " <aqua>⛨"
+  buff: " <yellow><powerup> <white><seconds>s"
   marker: "<white><bold>✖ Raak!</bold> "
+  marker-shield: "<aqua><bold>✖ Schild!</bold> "
   eliminated: "<gold><bold>✖ Uitgeschakeld: <victim></bold> "
 
 out:
@@ -22,7 +26,35 @@ feed:
   out: "<victim> <gray>is uit (door <shooter><gray>)"
   out-bounds: "<victim> <gray>is uit (buiten de arena)"
 
+flag:
+  taken: "<player> <gray>heeft de vlag van <flag> <gray>gepakt!"
+  dropped: "<gray>De vlag van <flag> <gray>is gevallen."
+  returned: "<player> <gray>heeft de vlag van <flag> <gray>teruggebracht."
+  returned-auto: "<gray>De vlag van <flag> <gray>is terug op de basis."
+  captured: "<player> <gold><bold>heeft de vlag van <flag> <gold><bold>veroverd!"
+  status: "<team><gray>: <state>"
+  state-home: "<green>thuis"
+  state-carried: "<yellow>bij <player>"
+  state-dropped: "<red>gevallen (<seconds>s)"
+
+powerup:
+  picked: "<yellow><bold>+ <powerup></bold> "
+  rapid_fire: "Snelvuur"
+  triple_shot: "Drievoudig schot"
+  speed: "Snelheid"
+  shield: "Schild"
+  repair: "Herstel"
+
+stat:
+  eliminations: "Uitgeschakeld"
+  outs: "Zelf uit"
+  hits: "Raak"
+  shots: "Schoten"
+  captures: "Vlaggen veroverd"
+  returns: "Vlaggen teruggebracht"
+
 result:
   score: "<gray>Score: <red_team> <white><red></white> <gray>-</gray> <blue_team> <white><blue>"
+  score-ctf: "<gray>Veroverd: <red_team> <white><red></white> <gray>-</gray> <blue_team> <white><blue>"
   top-header: "<gold>Beste spelers:"
   top: "<gray><rank>. <white><name></white> - <yellow><count></yellow> uitgeschakeld"

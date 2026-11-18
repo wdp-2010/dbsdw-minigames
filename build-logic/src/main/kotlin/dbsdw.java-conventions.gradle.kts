@@ -23,7 +23,9 @@ dependencies {
 tasks.withType<JavaCompile>().configureEach {
     options.encoding = "UTF-8"
     options.release = 25
-    options.compilerArgs.addAll(listOf("-Xlint:all", "-Werror"))
+    // -classfile: Paper's JOML jar (display transformations) carries Java 8 type annotations in
+    // Java 1.2-format class files, which javac reports as a warning about the library, not our code.
+    options.compilerArgs.addAll(listOf("-Xlint:all,-classfile", "-Werror"))
 }
 
 tasks.withType<Test>().configureEach {

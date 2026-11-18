@@ -37,6 +37,7 @@ import org.bukkit.event.Listener;
 import org.bukkit.event.server.PluginDisableEvent;
 import org.bukkit.event.server.ServerLoadEvent;
 import org.bukkit.plugin.Plugin;
+import be.dbsdw.minigames.core.stats.StatsStore;
 
 /** Turns queues into matches and matches back into lobby players. Ticked every server tick. */
 public final class MatchManager implements MenuModel, Listener {
@@ -54,10 +55,12 @@ public final class MatchManager implements MenuModel, Listener {
     private final MenuListener menus;
     private final Map<String, RunningMatch> matchesByArena = new LinkedHashMap<>();
     private final Map<UUID, RunningMatch> matchByPlayer = new HashMap<>();
+    private final StatsStore stats;
     private long tickCount;
 
     public MatchManager(Plugin plugin, GameRegistryImpl registry, ArenaPool pool, QueueBook queues,
-                        LobbyService lobby, Messages messages, int resultsTicks, RandomGenerator rnd) {
+                        LobbyService lobby, Messages messages, int resultsTicks, RandomGenerator rnd,
+                        StatsStore stats) {
         this.plugin = plugin;
         this.registry = registry;
         this.pool = pool;
@@ -66,6 +69,7 @@ public final class MatchManager implements MenuModel, Listener {
         this.messages = messages;
         this.resultsTicks = resultsTicks;
         this.rnd = rnd;
+        this.stats = stats;
         this.menus = new MenuListener(plugin, this, messages);
         registry.onRegister(game -> game.modes().forEach(queues::addMode));
     }
@@ -129,7 +133,7 @@ public final class MatchManager implements MenuModel, Listener {
             return;
         }
         RunningMatch match = new RunningMatch(game.get(), mode, new BukkitArenaView(arena, world),
-                TeamSplit.split(online, mode.teams(), rnd), resultsTicks, messages, plugin.getLogger());
+                TeamSplit.split(online, mode.teams(), rnd), resultsTicks, messages, plugin.getLogger(), stats);
         matchesByArena.put(arena.name(), match);
         online.forEach(id -> matchByPlayer.put(id, match));
         match.start();

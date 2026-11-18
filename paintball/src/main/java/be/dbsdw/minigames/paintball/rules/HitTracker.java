@@ -22,6 +22,15 @@ public final class HitTracker {
         return hits >= hitsToOut;
     }
 
+    /** Removes one hit taken; false if there was none. */
+    public boolean heal() {
+        if (hits == 0) {
+            return false;
+        }
+        hits--;
+        return true;
+    }
+
     public int hits() {
         return hits;
     }

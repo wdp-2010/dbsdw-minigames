@@ -96,16 +96,41 @@ Games register through `be.dbsdw.minigames.core.api.GameRegistry` (a Bukkit serv
 
 ## Paintball (minigame server)
 
-Mode `paintball:tdm` (team deathmatch, Red vs Blue). Right-click with the gun (hotbar slot 0) to
-shoot; holding the button fires 4 paintballs per second. Three hits and you are out: hidden and
-frozen for the respawn delay, then back at a team spawn with a short spawn protection (shooting
-ends it). Leaving the arena bounds also counts as out, without a point for anyone. First team to
-the elimination target wins; at the time limit the leader wins, equal scores are a draw.
+Two modes, Red vs Blue: `paintball:tdm` (team deathmatch) and `paintball:ctf` (capture the flag;
+the arena needs a flag position per team). Right-click with the gun (hotbar slot 0) to shoot;
+holding the button fires 4 paintballs per second. Three hits and you are out: hidden and frozen
+for the respawn delay, then back at a team spawn with a short spawn protection (shooting ends it).
+Leaving the arena bounds also counts as out, without a point for anyone.
 
-All values are in `plugins/Paintball/config.yml` (defaults: 2–8 per team, first to 30, 10 min,
-3 hits, 3 s respawn, 2 s protection, 5-tick shot interval, speed 3.0 blocks/tick, 1° spread,
-3 s paintball lifetime). Invalid values disable the plugin with one log line naming the key.
+- **TDM:** first team to the elimination target wins; at the time limit the leader wins, equal
+  scores are a draw.
+- **CTF:** walk into the enemy flag to take it (you glow and wear it), bring it to your own flag
+  while your flag is home to capture. A carrier who is out drops the flag; a teammate of that flag
+  touching it returns it, otherwise it goes home by itself after `ctf.flag-return-seconds`. A
+  carrier who leaves the bounds sends the flag straight home. Boss bar shows both flags.
+- **Power-ups** spawn at the arena's power-up points (`/mg arena addpowerup`) and refill 30 s after
+  a pickup: rapid fire, triple shot, speed, shield (next hit absorbed), repair (one hit removed).
+- **Paint splats** appear on blocks that are hit, vanish after 20 s, at most 300 per match, all
+  removed at the end. The world itself is never changed.
+
+All values are in `plugins/Paintball/config.yml`; keys added by a newer version are written into
+an existing file on start. Invalid values disable the plugin with one log line naming the key.
 Texts are in `plugins/Paintball/messages.yml` (Dutch, MiniMessage).
 
-Until the resource pack (plan 6) the gun is a carrot on a stick, paintballs show as red/blue dye,
-sounds are vanilla and HUD icons are plain text.
+Until the resource pack the gun is a carrot on a stick, paintballs show as red/blue dye, flags are
+banners, power-ups are vanilla items, splats are thin concrete squares, sounds are vanilla and HUD
+icons are plain text.
+
+## Stats, leaderboards, resource pack (MinigameCore)
+
+- Stats live in `plugins/MinigameCore/stats.db` (SQLite, written off the main thread when a match
+  ends). The core counts matches, wins, losses and draws; paintball adds eliminations, outs, hits,
+  shots, captures and returns. Players: `/stats [player]`, `/top <stat> [game]`, or the book in the
+  lobby hotbar.
+- Lobby leaderboards (top 10, refreshed every minute): stand where it should float and run
+  `/mg leaderboard add <game> <stat>` (it appears 2 blocks above you); `/mg leaderboard remove`
+  removes the ones within 5 blocks. Stored under `leaderboards:` in config.yml.
+- Resource pack: put the zip at `plugins/MinigameCore/pack.zip`, set `pack.port` to a second
+  allocation of the server and `pack.public-url` to `http://<public ip>:<port>`. MinigameCore
+  serves it at `/<sha1>.zip` and sends it as required during login; declining or a failed download
+  disconnects with a message. Without the file or URL, players join without a pack.

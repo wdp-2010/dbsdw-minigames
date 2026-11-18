@@ -10,6 +10,17 @@ tdm:
   # After this, the team with the most eliminations wins (equal = draw).
   time-limit-minutes: 10
 
+ctf:
+  display-name: "<gold>Capture the Flag"
+  min-per-team: 2
+  max-per-team: 8
+  # First team to this many captures wins.
+  win-captures: 3
+  # After this, the team with the most captures wins (equal = draw).
+  time-limit-minutes: 12
+  # A dropped flag goes home by itself after this.
+  flag-return-seconds: 30
+
 player:
   hits-to-out: 3
   respawn-seconds: 3
@@ -24,3 +35,23 @@ gun:
   spread-degrees: 1.0
   # A paintball that hits nothing is removed after this (60 = 3 s).
   ball-lifetime-ticks: 60
+
+powerups:
+  # Picked at random at each power-up point of the arena: rapid_fire, triple_shot, speed, shield, repair.
+  enabled: [rapid_fire, triple_shot, speed, shield, repair]
+  # A point fills again this long after a pickup.
+  respawn-seconds: 30
+  # Double fire rate.
+  rapid-fire-seconds: 10
+  # Each shot fires 3 paintballs in a small fan.
+  triple-shot-seconds: 8
+  triple-shot-fan-degrees: 4
+  # Speed II.
+  speed-seconds: 10
+  # shield (next hit absorbed) and repair (one hit removed) have no duration.
+
+splats:
+  # Paint splats on blocks disappear after this.
+  lifetime-seconds: 20
+  # Oldest splats are removed above this many per match.
+  max-per-arena: 300

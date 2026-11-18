@@ -16,6 +16,16 @@ public interface GameType {
 
     List<ModeSpec> modes();
 
+    /** The game's own stat names (the core adds matches, wins, losses, draws), in display order. */
+    default List<String> stats() {
+        return List.of();
+    }
+
+    /** How a stat of this game is shown in /stats, /top and leaderboards. */
+    default Component statName(String stat) {
+        return Component.text(stat);
+    }
+
     /** A new handler for one match; called when the match starts. */
     MatchHandler newMatch(MatchContext context);
 }

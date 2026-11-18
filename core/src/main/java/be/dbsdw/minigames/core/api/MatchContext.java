@@ -23,6 +23,12 @@ public interface MatchContext {
     /** Ticks since the match started. */
     long ticks();
 
+    /**
+     * Adds to a stat of this game for the player (e.g. "eliminations"). Saved when the match ends;
+     * the core itself counts matches, wins, losses and draws.
+     */
+    void addStat(Player player, String stat, long amount);
+
     /** Ends the match with this outcome; ignored after the first call. */
     void finish(MatchOutcome outcome);
 }

@@ -1,6 +1,6 @@
 package be.dbsdw.minigames.paintball;
 
-import be.dbsdw.minigames.paintball.tdm.TdmMatch;
+import be.dbsdw.minigames.paintball.match.PaintballMatch;
 import org.bukkit.entity.Player;
 import org.bukkit.entity.Projectile;
 import org.bukkit.event.EventHandler;
@@ -32,7 +32,7 @@ final class PaintballListener implements Listener {
             return;
         }
         event.setCancelled(true);
-        TdmMatch match = game.players().get(event.getPlayer().getUniqueId());
+        PaintballMatch match = game.players().get(event.getPlayer().getUniqueId());
         if (match != null) {
             match.trigger(event.getPlayer());
         }
@@ -44,7 +44,7 @@ final class PaintballListener implements Listener {
         if (!Gun.isBall(ball)) {
             return;
         }
-        TdmMatch match = game.balls().get(ball.getUniqueId());
+        PaintballMatch match = game.balls().get(ball.getUniqueId());
         if (match == null) {
             event.setCancelled(true);
             ball.remove();
