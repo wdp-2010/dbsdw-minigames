@@ -14,8 +14,12 @@ tar -C tools -cf - e2e | ssh -i ~/.ssh/wings-node_ed25519 root@62.83.125.228 \
 ./fetch-server-jars.sh                 # downloads pinned jars, checks sha256, prepares servers/
 cp <plugin jars> servers/<name>/plugins/
 chown -R 1000:1000 /opt/dbsdw-e2e
-docker compose up -d survival minigames packhost
+docker compose up -d survival minigames packhost viaproxy viaproxy-minigames
 ```
+
+Bots speak 26.1; connect them to `viaproxy` (→ survival) or `viaproxy-minigames` so the servers
+see a 26.3 client. Test servers run peaceful with flight allowed; set `gamerule respawn_radius 0`
+on survival for NPC checks.
 
 Bot dependencies: `cd bot && npm install --ignore-scripts` (inside `node:22-bookworm-slim`).
 
@@ -26,7 +30,7 @@ Bot dependencies: `cd bot && npm install --ignore-scripts` (inside `node:22-book
   ```sh
   docker run --rm -i --memory 256m --network dbsdw-e2e_default -u 1000:1000 \
     -v /opt/dbsdw-e2e/bot:/bot -w /bot node:22-bookworm-slim \
-    node hop.js --host survival --port 25565 --name Bot --password pw --command "/minigames"
+    node hop.js --host viaproxy --port 25565 --name Bot --password pw --command "/minigames"
   ```
   It prints one JSON line per event (`joined`, `transferred`, `dialog_shown`, `kicked`, ...).
   See the header of `hop.js` for all flags.

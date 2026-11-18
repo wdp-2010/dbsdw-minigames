@@ -39,3 +39,24 @@ services:
     command: ["python", "-m", "http.server", "8000", "--directory", "/pack"]
     mem_limit: 128m
     volumes: ["./servers/pack:/pack:ro"]
+
+  # Protocol translator for the bots: they speak 26.1, the servers see a real 26.3 client, so the
+  # plugins run with exactly the settings live uses. Transfers are routed back through the proxy.
+  viaproxy:
+    <<: *server
+    mem_limit: 768m
+    memswap_limit: 768m
+    command: ["java", "-Xmx512m", "-jar", "/jars/ViaProxy-3.4.14.jar", "cli",
+              "--bind-address", "0.0.0.0:25565", "--target-address", "survival:25565",
+              "--target-version", "26.3", "--auth-method", "NONE", "--rewrite-transfer-packets", "true"]
+    volumes: ["./servers/viaproxy:/data", "./servers/_jars:/jars:ro"]
+
+  # Second translator pointing straight at minigames, for replay checks (reconnecting with an old ticket).
+  viaproxy-minigames:
+    <<: *server
+    mem_limit: 768m
+    memswap_limit: 768m
+    command: ["java", "-Xmx512m", "-jar", "/jars/ViaProxy-3.4.14.jar", "cli",
+              "--bind-address", "0.0.0.0:25565", "--target-address", "minigames:25565",
+              "--target-version", "26.3", "--auth-method", "NONE"]
+    volumes: ["./servers/viaproxy-minigames:/data", "./servers/_jars:/jars:ro"]

@@ -14,6 +14,7 @@ PINNED=(
   "ViaVersion-5.12.2.jar|https://github.com/ViaVersion/ViaVersion/releases/download/5.12.2/ViaVersion-5.12.2.jar|24e4876fefe73e08a4c87cd6c457ee0916e62dd69656631caf41e26f909d504b"
   "ViaBackwards-5.12.2.jar|https://github.com/ViaVersion/ViaBackwards/releases/download/5.12.2/ViaBackwards-5.12.2.jar|9a148a80ea22074f4bd1626cdbe254a4cd998bf44e7ceaff4e285a1b6b35da42"
   "AuthMe-6.0.1-Paper.jar|https://github.com/AuthMe/AuthMeReloaded/releases/download/6.0.1/AuthMe-6.0.1-Paper.jar|7704335e9e73a634d9d926344f77897f4c74f78f82453a59f5aa0f8d2722450a"
+  "ViaProxy-3.4.14.jar|https://github.com/ViaVersion/ViaProxy/releases/download/v3.4.14/ViaProxy-3.4.14.jar|2894bbfb2f4342f8fde887af6c689313efd5b0e46a8006775eea0e21e2948ab5"
   "AuthMe-6.0.1-Folia.jar|https://github.com/AuthMe/AuthMeReloaded/releases/download/6.0.1/AuthMe-6.0.1-Folia.jar|7c5f57fc0ae0f8a522a4d6695c6a54618761c94c859758b7375e5b2ea49eec65"
 )
 
@@ -53,4 +54,5 @@ PROPS
 prepare survival AuthMe-6.0.1-Paper.jar
 prepare minigames ""
 prepare folia AuthMe-6.0.1-Folia.jar
+mkdir -p servers/viaproxy servers/viaproxy-minigames
 echo "servers prepared in $(pwd)/servers"

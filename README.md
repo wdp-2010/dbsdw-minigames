@@ -5,10 +5,12 @@ Runs on Paper 26.3 (Java 25).
 
 | Path | What it is |
 |------|------------|
-| `core/` | **MinigameCore** plugin: lobby, queue, teams, arenas, stats and resource pack delivery, shared by every game |
+| `travel/` | Plain-Java transfer tickets (HMAC-signed cookie, single use, 60 s), shared by both plugins below |
+| `core/` | **MinigameCore** plugin (minigame server): refuses joins without a valid ticket, `/survival`; later: lobby, queue, teams, arenas, stats, resource pack |
+| `bridge/` | **DbsdwBridge** plugin (survival server, Paper and Folia): `/minigames`, the minigames NPC, ticket login on return via AuthMe |
 | `paintball/` | **Paintball** plugin: team deathmatch and capture the flag, built on MinigameCore |
 | `resourcepack/` | The required resource pack (models, textures, sounds, HUD) |
-| `tools/` | Resource pack validation and build script |
+| `tools/` | Resource pack validation and build script; `tools/e2e/` throwaway test servers and bots |
 | `build-logic/` | Shared Gradle convention plugin (`dbsdw.paper-plugin`) for every plugin module |
 | `gradle/libs.versions.toml` | All dependency versions in one place |
 
@@ -39,3 +41,15 @@ The zip is reproducible: the same content always gives the same SHA1.
 
 Every push and pull request runs the Gradle build with unit tests and the resource pack
 build. Jars and the pack are uploaded as workflow artifacts.
+
+## Travel setup (survival ↔ minigames)
+
+1. Start the minigame server once: MinigameCore writes a new `ticket-secret` to
+   `plugins/MinigameCore/config.yml`. Copy that value to `plugins/DbsdwBridge/config.yml` on
+   survival. Never share it.
+2. Set `minigames.host`/`port` in the bridge config and `survival.host`/`port` in the core config
+   to the public addresses.
+3. Set `accepts-transfers=true` in `server.properties` on **both** servers.
+4. Admins place the survival NPC with `/minigames npc set` (`/minigames npc remove` within 5 blocks).
+
+End-to-end checks: `tools/e2e/README.md`.
