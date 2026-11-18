@@ -1,0 +1,8 @@
+name: DbsdwBridge
+version: '${version}'
+main: be.dbsdw.minigames.bridge.BridgePlugin
+api-version: '26.3'
+folia-supported: true
+depend: [AuthMe]
+softdepend: [floodgate, ViaVersion]
+description: Sends DBSDW survival players to the minigame server and logs them back in with a signed ticket.

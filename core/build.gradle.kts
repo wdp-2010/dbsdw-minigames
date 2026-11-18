@@ -5,3 +5,7 @@ plugins {
 tasks.jar {
     archiveBaseName = "MinigameCore"
 }
+
+dependencies {
+    "bundle"(project(":travel"))
+}

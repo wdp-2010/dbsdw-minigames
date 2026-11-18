@@ -1,9 +1,16 @@
 [versions]
 paper-api = "26.3.build.255-stable"
 junit = "5.13.4"
+authme = "6.0.1"
+viaversion = "5.12.2"
+# Floodgate publishes no releases; this timestamped snapshot is immutable.
+floodgate = "2.2.5-20260917.145236-21"
 
 [libraries]
 paper-api = { module = "io.papermc.paper:paper-api", version.ref = "paper-api" }
 junit-bom = { module = "org.junit:junit-bom", version.ref = "junit" }
 junit-jupiter = { module = "org.junit.jupiter:junit-jupiter" }
 junit-platform-launcher = { module = "org.junit.platform:junit-platform-launcher" }
+authme-core = { module = "fr.xephi:authme-core", version.ref = "authme" }
+viaversion-api = { module = "com.viaversion:viaversion-api", version.ref = "viaversion" }
+floodgate-api = { module = "org.geysermc.floodgate:api", version.ref = "floodgate" }

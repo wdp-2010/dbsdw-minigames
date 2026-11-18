@@ -10,9 +10,21 @@ dependencyResolutionManagement {
         maven("https://repo.papermc.io/repository/maven-public/") {
             name = "papermc"
         }
+        exclusiveContent {
+            forRepository { maven("https://repo.codemc.io/repository/maven-public/") { name = "codemc" } }
+            filter { includeGroup("fr.xephi") }
+        }
+        exclusiveContent {
+            forRepository { maven("https://repo.viaversion.com/") { name = "viaversion" } }
+            filter { includeGroup("com.viaversion") }
+        }
+        exclusiveContent {
+            forRepository { maven("https://repo.opencollab.dev/main/") { name = "opencollab" } }
+            filter { includeGroupAndSubgroups("org.geysermc") }
+        }
     }
 }
 
 rootProject.name = "dbsdw-minigames"
 
-include("travel", "core", "paintball")
+include("travel", "core", "paintball", "bridge")
