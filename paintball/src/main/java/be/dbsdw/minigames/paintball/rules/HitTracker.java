@@ -1,4 +1,4 @@
-package be.dbsdw.minigames.paintball;
+package be.dbsdw.minigames.paintball.rules;
 
 /** Counts paint hits on one player; the player is out when hits reach the limit. */
 public final class HitTracker {
@@ -20,6 +20,10 @@ public final class HitTracker {
 
     public boolean isOut() {
         return hits >= hitsToOut;
+    }
+
+    public int hits() {
+        return hits;
     }
 
     public void reset() {
