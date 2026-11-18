@@ -1,5 +1,7 @@
 package be.dbsdw.minigames.core;
 
+import be.dbsdw.minigames.core.api.GameRegistry;
+import be.dbsdw.minigames.core.match.GameRegistryImpl;
 import be.dbsdw.minigames.core.travel.ArrivalListener;
 import be.dbsdw.minigames.core.travel.CoreTravel;
 import be.dbsdw.minigames.core.travel.SurvivalCommand;
@@ -12,15 +14,18 @@ import be.dbsdw.minigames.travel.TicketVerifier;
 import io.papermc.paper.plugin.lifecycle.event.types.LifecycleEvents;
 import java.security.SecureRandom;
 import java.time.Clock;
+import org.bukkit.plugin.ServicePriority;
 import org.bukkit.plugin.java.JavaPlugin;
 
 public final class MinigameCorePlugin extends JavaPlugin {
+    private final GameRegistryImpl games = new GameRegistryImpl();
     private CoreTravel travel;
 
     @Override
     public void onEnable() {
         saveDefaultConfig();
         Messages messages = Messages.load(this);
+        getServer().getServicesManager().register(GameRegistry.class, games, this, ServicePriority.Normal);
         TicketSigner signer = loadSigner();
         TicketVerifier verifier = null;
         if (signer != null) {
