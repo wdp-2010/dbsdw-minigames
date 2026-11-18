@@ -14,6 +14,8 @@ public final class Combat {
         PASS_THROUGH,
         /** Spawn protection: the paintball breaks without effect. */
         ABSORBED,
+        /** A shield power-up took the hit (and is used up). */
+        SHIELDED,
         HIT,
         OUT
     }
@@ -25,6 +27,7 @@ public final class Combat {
         long respawnAt;
         long protectedUntil;
         int eliminations;
+        boolean shield;
 
         State(int team, int hitsToOut) {
             this.team = team;
@@ -57,6 +60,10 @@ public final class Combat {
         }
         if (now < v.protectedUntil) {
             return HitResult.ABSORBED;
+        }
+        if (v.shield) {
+            v.shield = false;
+            return HitResult.SHIELDED;
         }
         if (!v.hits.hit()) {
             return HitResult.HIT;
@@ -139,8 +146,37 @@ public final class Combat {
                 .toList();
     }
 
+    /** Shield power-up: the next hit is absorbed. */
+    public void giveShield(UUID id) {
+        State s = players.get(id);
+        if (s != null && !s.out) {
+            s.shield = true;
+        }
+    }
+
+    public boolean hasShield(UUID id) {
+        State s = players.get(id);
+        return s != null && s.shield;
+    }
+
+    /** Repair power-up: removes one hit already taken. */
+    public boolean repair(UUID id) {
+        State s = players.get(id);
+        return s != null && !s.out && s.hits.heal();
+    }
+
+    public boolean isKnown(UUID id) {
+        return players.containsKey(id);
+    }
+
+    public int team(UUID id) {
+        State s = players.get(id);
+        return s == null ? -1 : s.team;
+    }
+
     private void goOut(State s, long now) {
         s.out = true;
+        s.shield = false;
         s.respawnAt = now + settings.respawnTicks();
     }
 }
