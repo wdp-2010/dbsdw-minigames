@@ -13,12 +13,13 @@
 //               [--do use:0 --do click:10 --do cmd:/leave --do wait:2 --do interact:mannequin --do drop:0 ...]
 //                   steps run in order (1 s apart) after the first join that has no --command left;
 //                   use = select hotbar slot + right-click, click = left-click a slot of the open window,
-//                   drop = select hotbar slot + drop key, quit = disconnect now.
+//                   drop = select hotbar slot + drop key, quit = disconnect now,
+//                   aim:<player> = look at that player's feet-to-feet line, fire:<n> = n right-clicks 200 ms apart.
 //                   --stay counts from the end of the steps (and applies to every earlier join too).
 //
 // Events: start, cookie_stored, cookie_requested, pack_offered, pack_answered, dialog_shown,
 // dialog_submitted, joined, chat, command_sent, transferred, kicked, ended, game_mode, position,
-// title, window_open, window_items, held_items, step.
+// title, window_open, window_items, held_items, step, actionbar, entity_spawn (snowballs), aimed.
 'use strict';
 
 const fs = require('fs');
@@ -190,7 +191,38 @@ function connect(host, port, transferIntent) {
     }
   });
   const entities = new Map();
-  client.on('spawn_entity', (p) => entities.set(p.entityId, p));
+  const playerNames = new Map(); // uuid -> name
+  client.on('player_info', (p) => {
+    for (const e of p.data || []) if (e.player && e.player.name) playerNames.set(e.uuid, e.player.name);
+  });
+  client.on('spawn_entity', (p) => {
+    entities.set(p.entityId, p);
+    if (playerNames.has(p.objectUUID)) emit('visible', { name: playerNames.get(p.objectUUID), shown: true });
+    const md = require('minecraft-data')(VERSION);
+    const type = md.entities[p.type] ? md.entities[p.type].name : p.type;
+    if (type === 'snowball') emit('entity_spawn', { type });
+  });
+  // Keep other entities' positions current so aim:<player> points at where they are now.
+  for (const name of ['entity_teleport', 'sync_entity_position']) {
+    client.on(name, (p) => {
+      const e = entities.get(p.entityId);
+      const pos = p.position || p;
+      if (e && pos.x !== undefined) Object.assign(e, { x: pos.x, y: pos.y, z: pos.z });
+    });
+  }
+  for (const name of ['rel_entity_move', 'entity_move_look']) {
+    client.on(name, (p) => {
+      const e = entities.get(p.entityId);
+      if (e) { e.x += p.dX / 4096; e.y += p.dY / 4096; e.z += p.dZ / 4096; }
+    });
+  }
+  client.on('entity_destroy', (p) => {
+    for (const id of p.entityIds || []) {
+      const e = entities.get(id);
+      if (e && playerNames.has(e.objectUUID)) emit('visible', { name: playerNames.get(e.objectUUID), shown: false });
+    }
+  });
+  client.on('action_bar', (p) => emit('actionbar', { text: plain(p.text) }));
 
   // Inventory and windows, so steps can click and checks can see items.
   const playerSlots = new Map(); // window-0 slot -> item
@@ -263,6 +295,22 @@ function connect(host, port, transferIntent) {
       emit('command_sent', { command: arg });
     } else if (kind === 'interact') {
       interact(arg);
+    } else if (kind === 'aim') {
+      const md = require('minecraft-data')(VERSION);
+      const target = [...entities.values()].find((e) => md.entities[e.type] && md.entities[e.type].name === 'player'
+        && playerNames.get(e.objectUUID) === arg);
+      if (!target) { emit('aim_failed', { reason: `no player ${arg} in view` }); return 1000; }
+      const dx = target.x - lastPos.x; const dy = target.y - lastPos.y; const dz = target.z - lastPos.z;
+      lastPos.yaw = -Math.atan2(dx, dz) * 180 / Math.PI;
+      lastPos.pitch = -Math.atan2(dy, Math.hypot(dx, dz)) * 180 / Math.PI;
+      client.write('look', { yaw: lastPos.yaw, pitch: lastPos.pitch, flags: { onGround: true } });
+      emit('aimed', { at: arg, yaw: Number(lastPos.yaw.toFixed(1)), pitch: Number(lastPos.pitch.toFixed(1)) });
+    } else if (kind === 'fire') {
+      const n = Number(arg);
+      for (let k = 0; k < n; k++) {
+        setTimeout(() => client.write('use_item', { hand: 0, sequence: ++sequence, rotation: { x: lastPos.yaw, y: lastPos.pitch } }), k * 200);
+      }
+      return n * 200 + 1000;
     } else if (kind === 'quit') {
       client.end('quit');
       return Infinity;

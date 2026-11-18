@@ -1,0 +1,26 @@
+# Paintball
+
+tdm:
+  # Shown in the queue menu (MiniMessage).
+  display-name: "<gold>Team Deathmatch"
+  min-per-team: 2
+  max-per-team: 8
+  # First team to this many eliminations wins.
+  win-eliminations: 30
+  # After this, the team with the most eliminations wins (equal = draw).
+  time-limit-minutes: 10
+
+player:
+  hits-to-out: 3
+  respawn-seconds: 3
+  # Can't be hit after (re)spawning; shooting ends it early.
+  spawn-protection-seconds: 2
+
+gun:
+  # 5 ticks = 4 shots per second.
+  shot-interval-ticks: 5
+  # Blocks per tick (vanilla snowball: 1.5). Gravity and drag stay vanilla.
+  speed: 3.0
+  spread-degrees: 1.0
+  # A paintball that hits nothing is removed after this (60 = 3 s).
+  ball-lifetime-ticks: 60

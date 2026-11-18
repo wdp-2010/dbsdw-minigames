@@ -1,4 +1,4 @@
-package be.dbsdw.minigames.paintball;
+package be.dbsdw.minigames.paintball.rules;
 
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;

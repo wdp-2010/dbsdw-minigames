@@ -93,3 +93,19 @@ Admin commands need `minigames.admin` (ops have it). Positions are taken from wh
 
 Games register through `be.dbsdw.minigames.core.api.GameRegistry` (a Bukkit service);
 `testgame/` is the smallest example.
+
+## Paintball (minigame server)
+
+Mode `paintball:tdm` (team deathmatch, Red vs Blue). Right-click with the gun (hotbar slot 0) to
+shoot; holding the button fires 4 paintballs per second. Three hits and you are out: hidden and
+frozen for the respawn delay, then back at a team spawn with a short spawn protection (shooting
+ends it). Leaving the arena bounds also counts as out, without a point for anyone. First team to
+the elimination target wins; at the time limit the leader wins, equal scores are a draw.
+
+All values are in `plugins/Paintball/config.yml` (defaults: 2–8 per team, first to 30, 10 min,
+3 hits, 3 s respawn, 2 s protection, 5-tick shot interval, speed 3.0 blocks/tick, 1° spread,
+3 s paintball lifetime). Invalid values disable the plugin with one log line naming the key.
+Texts are in `plugins/Paintball/messages.yml` (Dutch, MiniMessage).
+
+Until the resource pack (plan 6) the gun is a carrot on a stick, paintballs show as red/blue dye,
+sounds are vanilla and HUD icons are plain text.

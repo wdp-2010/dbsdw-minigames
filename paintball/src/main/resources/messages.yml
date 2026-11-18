@@ -1,0 +1,28 @@
+# Paintball player messages (MiniMessage format).
+game:
+  name: "<aqua><bold>Paintball"
+
+item:
+  gun: "<gold><bold>Paintgeweer</bold></gold> <gray>(rechtsklik)"
+
+hud:
+  title: "<aqua><bold>Paintball</bold> <gray>TDM"
+  score: "<team><gray>: <white><score>"
+  time: "<gray>Tijd: <white><time>"
+  bossbar: "<white>Tijd over: <yellow><time>"
+  protected: " <aqua>Beschermd"
+  marker: "<white><bold>✖ Raak!</bold> "
+  eliminated: "<gold><bold>✖ Uitgeschakeld: <victim></bold> "
+
+out:
+  title: "<red><bold>Uit!"
+  subtitle: "<gray>Terug over <white><seconds></white> s"
+
+feed:
+  out: "<victim> <gray>is uit (door <shooter><gray>)"
+  out-bounds: "<victim> <gray>is uit (buiten de arena)"
+
+result:
+  score: "<gray>Score: <red_team> <white><red></white> <gray>-</gray> <blue_team> <white><blue>"
+  top-header: "<gold>Beste spelers:"
+  top: "<gray><rank>. <white><name></white> - <yellow><count></yellow> uitgeschakeld"
