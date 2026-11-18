@@ -183,4 +183,19 @@ class QueueBookTest {
         assertEquals(Optional.of(M.key()), book.queueOf(p.get(0)));
         assertEquals(0, book.size(N.key()));
     }
+
+    @Test
+    void countdownTickListsOnlyPlayersWhoWillStart() {
+        join(0, 1);
+        book.tick();
+        join(2, 3, 4);
+        QueueEvent.CountdownTick tick = assertInstanceOf(QueueEvent.CountdownTick.class, book.tick().getFirst());
+        assertEquals(p.subList(0, 4), tick.queued());
+    }
+
+    @Test
+    void startingListsFirstMaximum() {
+        join(0, 1, 2, 3, 4);
+        assertEquals(p.subList(0, 4), book.starting(M.key()));
+    }
 }

@@ -85,6 +85,12 @@ public final class QueueBook {
         return queue == null ? List.of() : List.copyOf(queue.players);
     }
 
+    /** The queued players who would start if the countdown ended now (the first {@code maximum}). */
+    public List<UUID> starting(String key) {
+        ModeQueue queue = queues.get(key);
+        return queue == null ? List.of() : queue.starting();
+    }
+
     /** Puts players back at the front of a queue, in order (a start that fell through). */
     public void requeueFront(String key, List<UUID> players) {
         ModeQueue queue = queues.get(key);
@@ -160,20 +166,24 @@ public final class QueueBook {
             int fullTicks = timings.fullCountdownSeconds() * TICKS_PER_SECOND;
             if (size >= mode.maximum() && ticksLeft > fullTicks) {
                 ticksLeft = fullTicks;
-                events.add(new QueueEvent.CountdownTick(mode.key(), timings.fullCountdownSeconds(), List.copyOf(players)));
+                events.add(new QueueEvent.CountdownTick(mode.key(), timings.fullCountdownSeconds(), starting()));
                 return;
             }
             ticksLeft--;
             if (ticksLeft == 0) {
-                List<UUID> starting = players.stream().limit(mode.maximum()).toList();
+                List<UUID> starting = starting();
                 starting.forEach(players::remove);
                 events.add(new QueueEvent.Start(mode, arena, starting));
                 arena = null;
                 return;
             }
             if (ticksLeft % TICKS_PER_SECOND == 0 && ANNOUNCE.contains(ticksLeft / TICKS_PER_SECOND)) {
-                events.add(new QueueEvent.CountdownTick(mode.key(), ticksLeft / TICKS_PER_SECOND, List.copyOf(players)));
+                events.add(new QueueEvent.CountdownTick(mode.key(), ticksLeft / TICKS_PER_SECOND, starting()));
             }
+        }
+
+        List<UUID> starting() {
+            return players.stream().limit(mode.maximum()).toList();
         }
 
         void stopCountdown() {

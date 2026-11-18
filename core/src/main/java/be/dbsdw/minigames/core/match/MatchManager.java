@@ -92,7 +92,7 @@ public final class MatchManager implements MenuModel, Listener {
         switch (event) {
             case QueueEvent.CountdownStarted(String mode, String arena, int seconds) -> {
                 plugin.getLogger().info("[queue] " + mode + " countdown " + seconds + "s on arena " + arena);
-                countdown(queues.queued(mode), seconds);
+                countdown(queues.starting(mode), seconds);
             }
             case QueueEvent.CountdownTick(String mode, int seconds, List<UUID> queued) -> countdown(queued, seconds);
             case QueueEvent.CountdownCancelled(String mode, List<UUID> queued) -> {

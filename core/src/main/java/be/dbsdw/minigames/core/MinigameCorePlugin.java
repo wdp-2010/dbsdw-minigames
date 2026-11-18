@@ -75,7 +75,8 @@ public final class MinigameCorePlugin extends JavaPlugin {
         GameNpc npc = new GameNpc(games::game, manager::openModes);
 
         PluginManager plugins = getServer().getPluginManager();
-        plugins.registerEvents(new LobbyListener(lobby, travel, messages, manager::openGames, manager::quit), this);
+        plugins.registerEvents(new LobbyListener(lobby, travel, messages, manager::openGames, manager::quit,
+                getLogger()), this);
         plugins.registerEvents(manager.menuListener(), this);
         plugins.registerEvents(npc, this);
         plugins.registerEvents(manager, this);
