@@ -32,8 +32,15 @@ Bot dependencies: `cd bot && npm install --ignore-scripts` (inside `node:22-book
     -v /opt/dbsdw-e2e/bot:/bot -w /bot node:22-bookworm-slim \
     node hop.js --host viaproxy --port 25565 --name Bot --password pw --command "/minigames"
   ```
-  It prints one JSON line per event (`joined`, `transferred`, `dialog_shown`, `kicked`, ...).
-  See the header of `hop.js` for all flags.
+  It prints one JSON line per event (`joined`, `transferred`, `dialog_shown`, `kicked`,
+  `held_items`, `window_open`, `title`, `position`, ...). See the header of `hop.js` for all flags.
+- Lobby and menu steps run after the last join, in order: `--do use:0` (right-click hotbar slot 0),
+  `--do click:11` (click a slot of the open menu), `--do cmd:/leave`, `--do wait:3`,
+  `--do interact:mannequin`, `--do drop:0`, `--do quit`.
+  `--stay` also ends earlier legs of the trip, so keep it at 3 or more (the `--command` goes out
+  1.5 s after a join).
+- Paper's `connection-throttle` (in `bukkit.yml`) kicks bots that join within 4 s of each other;
+  set it to `0` on the test servers when several bots run at once.
 - Each container is capped at 1.5 GB (`mem_limit`), ports are bound to 127.0.0.1.
 
 ## Tear down

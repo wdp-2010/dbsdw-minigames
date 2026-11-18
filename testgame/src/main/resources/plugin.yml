@@ -1,0 +1,7 @@
+# Test-only game for MinigameCore's end-to-end checks. Never install it on a real server.
+name: MgTestGame
+version: '${version}'
+main: be.dbsdw.minigames.testgame.TestGamePlugin
+api-version: '26.3'
+depend: [MinigameCore]
+description: Test-only MinigameCore game (first team to 3 points). Never deploy.

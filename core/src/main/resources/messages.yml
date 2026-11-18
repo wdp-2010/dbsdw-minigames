@@ -4,3 +4,49 @@ unavailable: "<red>De minigames zijn nu niet beschikbaar. Probeer het later opni
 survival-unavailable: "<red>Survival is nu niet bereikbaar. Probeer het later opnieuw."
 to-survival: "<green>Je gaat terug naar survival..."
 shutdown: "<yellow>De minigameserver start opnieuw op."
+
+# Teams (by index)
+team:
+  "0": "<red>Rood</red>"
+  "1": "<blue>Blauw</blue>"
+  "2": "<green>Groen</green>"
+  "3": "<yellow>Geel</yellow>"
+
+# Lobby items
+item:
+  games: "<gold><bold>Spellen</bold></gold> <gray>(rechtsklik)"
+  survival: "<green><bold>Terug naar survival</bold></green> <gray>(rechtsklik)"
+
+leave:
+  nothing: "<gray>Je staat niet in een wachtrij of spel."
+
+# Queue menus
+menu:
+  games:
+    title: "Kies een spel"
+  modes:
+    title: "<game>"
+  mode:
+    queued: "<gray><white><queued></white>/<white><needed></white> spelers in de wachtrij"
+    countdown: "<yellow>Start over <white><seconds></white> s"
+    no-arena: "<red>Geen arena beschikbaar"
+    click-join: "<green>Klik om mee te doen"
+    click-leave: "<red>Klik om de wachtrij te verlaten"
+
+queue:
+  joined: "<green>Je staat in de wachtrij voor <white><mode></white>."
+  left: "<gray>Je hebt de wachtrij verlaten."
+  moved: "<green>Je staat nu in de wachtrij voor <white><mode></white>."
+  cancelled: "<red>Te weinig spelers: het aftellen is gestopt."
+  waiting: "<yellow>Genoeg spelers! Wachten op een vrije arena..."
+  closed: "<red>Dit spel is nu niet beschikbaar; je bent uit de wachtrij gehaald."
+  countdown:
+    title: "<yellow><seconds>"
+    subtitle: "<gray>Het spel begint bijna"
+
+match:
+  start: "<green><bold>Start!"
+  start-team: "<gray>Jij zit in team <team>"
+  win: "<team> <gold>wint!"
+  draw: "<yellow>Gelijkspel!"
+  error: "<red>Er ging iets mis met dit spel. Je bent terug in de lobby."

@@ -8,3 +8,22 @@ survival:
 # Shared secret for transfer tickets. Generated on first start if empty.
 # Copy it to plugins/DbsdwBridge/config.yml on the survival server. Never share it.
 ticket-secret: ""
+
+# Lobby spawn, set in-game with /mg setlobby.
+lobby:
+  world: ""
+  x: 0.0
+  y: 0.0
+  z: 0.0
+  yaw: 0.0
+  pitch: 0.0
+
+queue:
+  # Countdown once enough players are queued and an arena is free.
+  countdown-seconds: 30
+  # Shorter countdown once the queue is full.
+  full-countdown-seconds: 10
+
+match:
+  # How long the results show before everyone returns to the lobby.
+  results-seconds: 10

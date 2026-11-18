@@ -27,4 +27,4 @@ dependencyResolutionManagement {
 
 rootProject.name = "dbsdw-minigames"
 
-include("travel", "core", "paintball", "bridge")
+include("travel", "core", "paintball", "bridge", "testgame")
