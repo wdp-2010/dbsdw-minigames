@@ -26,8 +26,11 @@ public final class BridgePlugin extends JavaPlugin {
         BridgeTravel travel = new BridgeTravel(this, issuer,
                 getConfig().getString("minigames.host"), getConfig().getInt("minigames.port"), messages);
 
+        MinigamesNpc npc = new MinigamesNpc(travel);
+        getServer().getPluginManager().registerEvents(npc, this);
         getLifecycleManager().registerEventHandler(LifecycleEvents.COMMANDS, event ->
-                event.registrar().register("minigames", "Ga naar de minigames", new MinigamesCommand(travel)));
+                event.registrar().register("minigames", "Ga naar de minigames",
+                        new MinigamesCommand(travel, npc, messages)));
         getLogger().info("DbsdwBridge " + getPluginMeta().getVersion() + " enabled");
     }
 

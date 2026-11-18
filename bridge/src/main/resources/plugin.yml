@@ -6,3 +6,7 @@ folia-supported: true
 depend: [AuthMe]
 softdepend: [floodgate, ViaVersion]
 description: Sends DBSDW survival players to the minigame server and logs them back in with a signed ticket.
+permissions:
+  minigames.admin:
+    description: Place and remove the minigames NPC.
+    default: op
