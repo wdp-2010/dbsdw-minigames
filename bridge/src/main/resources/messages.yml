@@ -1,0 +1,6 @@
+# Player messages (MiniMessage format).
+not-logged-in: "<red>Log eerst in voordat je naar de minigames gaat."
+bedrock: "<red>De minigames werken voorlopig alleen op Minecraft Java Edition."
+wrong-version: "<red>De minigames werken alleen met Minecraft 26.3. Jij speelt met een andere versie."
+unavailable: "<red>De minigames zijn nu niet beschikbaar. Probeer het later opnieuw."
+transferring: "<green>Je gaat naar de minigames..."

@@ -1,0 +1,10 @@
+# DbsdwBridge: sends survival players to the minigame server with a signed ticket.
+
+minigames:
+  # Public address players are transferred to.
+  host: "minigames.dbsdw.com"
+  port: 25565
+
+# Paste MinigameCore's ticket-secret here (plugins/MinigameCore/config.yml on the minigame server).
+# Both servers must use the same value. Never share it.
+ticket-secret: ""
