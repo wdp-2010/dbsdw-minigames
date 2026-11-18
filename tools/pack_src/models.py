@@ -205,13 +205,16 @@ def _cloth(img: Image.Image, d: str) -> None:
             for y in range(h):
                 r, g, b, a = img.getpixel((x, y))
                 img.putpixel((x, y), (r - 30, g - 30, b - 30, a))
-    # swallowtail notch at the free end (east side of the texture region = flag tip)
+    # Swallowtail notch at the free end of the cloth (east, +X). The client shows the south face's
+    # texture with east on the right and the north face's with east on the left.
+    tip_right = d == "south"
     for y in range(h):
         depth = max(0, 8 - abs(y - h // 2) * 2)
-        for x in range(w - depth, w):
+        xs = range(w - depth, w) if tip_right else range(0, depth)
+        for x in xs:
             img.putpixel((x, y), (0, 0, 0, 0))
         if depth:
-            img.putpixel((w - depth - 1, y), OUTLINE + (255,))
+            img.putpixel((w - depth - 1, y) if tip_right else (depth, y), OUTLINE + (255,))
 
 
 def _emblem(img: Image.Image, d: str) -> None:
@@ -243,8 +246,8 @@ def flag_boxes() -> list[Box]:
 
 FLAG_DISPLAY = {
     "fixed": {"rotation": [0, 0, 0], "translation": [0, 0, 0], "scale": [1, 1, 1]},
-    "head": {"rotation": [0, 0, 0], "translation": [-3, 3, 4], "scale": [0.55, 0.55, 0.55]},
-    "gui": {"rotation": [0, 0, 0], "translation": [-3, -6, 0], "scale": [0.48, 0.48, 0.48]},
+    "head": {"rotation": [0, 0, 0], "translation": [-4, 6, 4], "scale": [0.8, 0.8, 0.8]},
+    "gui": {"rotation": [0, 0, 0], "translation": [-4.5, -8, 0], "scale": [0.62, 0.62, 0.62]},
     "ground": {"rotation": [0, 0, 0], "translation": [0, 0, 0], "scale": [0.4, 0.4, 0.4]},
     "thirdperson_righthand": {"rotation": [0, 90, 0], "translation": [0, -2, 0], "scale": [0.5, 0.5, 0.5]},
     "firstperson_righthand": {"rotation": [0, 90, 0], "translation": [0, -2, 0], "scale": [0.5, 0.5, 0.5]},

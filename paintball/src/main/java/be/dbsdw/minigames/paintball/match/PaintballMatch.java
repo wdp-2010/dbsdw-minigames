@@ -403,7 +403,14 @@ public final class PaintballMatch implements MatchHandler {
                 dropFlag(victim, now);
             }
         }
-        paintBurst(victim.getLocation().add(0, 1, 0), paintTeam, 80, 2.2f);
+        // The victim's own camera sits inside this burst, so only the others see it.
+        Location burst = victim.getLocation().add(0, 1, 0);
+        Color colour = Color.fromRGB(PackAssets.teamRgb(paintTeam));
+        for (Player other : burst.getWorld().getPlayers()) {
+            if (other != victim) {
+                other.spawnParticle(Particle.DUST, burst, 80, 0.35, 0.5, 0.35, 0, new Particle.DustOptions(colour, 2.2f));
+            }
+        }
         PackItems.play(victim.getLocation(), PackAssets.SOUND_OUT, 1f, 1f);
         for (Player other : Bukkit.getOnlinePlayers()) {
             if (other != victim) {

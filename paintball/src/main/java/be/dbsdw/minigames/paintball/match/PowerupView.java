@@ -4,6 +4,7 @@ import be.dbsdw.minigames.core.pack.PackItems;
 import be.dbsdw.minigames.paintball.PackAssets;
 import be.dbsdw.minigames.paintball.rules.PowerupType;
 import java.util.List;
+import org.bukkit.Color;
 import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.entity.Display;
@@ -31,6 +32,17 @@ final class PowerupView {
         return PackItems.item(Material.PAPER, PackAssets.powerup(type), null);
     }
 
+    /** Glow outline in the badge colour; the default white outline washes the badge out at a distance. */
+    private static Color glow(PowerupType type) {
+        return Color.fromRGB(switch (type) {
+            case RAPID_FIRE -> 0xFF8A1F;
+            case TRIPLE_SHOT -> 0xD93BE8;
+            case SPEED -> 0x2EE6E0;
+            case SHIELD -> 0xFFD73A;
+            case REPAIR -> 0x4CD94C;
+        });
+    }
+
     int size() {
         return points.size();
     }
@@ -52,6 +64,7 @@ final class PowerupView {
             d.setItemStack(item(type));
             d.setBrightness(new Display.Brightness(15, 15));
             d.setGlowing(true);
+            d.setGlowColorOverride(glow(type));
             d.setInterpolationDuration(2);
         });
     }
