@@ -40,6 +40,8 @@ PNG_SIGNATURE = b"\x89PNG\r\n\x1a\n"
 IGNORED_NAMES = {".gitkeep"}
 # Only these top-level entries go into the zip.
 TOP_LEVEL = {"pack.mcmeta", "pack.png", "assets"}
+# Files that live next to the pack in the repo but are not shipped to players.
+SOURCE_ONLY = {"CREDITS.md"}
 
 
 class PackError(Exception):
@@ -109,6 +111,8 @@ def collect_files(src: Path) -> list[Path]:
         if not path.is_file() or path.name in IGNORED_NAMES:
             continue
         rel = path.relative_to(src)
+        if rel.as_posix() in SOURCE_ONLY:
+            continue
         if any(part.startswith(".") for part in rel.parts):
             raise PackError(f"{rel.as_posix()}: hidden file, remove it")
         if rel.parts[0] not in TOP_LEVEL:

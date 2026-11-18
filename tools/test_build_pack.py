@@ -80,6 +80,12 @@ class BuildPackTest(unittest.TestCase):
         self.write("assets/dbsdw/.DS_Store", b"junk")
         self.assert_fails("hidden file")
 
+    def test_credits_file_stays_out_of_the_zip(self) -> None:
+        self.write("CREDITS.md", "# Credits")
+        build_pack.build(self.src, self.out)
+        with zipfile.ZipFile(self.out / build_pack.PACK_NAME) as zf:
+            self.assertNotIn("CREDITS.md", zf.namelist())
+
     def test_unknown_top_level_file_fails(self) -> None:
         self.write("notes.txt", "hello")
         self.assert_fails("not part of a resource pack")
