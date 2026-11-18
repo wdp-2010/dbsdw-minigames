@@ -1,6 +1,9 @@
 package be.dbsdw.minigames.core;
 
 import be.dbsdw.minigames.core.api.GameRegistry;
+import be.dbsdw.minigames.core.lobby.LeaveCommand;
+import be.dbsdw.minigames.core.lobby.LobbyListener;
+import be.dbsdw.minigames.core.lobby.LobbyService;
 import be.dbsdw.minigames.core.match.GameRegistryImpl;
 import be.dbsdw.minigames.core.travel.ArrivalListener;
 import be.dbsdw.minigames.core.travel.CoreTravel;
@@ -38,6 +41,15 @@ public final class MinigameCorePlugin extends JavaPlugin {
                     event.registrar().register("survival", "Terug naar survival", new SurvivalCommand(commandTravel)));
         }
         getServer().getPluginManager().registerEvents(new ArrivalListener(verifier, messages, getLogger()), this);
+        LobbyService lobby = new LobbyService(this, messages);
+        // wired in MatchManager (plan 2, task 7): opening the games menu, quit and /leave handling
+        getServer().getPluginManager().registerEvents(
+                new LobbyListener(lobby, travel, messages, player -> { }, player -> { }), this);
+        getLifecycleManager().registerEventHandler(LifecycleEvents.COMMANDS, event ->
+                event.registrar().register("leave", "Verlaat de wachtrij of het spel", new LeaveCommand(player -> { })));
+        if (lobby.spawn().isEmpty()) {
+            getLogger().warning("[lobby] lobby spawn not set — use /mg setlobby");
+        }
         getLogger().info("MinigameCore " + getPluginMeta().getVersion() + " enabled");
     }
 
