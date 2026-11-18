@@ -50,7 +50,9 @@ final class MinigamesNpc implements Listener {
         return removed;
     }
 
-    @EventHandler
+    // ignoreCancelled: respect AuthMe and region protection that already cancelled the click.
+    // Login itself is checked again in BridgeTravel.sendToMinigames for every entry point.
+    @EventHandler(ignoreCancelled = true)
     public void onInteract(PlayerInteractEntityEvent event) {
         if (event.getHand() != EquipmentSlot.HAND || !isNpc(event.getRightClicked())) {
             return;

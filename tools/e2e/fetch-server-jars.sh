@@ -35,6 +35,8 @@ prepare() { # <server dir> <authme jar or empty>
 online-mode=false
 accepts-transfers=true
 white-list=false
+difficulty=peaceful
+allow-flight=true
 enforce-secure-profile=false
 server-port=25565
 level-type=minecraft\:flat

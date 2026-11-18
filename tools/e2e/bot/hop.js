@@ -7,6 +7,8 @@
 //               [--command "/minigames" --command "/survival" ...]   one command after each join, in order
 //               [--decline-pack] [--stay 8] [--max-hops 4]
 //               [--transfer-intent] [--cookies-in file] [--cookies-out file]   replay checks
+//               [--keep-cookies]            ignore a server clearing a cookie (a modded client replaying it)
+//               [--interact-entity mannequin]  right-click the nearest entity of that type after each join
 //               [--host-map minigames=127.0.0.1:25571,survival=127.0.0.1:25570]  rewrite transfer targets
 //
 // Events: start, cookie_stored, cookie_requested, pack_offered, pack_answered, dialog_shown,
@@ -37,6 +39,8 @@ function parseArgs(argv) {
     else if (a === '--cookies-in') opts.cookiesIn = next();
     else if (a === '--cookies-out') opts.cookiesOut = next();
     else if (a === '--host-map') opts.hostMap = next();
+    else if (a === '--keep-cookies') opts.keepCookies = true;
+    else if (a === '--interact-entity') opts.interactEntity = next();
     else throw new Error(`unknown argument ${a}`);
   }
   if (!opts.host || !opts.port || !opts.name) throw new Error('--host, --port and --name are required');
@@ -100,6 +104,10 @@ function connect(host, port, transferIntent) {
   let stayTimer;
 
   client.on('store_cookie', (p) => {
+    if (opts.keepCookies && p.value.length === 0 && cookies.has(p.key)) {
+      emit('cookie_clear_ignored', { key: p.key });
+      return;
+    }
     cookies.set(p.key, Buffer.from(p.value));
     saveCookies();
     emit('cookie_stored', { key: p.key, bytes: p.value.length });
@@ -132,8 +140,37 @@ function connect(host, port, transferIntent) {
     else sendCustomClick(client, 'authme:prejoin-login/submit', { password: opts.password });
     emit('dialog_submitted', { kind: register ? 'register' : 'login' });
   });
+  // Like a real client: confirm each server teleport (26.3 takes the position from the next move
+  // packet, so send one position_look), and report the world as loaded once, or the server ignores
+  // the player's interactions.
+  let loaded = false;
+  client.on('position', (p) => {
+    client.write('teleport_confirm', { teleportId: p.teleportId });
+    client.write('position_look', { x: p.x, y: p.y, z: p.z, yaw: p.yaw, pitch: p.pitch, flags: { onGround: true } });
+    if (!loaded) {
+      loaded = true;
+      client.write('player_loaded', {});
+    }
+  });
+  client.on('update_health', (p) => {
+    if (p.health <= 0) {
+      client.write('client_command', { actionId: 'perform_respawn' });
+      emit('respawned');
+    }
+  });
+  const entities = new Map();
+  client.on('spawn_entity', (p) => entities.set(p.entityId, p));
   client.on('login', () => {
     emit('joined', { host, port });
+    if (opts.interactEntity) {
+      const typeId = require('minecraft-data')(VERSION).entitiesByName[opts.interactEntity].id;
+      setTimeout(() => {
+        const target = [...entities.values()].find((e) => e.type === typeId);
+        if (!target) { emit('interact_failed', { reason: `no ${opts.interactEntity} in view` }); return; }
+        client.write('use_entity', { target: target.entityId, hand: 0, location: { x: 0, y: 1, z: 0 }, sneaking: false });
+        emit('interacted', { entityId: target.entityId, type: opts.interactEntity });
+      }, 4000);
+    }
     const command = opts.command[commandIndex];
     if (command !== undefined) {
       commandIndex++;
