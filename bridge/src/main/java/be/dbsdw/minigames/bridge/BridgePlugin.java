@@ -1,8 +1,11 @@
 package be.dbsdw.minigames.bridge;
 
+import be.dbsdw.minigames.travel.Destination;
+import be.dbsdw.minigames.travel.NonceCache;
 import be.dbsdw.minigames.travel.TicketIssuer;
 import be.dbsdw.minigames.travel.TicketSecrets;
 import be.dbsdw.minigames.travel.TicketSigner;
+import be.dbsdw.minigames.travel.TicketVerifier;
 import io.papermc.paper.plugin.lifecycle.event.types.LifecycleEvents;
 import java.security.SecureRandom;
 import java.time.Clock;
@@ -14,7 +17,12 @@ public final class BridgePlugin extends JavaPlugin {
         saveDefaultConfig();
         Messages messages = Messages.load(this);
         TicketSigner signer = loadSigner();
-        TicketIssuer issuer = signer == null ? null : new TicketIssuer(signer, Clock.systemUTC(), new SecureRandom());
+        Clock clock = Clock.systemUTC();
+        TicketIssuer issuer = signer == null ? null : new TicketIssuer(signer, clock, new SecureRandom());
+        if (signer != null) {
+            TicketVerifier verifier = new TicketVerifier(signer, Destination.SURVIVAL, clock, new NonceCache(clock));
+            getServer().getPluginManager().registerEvents(new TicketLoginListener(verifier, getLogger()), this);
+        }
         BridgeTravel travel = new BridgeTravel(this, issuer,
                 getConfig().getString("minigames.host"), getConfig().getInt("minigames.port"), messages);
 
