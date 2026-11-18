@@ -1,6 +1,6 @@
 [versions]
 paper-api = "26.3.build.255-stable"
-junit = "5.13.4"
+junit = "6.1.3"
 authme = "6.0.1"
 viaversion = "5.12.2"
 # Floodgate publishes no releases; this timestamped snapshot is immutable.
