@@ -19,3 +19,21 @@ item:
 
 leave:
   nothing: "<gray>Je staat niet in een wachtrij of spel."
+
+# Queue menus
+menu:
+  games:
+    title: "Kies een spel"
+  modes:
+    title: "<game>"
+  mode:
+    queued: "<gray><white><queued></white>/<white><needed></white> spelers in de wachtrij"
+    countdown: "<yellow>Start over <white><seconds></white> s"
+    no-arena: "<red>Geen arena beschikbaar"
+    click-join: "<green>Klik om mee te doen"
+    click-leave: "<red>Klik om de wachtrij te verlaten"
+
+queue:
+  joined: "<green>Je staat in de wachtrij voor <white><mode></white>."
+  left: "<gray>Je hebt de wachtrij verlaten."
+  moved: "<green>Je staat nu in de wachtrij voor <white><mode></white>."
