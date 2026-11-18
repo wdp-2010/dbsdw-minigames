@@ -1,7 +1,7 @@
 # DBSDW Minigames: MinigameCore + Paintball — Design
 
 - **Date:** 2026-11-18
-- **Status:** draft, waiting for owner approval
+- **Status:** approved by the owner on 2026-11-18
 - **Repo:** `wdp-2010/dbsdw-minigames` (public)
 
 ## 1. Intent
