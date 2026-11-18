@@ -15,6 +15,9 @@ public final class PaintballPlugin extends JavaPlugin {
     @Override
     public void onEnable() {
         saveDefaultConfig();
+        // Write keys added by a newer version into an existing config.yml, so they can be edited.
+        getConfig().options().copyDefaults(true);
+        saveConfig();
         FileConfiguration c = getConfig();
         Settings settings;
         try {

@@ -47,6 +47,9 @@ public final class MinigameCorePlugin extends JavaPlugin {
     @Override
     public void onEnable() {
         saveDefaultConfig();
+        // Write keys added by a newer version into an existing config.yml, so they can be edited.
+        getConfig().options().copyDefaults(true);
+        saveConfig();
         Messages messages = Messages.load(this);
         getServer().getServicesManager().register(GameRegistry.class, games, this, ServicePriority.Normal);
         TicketSigner signer = loadSigner();
