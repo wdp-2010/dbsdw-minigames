@@ -35,12 +35,6 @@ public final class PackItems {
         return stack;
     }
 
-    /** Points an existing item at a pack model, keeping its name, lore and data. */
-    public static ItemStack withModel(ItemStack stack, String model) {
-        stack.setData(DataComponentTypes.ITEM_MODEL, Key.key(model));
-        return stack;
-    }
-
     /** Plays a pack sound to one player only. */
     public static void play(Player player, String sound, float volume, float pitch) {
         player.playSound(Sound.sound(Key.key(sound), Sound.Source.PLAYER, volume, pitch));
