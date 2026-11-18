@@ -1,5 +1,7 @@
 package be.dbsdw.minigames.paintball.match;
 
+import be.dbsdw.minigames.core.pack.PackItems;
+import be.dbsdw.minigames.paintball.PackAssets;
 import be.dbsdw.minigames.paintball.rules.PowerupType;
 import java.util.List;
 import org.bukkit.Location;
@@ -25,14 +27,8 @@ final class PowerupView {
         this.types = new PowerupType[points.size()];
     }
 
-    static Material item(PowerupType type) {
-        return switch (type) {
-            case RAPID_FIRE -> Material.BLAZE_POWDER;
-            case TRIPLE_SHOT -> Material.PRISMARINE_CRYSTALS;
-            case SPEED -> Material.SUGAR;
-            case SHIELD -> Material.SHIELD;
-            case REPAIR -> Material.GOLDEN_APPLE;
-        };
+    static ItemStack item(PowerupType type) {
+        return PackItems.item(Material.PAPER, PackAssets.powerup(type), null);
     }
 
     int size() {
@@ -53,7 +49,7 @@ final class PowerupView {
         Location at = points.get(i).clone().add(0, 1.0, 0);
         displays[i] = at.getWorld().spawn(at, ItemDisplay.class, d -> {
             d.setPersistent(false);
-            d.setItemStack(ItemStack.of(item(type)));
+            d.setItemStack(item(type));
             d.setBrightness(new Display.Brightness(15, 15));
             d.setGlowing(true);
             d.setInterpolationDuration(2);

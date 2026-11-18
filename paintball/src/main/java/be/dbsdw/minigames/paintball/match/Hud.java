@@ -2,6 +2,7 @@ package be.dbsdw.minigames.paintball.match;
 
 import be.dbsdw.minigames.core.Messages;
 import be.dbsdw.minigames.core.api.MatchContext;
+import be.dbsdw.minigames.paintball.PackAssets;
 import be.dbsdw.minigames.paintball.rules.Clock;
 import be.dbsdw.minigames.paintball.rules.ModeRules;
 import be.dbsdw.minigames.paintball.rules.Settings;
@@ -11,6 +12,7 @@ import java.time.Duration;
 import net.kyori.adventure.bossbar.BossBar;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
+import net.kyori.adventure.text.format.TextColor;
 import net.kyori.adventure.text.minimessage.tag.resolver.Placeholder;
 import net.kyori.adventure.title.Title;
 import org.bukkit.Bukkit;
@@ -27,6 +29,8 @@ import org.bukkit.scoreboard.Team;
  */
 final class Hud {
     private static final String[] LINES = {"score0", "score1", "blank", "time"};
+    private static final Title.Times SPLASH_TIMES =
+            Title.Times.times(Duration.ZERO, Duration.ofMillis(300), Duration.ofMillis(400));
 
     private final MatchContext ctx;
     private final Messages messages;
@@ -90,13 +94,12 @@ final class Hud {
         bossBar.progress((float) Math.clamp((double) left / rules.timeLimitTicks(), 0.0, 1.0));
     }
 
-    /** Hits left as dots in the team colour, then grey dots; then shield, power-ups, protection. */
+    /** Hits left as paint drops in the team colour, then grey drops; then shield, power-ups, protection. */
     void actionBar(Player player, int team, int hitsLeft, boolean protectedNow, boolean shield, Component buffs,
                    Component prefix) {
-        NamedTextColor colour = team == 0 ? NamedTextColor.RED : NamedTextColor.BLUE;
         Component bar = prefix
-                .append(Component.text("●".repeat(Math.max(0, hitsLeft)), colour))
-                .append(Component.text("●".repeat(Math.max(0, settings.hitsToOut() - hitsLeft)), NamedTextColor.DARK_GRAY));
+                .append(drops(hitsLeft, PackAssets.teamColour(team)))
+                .append(drops(settings.hitsToOut() - hitsLeft, NamedTextColor.DARK_GRAY));
         if (shield) {
             bar = bar.append(messages.get("hud.shield"));
         }
@@ -105,6 +108,17 @@ final class Hud {
             bar = bar.append(messages.get("hud.protected"));
         }
         player.sendActionBar(bar);
+    }
+
+    private static Component drops(int count, TextColor colour) {
+        return Component.text(PackAssets.DROP.repeat(Math.max(0, count)), colour).font(PackAssets.HUD_FONT);
+    }
+
+    /** Paint on the goggles: a full-screen splash in the shooter's colour for a moment. */
+    void splash(Player victim, int shooterTeam) {
+        victim.showTitle(Title.title(
+                Component.text(PackAssets.OVERLAY, PackAssets.teamColour(shooterTeam)).font(PackAssets.OVERLAY_FONT),
+                Component.empty(), SPLASH_TIMES));
     }
 
     void outTitle(Player player, long secondsLeft) {

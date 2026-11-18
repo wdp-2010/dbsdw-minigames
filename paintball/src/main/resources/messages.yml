@@ -5,18 +5,20 @@ game:
 item:
   gun: "<gold><bold>Paintgeweer</bold></gold> <gray>(rechtsklik)"
 
+# Icons come from the resource pack font dbsdw:hud: \uE000 paint drop (used in code), \uE001 shield,
+# \uE002-\uE005 power-ups, \uE006 hit marker, \uE007 spawn protection, \uE008 team splat.
 hud:
   title-tdm: "<aqua><bold>Paintball</bold> <gray>TDM"
   title-ctf: "<aqua><bold>Paintball</bold> <gray>CTF"
   score: "<team><gray>: <white><score>"
   time: "<gray>Tijd: <white><time>"
   bossbar: "<white>Tijd over: <yellow><time>"
-  protected: " <aqua>Beschermd"
-  shield: " <aqua>⛨"
-  buff: " <yellow><powerup> <white><seconds>s"
-  marker: "<white><bold>✖ Raak!</bold> "
-  marker-shield: "<aqua><bold>✖ Schild!</bold> "
-  eliminated: "<gold><bold>✖ Uitgeschakeld: <victim></bold> "
+  protected: " <font:dbsdw:hud><white>\uE007</white></font> <aqua>Beschermd"
+  shield: " <font:dbsdw:hud><white>\uE001</white></font>"
+  buff: " <icon> <white><seconds>s"
+  marker: "<font:dbsdw:hud><white>\uE006</white></font> <white><bold>Raak!</bold> "
+  marker-shield: "<font:dbsdw:hud><white>\uE001</white></font> <aqua><bold>Schild!</bold> "
+  eliminated: "<font:dbsdw:hud><white>\uE006</white></font> <gold><bold>Uitgeschakeld: <victim></bold> "
 
 out:
   title: "<red><bold>Uit!"
@@ -38,7 +40,13 @@ flag:
   state-dropped: "<red>gevallen (<seconds>s)"
 
 powerup:
-  picked: "<yellow><bold>+ <powerup></bold> "
+  picked: "<icon> <yellow><bold>+ <powerup></bold> "
+  icon:
+    rapid_fire: "<font:dbsdw:hud><white>\uE002</white></font>"
+    triple_shot: "<font:dbsdw:hud><white>\uE003</white></font>"
+    speed: "<font:dbsdw:hud><white>\uE004</white></font>"
+    shield: "<font:dbsdw:hud><white>\uE001</white></font>"
+    repair: "<font:dbsdw:hud><white>\uE005</white></font>"
   rapid_fire: "Snelvuur"
   triple_shot: "Drievoudig schot"
   speed: "Snelheid"

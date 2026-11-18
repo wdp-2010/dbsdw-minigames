@@ -5,6 +5,8 @@ import be.dbsdw.minigames.core.api.GameType;
 import be.dbsdw.minigames.core.api.ModeSpec;
 import be.dbsdw.minigames.core.arena.ArenaDefinition;
 import be.dbsdw.minigames.core.arena.ArenaPool;
+import be.dbsdw.minigames.core.pack.PackAssets;
+import be.dbsdw.minigames.core.pack.PackItems;
 import be.dbsdw.minigames.core.arena.BukkitArenaView;
 import be.dbsdw.minigames.core.lobby.LobbyService;
 import be.dbsdw.minigames.core.menu.GamesMenu;
@@ -41,6 +43,8 @@ import be.dbsdw.minigames.core.stats.StatsStore;
 
 /** Turns queues into matches and matches back into lobby players. Ticked every server tick. */
 public final class MatchManager implements MenuModel, Listener {
+    /** The countdown ticks audibly for the last seconds only. */
+    private static final int COUNTDOWN_SOUND_FROM = 5;
     private static final Title.Times COUNTDOWN_TIMES =
             Title.Times.times(Duration.ZERO, Duration.ofMillis(1100), Duration.ofMillis(200));
 
@@ -114,7 +118,12 @@ public final class MatchManager implements MenuModel, Listener {
     private void countdown(List<UUID> queued, int seconds) {
         Title title = Title.title(messages.get("queue.countdown.title", Placeholder.unparsed("seconds", String.valueOf(seconds))),
                 messages.get("queue.countdown.subtitle"), COUNTDOWN_TIMES);
-        players(queued).forEach(p -> p.showTitle(title));
+        players(queued).forEach(p -> {
+            p.showTitle(title);
+            if (seconds <= COUNTDOWN_SOUND_FROM) {
+                PackItems.play(p, PackAssets.SOUND_COUNTDOWN, 0.8f, 1f);
+            }
+        });
     }
 
     private void start(ModeSpec mode, ArenaDefinition arena, List<UUID> players) {

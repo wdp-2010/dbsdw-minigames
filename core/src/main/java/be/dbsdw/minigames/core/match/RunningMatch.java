@@ -8,6 +8,8 @@ import be.dbsdw.minigames.core.api.MatchHandler;
 import be.dbsdw.minigames.core.api.MatchOutcome;
 import be.dbsdw.minigames.core.api.ModeSpec;
 import be.dbsdw.minigames.core.lobby.LobbyService;
+import be.dbsdw.minigames.core.pack.PackAssets;
+import be.dbsdw.minigames.core.pack.PackItems;
 import be.dbsdw.minigames.core.stats.StatsStore;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
@@ -82,6 +84,7 @@ final class RunningMatch implements MatchContext {
                 player.teleport(spawns.get(i % spawns.size()));
                 player.showTitle(Title.title(messages.get("match.start"),
                         messages.get("match.start-team", Placeholder.component("team", teamName(team)))));
+                PackItems.play(player, PackAssets.SOUND_START, 0.9f, 1f);
             }
         }
         log.info("[match] " + mode.key() + " on " + arena.name() + " started: " + state.everyone().size() + " players");
@@ -168,6 +171,11 @@ final class RunningMatch implements MatchContext {
             if (player != null) {
                 player.showTitle(Title.title(title, Component.empty()));
                 outcome.lines().forEach(player::sendMessage);
+                OptionalInt team = state.teamOf(id);
+                String sound = outcome.winner().isEmpty() ? PackAssets.SOUND_DRAW
+                        : team.isPresent() && team.getAsInt() == outcome.winner().getAsInt()
+                        ? PackAssets.SOUND_WIN : PackAssets.SOUND_LOSE;
+                PackItems.play(player, sound, 1f, 1f);
             }
         }
         log.info("[match] " + mode.key() + " on " + arena.name() + " ended: "

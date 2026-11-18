@@ -4,7 +4,9 @@ import be.dbsdw.minigames.core.Messages;
 import be.dbsdw.minigames.core.api.MatchContext;
 import be.dbsdw.minigames.core.api.MatchHandler;
 import be.dbsdw.minigames.core.api.MatchOutcome;
+import be.dbsdw.minigames.core.pack.PackItems;
 import be.dbsdw.minigames.paintball.Gun;
+import be.dbsdw.minigames.paintball.PackAssets;
 import be.dbsdw.minigames.paintball.PaintballGame;
 import be.dbsdw.minigames.paintball.rules.Buffs;
 import be.dbsdw.minigames.paintball.rules.Clock;
@@ -35,7 +37,6 @@ import org.bukkit.Color;
 import org.bukkit.Location;
 import org.bukkit.NamespacedKey;
 import org.bukkit.Particle;
-import org.bukkit.Sound;
 import org.bukkit.attribute.Attribute;
 import org.bukkit.attribute.AttributeInstance;
 import org.bukkit.attribute.AttributeModifier;
@@ -107,7 +108,7 @@ public final class PaintballMatch implements MatchHandler {
                 names.put(p.getUniqueId(), p.getName());
                 gates.put(p.getUniqueId(), new FireGate());
                 game.players().put(p.getUniqueId(), this);
-                p.getInventory().setItem(0, Gun.gun(messages));
+                p.getInventory().setItem(0, Gun.gun(messages, team));
                 p.getInventory().setHeldItemSlot(0);
                 hud.show(p, team);
             }
@@ -261,9 +262,9 @@ public final class PaintballMatch implements MatchHandler {
         Player shooter = Bukkit.getPlayer(shot.shooter());
         Location at = victim.getLocation();
         switch (result) {
-            case ABSORBED -> victim.getWorld().playSound(at, Sound.ITEM_SHIELD_BLOCK, 0.6f, 1.6f);
+            case ABSORBED -> PackItems.play(at, PackAssets.SOUND_SHIELD_BLOCK, 0.8f, 1f);
             case SHIELDED -> {
-                victim.getWorld().playSound(at, Sound.ITEM_SHIELD_BREAK, 0.9f, 1.2f);
+                PackItems.play(at, PackAssets.SOUND_SHIELD_BREAK, 1f, 1f);
                 updateBar(victim, now);
                 if (shooter != null) {
                     showMarker(shooter, messages.get("hud.marker-shield"), now);
@@ -271,12 +272,13 @@ public final class PaintballMatch implements MatchHandler {
             }
             case HIT -> {
                 victim.playHurtAnimation(0);
-                victim.getWorld().playSound(at, Sound.ENTITY_SLIME_SQUISH, 1f, 1.2f);
+                PackItems.play(at, PackAssets.SOUND_HIT, 1f, 0.95f + ThreadLocalRandom.current().nextFloat() * 0.1f);
                 paintBurst(at.clone().add(0, 1, 0), shot.team(), 20, 1.4f);
+                hud.splash(victim, shot.team());
                 updateBar(victim, now);
                 if (shooter != null) {
                     ctx.addStat(shooter, "hits", 1);
-                    shooter.playSound(shooter.getLocation(), Sound.ENTITY_ARROW_HIT_PLAYER, 0.8f, 1.4f);
+                    PackItems.play(shooter, PackAssets.SOUND_HITMARKER, 0.9f, 1f);
                     showMarker(shooter, messages.get("hud.marker"), now);
                 }
             }
@@ -285,7 +287,7 @@ public final class PaintballMatch implements MatchHandler {
                 if (shooter != null) {
                     ctx.addStat(shooter, "hits", 1);
                     ctx.addStat(shooter, "eliminations", 1);
-                    shooter.playSound(shooter.getLocation(), Sound.ENTITY_PLAYER_LEVELUP, 0.6f, 1.8f);
+                    PackItems.play(shooter, PackAssets.SOUND_ELIMINATE, 1f, 1f);
                     showMarker(shooter, messages.get("hud.eliminated",
                             Placeholder.component("victim", Component.text(victim.getName()))), now);
                 }
@@ -330,7 +332,7 @@ public final class PaintballMatch implements MatchHandler {
         if (Gun.isGun(held)) {
             p.setCooldown(held, interval(p, now));
         }
-        p.getWorld().playSound(p.getLocation(), Sound.ENTITY_SNOWBALL_THROW, 0.7f, 1.7f);
+        PackItems.play(p.getLocation(), PackAssets.SOUND_SHOT, 0.8f, 0.95f + ThreadLocalRandom.current().nextFloat() * 0.1f);
         if (wasProtected) {
             updateBar(p, now);
         }
@@ -402,7 +404,7 @@ public final class PaintballMatch implements MatchHandler {
             }
         }
         paintBurst(victim.getLocation().add(0, 1, 0), paintTeam, 80, 2.2f);
-        victim.getWorld().playSound(victim.getLocation(), Sound.ENTITY_GENERIC_SPLASH, 1f, 1f);
+        PackItems.play(victim.getLocation(), PackAssets.SOUND_OUT, 1f, 1f);
         for (Player other : Bukkit.getOnlinePlayers()) {
             if (other != victim) {
                 other.hideEntity(game.plugin(), victim);
@@ -426,7 +428,7 @@ public final class PaintballMatch implements MatchHandler {
         }
         freeze(p, false);
         p.clearTitle();
-        p.playSound(p.getLocation(), Sound.BLOCK_NOTE_BLOCK_PLING, 0.8f, 1.5f);
+        PackItems.play(p, PackAssets.SOUND_RESPAWN, 0.9f, 1f);
         updateBar(p, now);
     }
 
@@ -465,7 +467,7 @@ public final class PaintballMatch implements MatchHandler {
                 case CARRIED -> false;
             };
             if (atEnemyFlag && flags.pickup(enemy, id, team)) {
-                p.getInventory().setHelmet(FlagView.banner(enemy));
+                p.getInventory().setHelmet(FlagView.flag(enemy));
                 p.setGlowing(true);
                 flagEvent("flag.taken", enemy, p);
             }
@@ -495,15 +497,15 @@ public final class PaintballMatch implements MatchHandler {
         Component line = messages.get(key,
                 Placeholder.component("flag", ctx.teamName(flag)),
                 Placeholder.component("player", who == null ? Component.empty() : coloured(who.getName(), team(who))));
-        Sound sound = switch (key) {
-            case "flag.captured" -> Sound.UI_TOAST_CHALLENGE_COMPLETE;
-            case "flag.taken" -> Sound.BLOCK_NOTE_BLOCK_BELL;
-            case "flag.dropped" -> Sound.BLOCK_NOTE_BLOCK_BASS;
-            default -> Sound.BLOCK_NOTE_BLOCK_CHIME;
+        String sound = switch (key) {
+            case "flag.captured" -> PackAssets.SOUND_FLAG_CAPTURED;
+            case "flag.taken" -> PackAssets.SOUND_FLAG_TAKEN;
+            case "flag.dropped" -> PackAssets.SOUND_FLAG_DROPPED;
+            default -> PackAssets.SOUND_FLAG_RETURNED;
         };
         for (Player p : online()) {
             p.sendMessage(line);
-            p.playSound(p.getLocation(), sound, 0.8f, 1f);
+            PackItems.play(p, sound, 0.9f, 1f);
             if (key.equals("flag.captured") || key.equals("flag.taken")) {
                 hud.bigTitle(p, Component.empty(), line);
             }
@@ -573,8 +575,10 @@ public final class PaintballMatch implements MatchHandler {
             case SHIELD -> combat.giveShield(id);
             case REPAIR -> combat.repair(id);
         }
-        p.playSound(p.getLocation(), Sound.ENTITY_EXPERIENCE_ORB_PICKUP, 1f, 1.3f);
-        showMarker(p, messages.get("powerup.picked", Placeholder.component("powerup", messages.get("powerup." + type.key()))), now);
+        PackItems.play(p, PackAssets.SOUND_POWERUP, 1f, 1f);
+        showMarker(p, messages.get("powerup.picked",
+                Placeholder.component("powerup", messages.get("powerup." + type.key())),
+                Placeholder.component("icon", messages.get("powerup.icon." + type.key()))), now);
     }
 
     private Component buffsText(UUID id, long now) {
@@ -584,6 +588,7 @@ public final class PaintballMatch implements MatchHandler {
             if (left > 0) {
                 text = text.append(messages.get("hud.buff",
                         Placeholder.component("powerup", messages.get("powerup." + type.key())),
+                        Placeholder.component("icon", messages.get("powerup.icon." + type.key())),
                         Placeholder.unparsed("seconds", Long.toString(Clock.secondsLeft(left)))));
             }
         }
@@ -692,7 +697,7 @@ public final class PaintballMatch implements MatchHandler {
     }
 
     private void paintBurst(Location at, int team, int count, float size) {
-        Color colour = team == 0 ? Color.fromRGB(0xFF3B3B) : Color.fromRGB(0x3B7BFF);
+        Color colour = Color.fromRGB(PackAssets.teamRgb(team));
         at.getWorld().spawnParticle(Particle.DUST, at, count, 0.35, 0.5, 0.35, 0,
                 new Particle.DustOptions(colour, size));
     }
