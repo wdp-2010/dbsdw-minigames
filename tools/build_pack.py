@@ -9,7 +9,10 @@ Checks (any failure exits non-zero and nothing is written):
   * Every .json and .mcmeta file is valid JSON with no duplicate keys.
   * Every path under assets/ is a valid resource location (lowercase a-z, 0-9,
     '_', '-', '.', '/'), so the client does not silently ignore it.
-  * Every .png file has a PNG signature.
+  * Every .png file has a PNG signature and every .ogg file an Ogg signature.
+  * Every reference into our own namespace resolves: model parents and textures, the models in
+    item definitions, sound files in sounds.json and bitmap files in fonts. (References into the
+    minecraft namespace are trusted; they come from the client.)
   * No stray hidden files (.gitkeep placeholders are skipped).
   * The finished zip is under the client's download limit.
 
@@ -37,6 +40,9 @@ MAX_ZIP_BYTES = 250 * 1024 * 1024
 FIXED_TIMESTAMP = (1980, 1, 1, 0, 0, 0)
 RESOURCE_PATH = re.compile(r"^[a-z0-9_.\-/]+$")
 PNG_SIGNATURE = b"\x89PNG\r\n\x1a\n"
+OGG_SIGNATURE = b"OggS"
+# Namespaces whose references must resolve inside this pack.
+OWN_NAMESPACES = {"dbsdw"}
 IGNORED_NAMES = {".gitkeep"}
 # Only these top-level entries go into the zip.
 TOP_LEVEL = {"pack.mcmeta", "pack.png", "assets"}
@@ -129,6 +135,66 @@ def check_file(src: Path, path: Path) -> None:
         load_json(path)
     elif path.suffix == ".png" and path.read_bytes()[:8] != PNG_SIGNATURE:
         raise PackError(f"{rel}: not a PNG file")
+    elif path.suffix == ".ogg" and path.read_bytes()[:4] != OGG_SIGNATURE:
+        raise PackError(f"{rel}: not an Ogg file")
+
+
+def _require(src: Path, owner: str, ref: str, folder: str, suffix: str) -> None:
+    """ref is 'ns:path' or 'path' (minecraft); for our namespaces the file must exist."""
+    ns, _, rest = ref.rpartition(":")
+    ns = ns or "minecraft"
+    if ns not in OWN_NAMESPACES:
+        return
+    target = f"assets/{ns}/{folder}/{rest}{suffix}"
+    if not (src / target).is_file():
+        raise PackError(f"{owner}: refers to {ref}, but {target} does not exist")
+
+
+def _item_models(node: object) -> list[str]:
+    """Every model id used by an item definition, at any depth."""
+    found: list[str] = []
+    if isinstance(node, dict):
+        if node.get("type") in ("minecraft:model", "model") and isinstance(node.get("model"), str):
+            found.append(node["model"])
+        for value in node.values():
+            found += _item_models(value)
+    elif isinstance(node, list):
+        for value in node:
+            found += _item_models(value)
+    return found
+
+
+def check_references(src: Path, files: list[Path]) -> None:
+    for path in files:
+        rel = path.relative_to(src)
+        parts = rel.parts
+        if parts[0] != "assets" or path.suffix != ".json" or len(parts) < 3:
+            continue
+        # assets/<ns>/sounds.json, or assets/<ns>/<kind>/...
+        kind = parts[2]
+        owner = rel.as_posix()
+        data = load_json(path)
+        if kind == "models" and isinstance(data, dict):
+            if isinstance(data.get("parent"), str) and not data["parent"].startswith("builtin/"):
+                _require(src, owner, data["parent"], "models", ".json")
+            for value in (data.get("textures") or {}).values():
+                if isinstance(value, str) and not value.startswith("#"):
+                    _require(src, owner, value, "textures", ".png")
+        elif kind == "items":
+            for model in _item_models(data):
+                _require(src, owner, model, "models", ".json")
+        elif kind == "font" and isinstance(data, dict):
+            for provider in data.get("providers", []):
+                if provider.get("type") == "bitmap":
+                    _require(src, owner, provider["file"], "textures", "")
+        elif kind == "sounds.json" and isinstance(data, dict):
+            for event in data.values():
+                for entry in event.get("sounds", []):
+                    if isinstance(entry, dict):
+                        if entry.get("type") == "event":
+                            continue
+                        entry = entry.get("name", "")
+                    _require(src, owner, entry, "sounds", ".ogg")
 
 
 def build_zip(src: Path, files: list[Path]) -> bytes:
@@ -154,6 +220,7 @@ def build(src: Path, out: Path) -> str:
     files = collect_files(src)
     for path in files:
         check_file(src, path)
+    check_references(src, files)
     data = build_zip(src, files)
     sha1 = hashlib.sha1(data).hexdigest()
     out.mkdir(parents=True, exist_ok=True)

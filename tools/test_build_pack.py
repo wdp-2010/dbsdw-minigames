@@ -80,6 +80,44 @@ class BuildPackTest(unittest.TestCase):
         self.write("assets/dbsdw/.DS_Store", b"junk")
         self.assert_fails("hidden file")
 
+    def test_ogg_without_signature_fails(self) -> None:
+        self.write("assets/dbsdw/sounds/shot.ogg", b"RIFF-not-ogg")
+        self.assert_fails("assets/dbsdw/sounds/shot.ogg: not an Ogg file")
+
+    def test_model_texture_missing_fails(self) -> None:
+        self.write("assets/dbsdw/models/item/gun.json",
+                   '{"parent": "item/generated", "textures": {"layer0": "dbsdw:item/nope"}}')
+        self.assert_fails("assets/dbsdw/textures/item/nope.png")
+
+    def test_model_parent_missing_fails(self) -> None:
+        self.write("assets/dbsdw/models/item/gun.json", '{"parent": "dbsdw:item/base"}')
+        self.assert_fails("assets/dbsdw/models/item/base.json")
+
+    def test_item_definition_model_missing_fails(self) -> None:
+        self.write("assets/dbsdw/items/gun.json", json.dumps({"model": {
+            "type": "minecraft:range_dispatch", "property": "minecraft:custom_model_data",
+            "entries": [{"threshold": 1, "model": {"type": "minecraft:model", "model": "dbsdw:item/gone"}}],
+            "fallback": {"type": "minecraft:model", "model": "dbsdw:item/gun"}}}))
+        self.assert_fails("assets/dbsdw/models/item/gone.json")
+
+    def test_sound_file_missing_fails(self) -> None:
+        self.write("assets/dbsdw/sounds.json", '{"paintball.shot": {"sounds": ["dbsdw:paintball/shot1"]}}')
+        self.assert_fails("assets/dbsdw/sounds/paintball/shot1.ogg")
+
+    def test_font_texture_missing_fails(self) -> None:
+        self.write("assets/dbsdw/font/hud.json", json.dumps({"providers": [
+            {"type": "bitmap", "file": "dbsdw:font/drop.png", "ascent": 8, "height": 9, "chars": ["\ue000"]}]}))
+        self.assert_fails("assets/dbsdw/textures/font/drop.png")
+
+    def test_complete_references_build(self) -> None:
+        self.write("assets/dbsdw/models/item/gun.json",
+                   '{"parent": "minecraft:item/generated", "textures": {"layer0": "dbsdw:item/gun"}}')
+        self.write("assets/dbsdw/items/gun.json",
+                   '{"model": {"type": "minecraft:model", "model": "dbsdw:item/gun"}}')
+        self.write("assets/dbsdw/sounds/paintball/shot1.ogg", b"OggS-rest")
+        self.write("assets/dbsdw/sounds.json", '{"paintball.shot": {"sounds": [{"name": "dbsdw:paintball/shot1"}]}}')
+        build_pack.build(self.src, self.out)
+
     def test_credits_file_stays_out_of_the_zip(self) -> None:
         self.write("CREDITS.md", "# Credits")
         build_pack.build(self.src, self.out)
