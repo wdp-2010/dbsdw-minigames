@@ -233,13 +233,13 @@ def pack_icon() -> Canvas:
     bg = rect(mask(s), (2, 2, 125, 125), radius=18)
     c.fill(bg, (32, 36, 64))
     rng = random.Random(42)
-    for colour, (x, y, r) in ((RED, (44, 46, 30)), (BLUE, (84, 82, 30)), (YELLOW, (92, 34, 12))):
+    for colour, (x, y, r) in ((BLUE, (44, 46, 30)), (RED, (84, 82, 30)), (YELLOW, (92, 34, 12))):
         b = intersect(blob(rng, 128, x, y, r, bumps=7, wobble=0.6), erode(bg, 3))
         c.fill(b, colour)
         c.fill(subtract(b, shift(b, -2, -2)), darken(colour, 0.3))
     c.outline(bg, OUTLINE, thick=2)
     gun = Canvas(32)
-    gun_side(gun, 0, 3)
+    gun_side(gun, 0, 3, hopper=RED)
     big = gun.img.resize((96, 96), resample=0)
     c.img.alpha_composite(big, (16, 22))
     return c
