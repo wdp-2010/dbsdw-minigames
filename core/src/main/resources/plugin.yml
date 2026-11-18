@@ -1,0 +1,5 @@
+name: MinigameCore
+version: '${version}'
+main: be.dbsdw.minigames.core.MinigameCorePlugin
+api-version: '26.3'
+description: Shared lobby, queue, team, arena, stats and resource pack services for DBSDW minigames.

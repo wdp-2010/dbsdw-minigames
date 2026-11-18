@@ -1,0 +1,6 @@
+name: Paintball
+version: '${version}'
+main: be.dbsdw.minigames.paintball.PaintballPlugin
+api-version: '26.3'
+depend: [MinigameCore]
+description: DBSDW paintball (team deathmatch and capture the flag).
