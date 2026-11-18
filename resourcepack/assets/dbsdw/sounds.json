@@ -1,0 +1,100 @@
+{
+  "paintball.shot": {
+    "sounds": [
+      "dbsdw:paintball/shot1",
+      "dbsdw:paintball/shot2"
+    ]
+  },
+  "paintball.splat": {
+    "sounds": [
+      "dbsdw:paintball/splat1",
+      "dbsdw:paintball/splat2"
+    ]
+  },
+  "paintball.hit": {
+    "sounds": [
+      "dbsdw:paintball/hit1",
+      "dbsdw:paintball/hit2"
+    ]
+  },
+  "paintball.hitmarker": {
+    "sounds": [
+      "dbsdw:paintball/hitmarker"
+    ]
+  },
+  "paintball.eliminate": {
+    "sounds": [
+      "dbsdw:paintball/eliminate"
+    ]
+  },
+  "paintball.out": {
+    "sounds": [
+      "dbsdw:paintball/out"
+    ]
+  },
+  "paintball.respawn": {
+    "sounds": [
+      "dbsdw:paintball/respawn"
+    ]
+  },
+  "paintball.shield_block": {
+    "sounds": [
+      "dbsdw:paintball/shield_block"
+    ]
+  },
+  "paintball.shield_break": {
+    "sounds": [
+      "dbsdw:paintball/shield_break"
+    ]
+  },
+  "paintball.flag.taken": {
+    "sounds": [
+      "dbsdw:paintball/flag_taken"
+    ]
+  },
+  "paintball.flag.dropped": {
+    "sounds": [
+      "dbsdw:paintball/flag_dropped"
+    ]
+  },
+  "paintball.flag.returned": {
+    "sounds": [
+      "dbsdw:paintball/flag_returned"
+    ]
+  },
+  "paintball.flag.captured": {
+    "sounds": [
+      "dbsdw:paintball/flag_captured"
+    ]
+  },
+  "paintball.powerup": {
+    "sounds": [
+      "dbsdw:paintball/powerup"
+    ]
+  },
+  "match.countdown": {
+    "sounds": [
+      "dbsdw:match/countdown"
+    ]
+  },
+  "match.start": {
+    "sounds": [
+      "dbsdw:match/start"
+    ]
+  },
+  "match.win": {
+    "sounds": [
+      "dbsdw:match/win"
+    ]
+  },
+  "match.lose": {
+    "sounds": [
+      "dbsdw:match/lose"
+    ]
+  },
+  "match.draw": {
+    "sounds": [
+      "dbsdw:match/draw"
+    ]
+  }
+}
