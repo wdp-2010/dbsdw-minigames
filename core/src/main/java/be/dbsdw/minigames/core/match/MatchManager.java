@@ -204,17 +204,25 @@ public final class MatchManager implements MenuModel, Listener {
 
     @EventHandler
     public void onPluginDisable(PluginDisableEvent event) {
+        // While the server stops, game plugins disable before MinigameCore: end their matches quietly,
+        // players are transferred to survival right after.
+        boolean stopping = Bukkit.isStopping();
         for (GameType game : registry.gamesOf(event.getPlugin())) {
             for (RunningMatch match : List.copyOf(matchesByArena.values())) {
                 if (match.game() == game) {
-                    match.abort("game " + game.id() + " disabled");
+                    match.abort(stopping ? "server stopping" : "game " + game.id() + " disabled");
                     List<Player> players = players(match.players());
-                    close(match, true);
-                    tell(players.stream().map(Player::getUniqueId).toList(), messages.get("match.error"));
+                    close(match, !stopping);
+                    if (!stopping) {
+                        tell(players.stream().map(Player::getUniqueId).toList(), messages.get("match.error"));
+                    }
                 }
             }
             for (ModeSpec mode : game.modes()) {
-                tell(queues.removeMode(mode.key()), messages.get("queue.closed"));
+                List<UUID> queued = queues.removeMode(mode.key());
+                if (!stopping) {
+                    tell(queued, messages.get("queue.closed"));
+                }
             }
             registry.unregister(game.id());
             plugin.getLogger().info("[match] game " + game.id() + " unregistered (plugin disabled)");
