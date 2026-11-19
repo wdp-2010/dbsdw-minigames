@@ -21,12 +21,13 @@ item:
 leave:
   nothing: "<gray>Je staat niet in een wachtrij of spel."
 
-# Queue menus
+# Queue menus. The <font:dbsdw:menu> part draws the pack's menu background behind the chest
+# (\uF800 and \uF801 are negative spaces that line it up); keep it at the start of each title.
 menu:
   games:
-    title: "Kies een spel"
+    title: "<font:dbsdw:menu><white>\uF800\uE100\uF801</white></font><white>Kies een spel"
   modes:
-    title: "<game>"
+    title: "<font:dbsdw:menu><white>\uF800\uE100\uF801</white></font><game>"
   mode:
     queued: "<gray><white><queued></white>/<white><needed></white> spelers in de wachtrij"
     countdown: "<yellow>Start over <white><seconds></white> s"

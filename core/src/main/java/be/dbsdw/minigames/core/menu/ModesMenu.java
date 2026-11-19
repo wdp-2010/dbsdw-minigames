@@ -51,7 +51,7 @@ public final class ModesMenu implements InventoryHolder {
             if (slot >= SIZE) {
                 break;
             }
-            ItemStack icon = ItemStack.of(game.icon());
+            ItemStack icon = game.modeIcon(mode);
             ItemMeta meta = icon.getItemMeta();
             meta.itemName(MiniMessage.miniMessage().deserialize(mode.displayName()));
             List<Component> lore = new ArrayList<>();

@@ -1,6 +1,8 @@
 package be.dbsdw.minigames.core.lobby;
 
 import be.dbsdw.minigames.core.Messages;
+import be.dbsdw.minigames.core.pack.PackAssets;
+import be.dbsdw.minigames.core.pack.PackItems;
 import java.util.Optional;
 import org.bukkit.GameMode;
 import org.bukkit.Location;
@@ -20,18 +22,20 @@ import org.bukkit.potion.PotionEffect;
 /** The lobby: its spawn point, the lobby state players are put in, and the lobby items. */
 public final class LobbyService {
     public enum LobbyItem {
-        GAMES(0, Material.COMPASS, "item.games"),
-        STATS(4, Material.BOOK, "item.stats"),
-        SURVIVAL(8, Material.RED_BED, "item.survival");
+        GAMES(0, Material.COMPASS, "item.games", PackAssets.LOBBY_GAMES),
+        STATS(4, Material.BOOK, "item.stats", PackAssets.LOBBY_STATS),
+        SURVIVAL(8, Material.RED_BED, "item.survival", PackAssets.LOBBY_SURVIVAL);
 
         final int slot;
         final Material material;
         final String messageKey;
+        final String model;
 
-        LobbyItem(int slot, Material material, String messageKey) {
+        LobbyItem(int slot, Material material, String messageKey, String model) {
             this.slot = slot;
             this.material = material;
             this.messageKey = messageKey;
+            this.model = model;
         }
     }
 
@@ -116,7 +120,7 @@ public final class LobbyService {
     }
 
     private ItemStack create(LobbyItem item) {
-        ItemStack stack = ItemStack.of(item.material);
+        ItemStack stack = PackItems.item(item.material, item.model, null);
         ItemMeta meta = stack.getItemMeta();
         meta.itemName(messages.get(item.messageKey));
         meta.getPersistentDataContainer().set(ITEM_KEY, PersistentDataType.STRING, item.name());

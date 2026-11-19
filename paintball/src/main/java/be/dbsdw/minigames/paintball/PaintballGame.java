@@ -4,10 +4,11 @@ import be.dbsdw.minigames.core.Messages;
 import be.dbsdw.minigames.core.api.GameType;
 import be.dbsdw.minigames.core.api.MatchContext;
 import be.dbsdw.minigames.core.api.MatchHandler;
-import be.dbsdw.minigames.core.api.ModeSpec;
-import be.dbsdw.minigames.paintball.rules.Settings;
 import be.dbsdw.minigames.core.api.ArenaFeature;
+import be.dbsdw.minigames.core.api.ModeSpec;
+import be.dbsdw.minigames.core.pack.PackItems;
 import be.dbsdw.minigames.paintball.match.PaintballMatch;
+import be.dbsdw.minigames.paintball.rules.Settings;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -15,6 +16,7 @@ import java.util.Set;
 import java.util.UUID;
 import net.kyori.adventure.text.Component;
 import org.bukkit.Material;
+import org.bukkit.inventory.ItemStack;
 import org.bukkit.plugin.Plugin;
 
 /** The paintball game: its modes, and which running match a player or paintball belongs to. */
@@ -53,6 +55,17 @@ public final class PaintballGame implements GameType {
     @Override
     public Material icon() {
         return Material.SNOWBALL;
+    }
+
+    @Override
+    public ItemStack iconItem() {
+        return PackItems.item(Material.PAPER, PackAssets.GUN, PackAssets.RED);
+    }
+
+    /** Team deathmatch shows the gun, capture the flag a flag. */
+    @Override
+    public ItemStack modeIcon(ModeSpec mode) {
+        return mode.id().equals("ctf") ? PackItems.item(Material.PAPER, PackAssets.FLAG, PackAssets.BLUE) : iconItem();
     }
 
     @Override

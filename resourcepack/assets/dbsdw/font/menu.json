@@ -1,0 +1,20 @@
+{
+  "providers": [
+    {
+      "type": "bitmap",
+      "file": "dbsdw:font/menu.png",
+      "ascent": 13,
+      "height": 168,
+      "chars": [
+        "\ue100"
+      ]
+    },
+    {
+      "type": "space",
+      "advances": {
+        "\uf800": -8,
+        "\uf801": -169
+      }
+    }
+  ]
+}

@@ -27,7 +27,7 @@ public final class GamesMenu implements InventoryHolder {
             if (slot >= SIZE) {
                 break;
             }
-            ItemStack icon = ItemStack.of(game.icon());
+            ItemStack icon = game.iconItem();
             ItemMeta meta = icon.getItemMeta();
             meta.itemName(game.displayName());
             icon.setItemMeta(meta);

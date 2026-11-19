@@ -3,6 +3,7 @@ package be.dbsdw.minigames.core.api;
 import java.util.List;
 import net.kyori.adventure.text.Component;
 import org.bukkit.Material;
+import org.bukkit.inventory.ItemStack;
 
 /** A game a plugin registers with MinigameCore, e.g. paintball. */
 public interface GameType {
@@ -13,6 +14,16 @@ public interface GameType {
 
     /** Menu and NPC icon. */
     Material icon();
+
+    /** The icon as shown in the games menu; games with pack models override this. */
+    default ItemStack iconItem() {
+        return ItemStack.of(icon());
+    }
+
+    /** The icon of one mode in the modes menu; by default the game's icon. */
+    default ItemStack modeIcon(ModeSpec mode) {
+        return iconItem();
+    }
 
     List<ModeSpec> modes();
 

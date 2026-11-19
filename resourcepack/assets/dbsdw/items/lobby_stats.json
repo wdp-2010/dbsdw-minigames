@@ -1,0 +1,6 @@
+{
+  "model": {
+    "type": "minecraft:model",
+    "model": "dbsdw:item/lobby_stats"
+  }
+}

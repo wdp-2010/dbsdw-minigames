@@ -1,5 +1,7 @@
 package be.dbsdw.minigames.paintball.match;
 
+import be.dbsdw.minigames.core.pack.PackItems;
+import be.dbsdw.minigames.paintball.PackAssets;
 import be.dbsdw.minigames.paintball.rules.Flags;
 import org.bukkit.Location;
 import org.bukkit.Material;
@@ -17,12 +19,18 @@ final class FlagView {
     private final ItemDisplay[] dropped = new ItemDisplay[2];
     private float spin;
 
+    /** The flag model is two blocks tall (centred on the entity); this makes it 2.5 blocks. */
+    private static final float SCALE = 1.25f;
+    /** Lifts the display so the bottom of the pole stands on the ground. */
+    private static final double LIFT = 0.5 * SCALE;
+
     FlagView(Location[] homes) {
         this.homes = homes;
     }
 
-    static ItemStack banner(int team) {
-        return ItemStack.of(team == 0 ? Material.RED_BANNER : Material.BLUE_BANNER);
+    /** The flag model in the team colour; also worn on the carrier's head (the model's head view). */
+    static ItemStack flag(int team) {
+        return PackItems.item(Material.PAPER, PackAssets.FLAG, PackAssets.teamRgb(team));
     }
 
     /** Makes the displays match the flag states; spins them a little each call. */
@@ -30,11 +38,11 @@ final class FlagView {
         spin += (float) Math.toRadians(9);
         for (int f = 0; f < 2; f++) {
             boolean atHome = flags.state(f) == Flags.State.HOME;
-            home[f] = keep(home[f], atHome, homes[f].clone().add(0, 0.6, 0), f);
+            home[f] = keep(home[f], atHome, homes[f].clone().add(0, LIFT, 0), f);
             Location drop = null;
             if (flags.state(f) == Flags.State.DROPPED) {
                 double[] p = flags.dropPos(f);
-                drop = new Location(homes[f].getWorld(), p[0], p[1] + 0.6, p[2]);
+                drop = new Location(homes[f].getWorld(), p[0], p[1] + LIFT, p[2]);
             }
             if (dropped[f] != null && drop != null && dropped[f].getLocation().distanceSquared(drop) > 0.01) {
                 dropped[f].remove();
@@ -67,14 +75,15 @@ final class FlagView {
         if (current == null || !current.isValid()) {
             current = at.getWorld().spawn(at, ItemDisplay.class, d -> {
                 d.setPersistent(false);
-                d.setItemStack(banner(team));
+                d.setItemStack(flag(team));
+                d.setItemDisplayTransform(ItemDisplay.ItemDisplayTransform.NONE);
                 d.setBrightness(new Display.Brightness(15, 15));
                 d.setInterpolationDuration(2);
             });
         }
         current.setInterpolationDelay(0);
         current.setTransformation(new Transformation(new Vector3f(), new AxisAngle4f(spin, 0, 1, 0),
-                new Vector3f(1.6f, 1.6f, 1.6f), new AxisAngle4f()));
+                new Vector3f(SCALE, SCALE, SCALE), new AxisAngle4f()));
         return current;
     }
 }

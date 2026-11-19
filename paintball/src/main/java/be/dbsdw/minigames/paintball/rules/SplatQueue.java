@@ -4,6 +4,7 @@ import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Deque;
 import java.util.List;
+import java.util.Map;
 
 /** Paint splats of one match, oldest first: a cap and a lifetime decide which ones go. */
 public final class SplatQueue<T> {
@@ -40,6 +41,11 @@ public final class SplatQueue<T> {
             old.add(splats.removeFirst().id());
         }
         return old;
+    }
+
+    /** Every splat still in the queue with its age, oldest first. */
+    public List<Map.Entry<T, Long>> ages(long now) {
+        return splats.stream().map(e -> Map.entry(e.id(), now - e.at())).toList();
     }
 
     /** Everything left (to remove at match end). */
