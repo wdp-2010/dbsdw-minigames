@@ -10,6 +10,8 @@
 //               [--keep-cookies]            ignore a server clearing a cookie (a modded client replaying it)
 //               [--interact-entity mannequin]  right-click the nearest entity of that type after each join
 //               [--host-map minigames=127.0.0.1:25571,survival=127.0.0.1:25570]  rewrite transfer targets
+//               [--requeue 11]   stay online; every time the lobby items arrive (first arrival and after each
+//                                match), open the games menu and join the mode in that slot of the modes menu
 //               [--do use:0 --do click:10 --do cmd:/leave --do wait:2 --do interact:mannequin --do drop:0 ...]
 //                   steps run in order (1 s apart) after the first join that has no --command left;
 //                   use = select hotbar slot + right-click, click = left-click a slot of the open window,
@@ -49,6 +51,7 @@ function parseArgs(argv) {
     else if (a === '--keep-cookies') opts.keepCookies = true;
     else if (a === '--interact-entity') opts.interactEntity = next();
     else if (a === '--do') opts.steps.push(next());
+    else if (a === '--requeue') opts.requeue = Number(next());
     else throw new Error(`unknown argument ${a}`);
   }
   if (!opts.host || !opts.port || !opts.name) throw new Error('--host, --port and --name are required');
@@ -231,6 +234,7 @@ function connect(host, port, transferIntent) {
   let sequence = 0;
   let lastPos = { x: 0, y: 0, z: 0, yaw: 0, pitch: 0 };
   let heldTimer;
+  let inLobby = false;
   const reportHeld = () => {
     clearTimeout(heldTimer);
     heldTimer = setTimeout(() => {
@@ -240,6 +244,15 @@ function connect(host, port, transferIntent) {
         if (name) items.push({ slot: i, name });
       }
       emit('held_items', { items });
+      // Lobby = games item in slot 0 and back-to-survival item in slot 8 (a match leaves slot 8 empty).
+      const lobbyNow = items.some((e) => e.slot === 0) && items.some((e) => e.slot === 8);
+      if (opts.requeue !== undefined && lobbyNow && !inLobby) {
+        emit('requeue', { slot: opts.requeue });
+        setTimeout(() => runStep('use:0'), 2000);
+        setTimeout(() => runStep('click:10'), 3500);
+        setTimeout(() => runStep(`click:${opts.requeue}`), 5000);
+      }
+      inLobby = lobbyNow;
     }, 300);
   };
   client.on('window_items', (p) => {
@@ -343,6 +356,8 @@ function connect(host, port, transferIntent) {
       stepsStarted = true;
       setTimeout(() => runSteps(0), 2000);
       return;
+    } else if (opts.requeue !== undefined) {
+      return; // stays online; the lobby items trigger the queue
     }
     stayTimer = setTimeout(() => client.end('done'), opts.stay * 1000);
   });
