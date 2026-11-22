@@ -84,3 +84,16 @@ configs, messages and pack are on node1 in `/root/army-backup-2211`.
 
 - A practice gun with targets in the lobby (offered as part of idea 4): only the queue HUD was built.
 - The owner's own client check: gun feel in hand, sounds, colours in the real client.
+
+## Later the same day
+
+- Minigame world locked on day: `execute in minecraft:overworld run gamerule advance_time false` plus
+  `advance_weather false`, `time set day`, `weather clear` (plain console `gamerule` throws in Paper
+  26.3; `doDaylightCycle` no longer exists). Survives restarts.
+- Queue countdown 15 s (`queue.countdown-seconds`, repo default and server 5).
+- PaintBot (`/opt/dbsdw-bot`, container `dbsdw-bot`, restart unless-stopped) now runs with
+  `--fight 35`: a turret that aims at the nearest enemy and fires bursts. It does not walk.
+- Scope: sneak with the gun = slower walk (client zoom with FOV effects on), 0.2° spread, camera
+  overlay `dbsdw:misc/scope` on an invisible helmet. `gun.gravity: 0.5` halves the paintball drop.
+  Built and tested (unit tests, pack checks); deployed to server 5 after the owner's running match.
+  Not yet tried in the real client.
