@@ -6,6 +6,7 @@
 #   MCC_WAIT=3 tools/console/mcc "mg arena list"            wait longer for slow output (default 1.2 s)
 #   MCC_SERVER=<uuid> tools/console/mcc ...                 another test server
 #   tools/console/mcc --log 40                              just the last 40 console lines
+#   tools/console/mcc --power restart                       start | stop | restart | kill
 #
 # The Wings token is read on node1 from /etc/pterodactyl/config.yml and never leaves it.
 set -eu
@@ -33,6 +34,10 @@ def call(path, body=None):
         return json.loads(raw) if raw else None
 def logs(n):
     return call(f"/logs?size={n}")["data"]
+if args[:1] == ["--power"]:
+    call("/power", {"action": args[1]})
+    print("power " + args[1] + " sent")
+    sys.exit(0)
 if args[:1] == ["--log"]:
     print("\n".join(logs(int(args[1]) if len(args) > 1 else 30)))
     sys.exit(0)

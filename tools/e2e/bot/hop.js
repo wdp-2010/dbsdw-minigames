@@ -21,7 +21,7 @@
 //
 // Events: start, cookie_stored, cookie_requested, pack_offered, pack_answered, dialog_shown,
 // dialog_submitted, joined, chat, command_sent, transferred, kicked, ended, game_mode, position,
-// title, window_open, window_items, held_items, step, actionbar, entity_spawn (snowballs), aimed.
+// title, subtitle, window_open, window_items, held_items, step, actionbar, entity_spawn (snowballs), aimed.
 'use strict';
 
 const fs = require('fs');
@@ -274,6 +274,7 @@ function connect(host, port, transferIntent) {
   client.on('open_window', (p) => { openWindow = p.windowId; emit('window_open', { id: p.windowId, title: plain(p.windowTitle) }); });
   client.on('close_window', () => { openWindow = 0; });
   client.on('set_title_text', (p) => emit('title', { text: plain(p.text) }));
+  client.on('set_title_subtitle', (p) => emit('subtitle', { text: plain(p.text) }));
   client.on('game_state_change', (p) => {
     if (p.reason === 'change_game_mode') emit('game_mode', { mode: GAME_MODES[p.gameMode] ?? p.gameMode });
   });
