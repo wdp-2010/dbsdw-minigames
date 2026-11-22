@@ -55,4 +55,36 @@ class ArenaPoolTest {
         assertFalse(pool.isBusy("a"));
         assertTrue(pool.reserve("nope", TDM).isEmpty());
     }
+
+    @Test
+    void randomReserveTakesTheLeastRecentlyUsedArena() {
+        ArenaPool pool = new ArenaPool(List.of(ArenaFixtures.tdmArena("a"), ArenaFixtures.tdmArena("b")));
+        Random rnd = new Random(1);
+        String previous = pool.reserve(TDM, rnd).orElseThrow().name();
+        pool.release(previous);
+        for (int i = 0; i < 20; i++) {
+            String next = pool.reserve(TDM, rnd).orElseThrow().name();
+            assertFalse(next.equals(previous), "round " + i + " repeated " + next);
+            pool.release(next);
+            previous = next;
+        }
+    }
+
+    @Test
+    void namedReserveCountsAsUse() {
+        ArenaPool pool = new ArenaPool(List.of(ArenaFixtures.tdmArena("a"), ArenaFixtures.tdmArena("b")));
+        pool.reserve("a", TDM);
+        pool.release("a");
+        assertEquals("b", pool.reserve(TDM, new Random(1)).orElseThrow().name());
+    }
+
+    @Test
+    void unusedArenasAreDrawnAtRandom() {
+        Set<String> first = new java.util.HashSet<>();
+        for (int seed = 0; seed < 20; seed++) {
+            ArenaPool pool = new ArenaPool(List.of(ArenaFixtures.tdmArena("a"), ArenaFixtures.tdmArena("b")));
+            first.add(pool.reserve(TDM, new java.util.SplittableRandom(seed)).orElseThrow().name());
+        }
+        assertEquals(Set.of("a", "b"), first);
+    }
 }

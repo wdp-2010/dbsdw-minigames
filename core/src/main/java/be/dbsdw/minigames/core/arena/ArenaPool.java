@@ -2,6 +2,7 @@ package be.dbsdw.minigames.core.arena;
 
 import be.dbsdw.minigames.core.api.ModeSpec;
 import java.util.Collection;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -14,12 +15,19 @@ import java.util.random.RandomGenerator;
 public final class ArenaPool {
     private final Map<String, ArenaDefinition> arenas = new LinkedHashMap<>();
     private final Set<String> busy = new HashSet<>();
+    /** When each arena was last reserved (a counter, not a clock); never reserved = absent. */
+    private final Map<String, Long> lastUsed = new HashMap<>();
+    private long uses;
 
     public ArenaPool(Collection<ArenaDefinition> initial) {
         initial.forEach(this::put);
     }
 
-    /** Reserves a random free arena that fits the mode. */
+    /**
+     * Reserves a free arena that fits the mode: the one reserved longest ago (never reserved counts
+     * as oldest), a random one among equals. So players rotate through the maps instead of getting
+     * the same one again by chance.
+     */
     public Optional<ArenaDefinition> reserve(ModeSpec mode, RandomGenerator rnd) {
         List<ArenaDefinition> free = arenas.values().stream()
                 .filter(a -> !busy.contains(a.name()) && a.fits(mode))
@@ -27,8 +35,11 @@ public final class ArenaPool {
         if (free.isEmpty()) {
             return Optional.empty();
         }
-        ArenaDefinition picked = free.get(rnd.nextInt(free.size()));
-        busy.add(picked.name());
+        long oldest = free.stream().mapToLong(a -> lastUsed.getOrDefault(a.name(), -1L)).min().orElseThrow();
+        List<ArenaDefinition> candidates = free.stream()
+                .filter(a -> lastUsed.getOrDefault(a.name(), -1L) == oldest).toList();
+        ArenaDefinition picked = candidates.get(rnd.nextInt(candidates.size()));
+        take(picked.name());
         return Optional.of(picked);
     }
 
@@ -38,8 +49,13 @@ public final class ArenaPool {
         if (arena == null || busy.contains(name) || !arena.fits(mode)) {
             return Optional.empty();
         }
-        busy.add(name);
+        take(name);
         return Optional.of(arena);
+    }
+
+    private void take(String name) {
+        busy.add(name);
+        lastUsed.put(name, ++uses);
     }
 
     public void release(String name) {
