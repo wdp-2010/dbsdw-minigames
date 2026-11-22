@@ -1,7 +1,7 @@
 # Paintball player messages (MiniMessage format).
 # Raise "version" when texts change: servers with an older file get it backed up and replaced.
 # Colours: khaki #D9C78F (headings), field green #9CC05A (good news), amber #FFB52E (alerts, numbers).
-version: 3
+version: 4
 
 game:
   name: "<#D9C78F><bold>Paintball"
@@ -30,6 +30,8 @@ hud:
   marker-shield: "<font:dbsdw:hud><white>\uE001</white></font> <aqua><bold>SCHILD KAPOT!"
   eliminated: "<font:dbsdw:hud><white>\uE006</white></font> <#FFB52E><bold>UITGESCHAKELD</bold></#FFB52E> <white><victim>"
   streak: "<font:dbsdw:hud><white>\uE006</white></font> <#FFB52E><bold>OP DREEF!</bold></#FFB52E> <white><count></white> <gray>op rij"
+  # Scope zoom level after a mouse-wheel notch while aiming.
+  zoom: "<#D9C78F>Zoom <white><bold><level></bold></white><dark_gray>/<levels>"
 
 out:
   title: "<red><bold>GERAAKT!"

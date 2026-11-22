@@ -12,10 +12,11 @@ import org.bukkit.event.inventory.InventoryClickEvent;
 import org.bukkit.event.inventory.InventoryDragEvent;
 import org.bukkit.event.player.PlayerDropItemEvent;
 import org.bukkit.event.player.PlayerInteractEvent;
+import org.bukkit.event.player.PlayerItemHeldEvent;
 import org.bukkit.event.player.PlayerSwapHandItemsEvent;
 import org.bukkit.inventory.EquipmentSlot;
 
-/** Gun trigger, paintball hits, and keeping the gun in the hotbar. */
+/** Gun trigger, scope zoom, paintball hits, and keeping the gun in the hotbar. */
 final class PaintballListener implements Listener {
     private final PaintballGame game;
 
@@ -35,6 +36,15 @@ final class PaintballListener implements Listener {
         PaintballMatch match = game.players().get(event.getPlayer().getUniqueId());
         if (match != null) {
             match.trigger(event.getPlayer());
+        }
+    }
+
+    /** The mouse wheel while aiming through the scope zooms instead of switching slots. */
+    @EventHandler(ignoreCancelled = true)
+    public void onScroll(PlayerItemHeldEvent event) {
+        PaintballMatch match = game.players().get(event.getPlayer().getUniqueId());
+        if (match != null && match.scroll(event.getPlayer(), event.getPreviousSlot(), event.getNewSlot())) {
+            event.setCancelled(true);
         }
     }
 

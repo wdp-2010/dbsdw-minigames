@@ -17,6 +17,7 @@ import be.dbsdw.minigames.paintball.rules.FireGate;
 import be.dbsdw.minigames.paintball.rules.Flags;
 import be.dbsdw.minigames.paintball.rules.ModeRules;
 import be.dbsdw.minigames.paintball.rules.PowerupDirector;
+import be.dbsdw.minigames.paintball.rules.ScopeZoom;
 import be.dbsdw.minigames.paintball.rules.SpawnPicker;
 import be.dbsdw.minigames.paintball.rules.Streaks;
 import be.dbsdw.minigames.paintball.rules.PowerupSettings;
@@ -96,6 +97,8 @@ public final class PaintballMatch implements MatchHandler {
     private final Map<UUID, Integer> matchHits = new HashMap<>();
     private final Map<UUID, Long> lastDry = new HashMap<>();
     private final Set<UUID> scoped = new HashSet<>();
+    /** Zoom level per player, kept between aims for the whole match. */
+    private final Map<UUID, Integer> zoom = new HashMap<>();
     private static final NamespacedKey SCOPE_SLOW = new NamespacedKey("paintball", "scope");
     /** Vanilla snowball gravity per tick. */
     private static final double BALL_GRAVITY = 0.03;
@@ -827,7 +830,8 @@ public final class PaintballMatch implements MatchHandler {
         if (speed != null) {
             speed.removeModifier(SCOPE_SLOW);
             if (on) {
-                speed.addTransientModifier(new AttributeModifier(SCOPE_SLOW, -0.6,
+                speed.addTransientModifier(new AttributeModifier(SCOPE_SLOW,
+                        ScopeZoom.slowdown(zoom.getOrDefault(p.getUniqueId(), ScopeZoom.DEFAULT_LEVEL)),
                         AttributeModifier.Operation.MULTIPLY_SCALAR_1));
             }
         }
@@ -843,6 +847,27 @@ public final class PaintballMatch implements MatchHandler {
                 p.getInventory().setHelmet(null);
             }
         }
+    }
+
+    /**
+     * The mouse wheel while aiming changes the zoom instead of the held slot. Returns true when the
+     * slot change was used for that (the caller cancels it).
+     */
+    public boolean scroll(Player p, int from, int to) {
+        UUID id = p.getUniqueId();
+        if (!scoped.contains(id) || !ScopeZoom.isScroll(from, to)) {
+            return false;
+        }
+        int level = zoom.getOrDefault(id, ScopeZoom.DEFAULT_LEVEL);
+        int next = ScopeZoom.levelAfterScroll(level, from, to);
+        if (next != level) {
+            zoom.put(id, next);
+            scope(p, true);
+            PackItems.play(p, PackAssets.SOUND_DRY_FIRE, 0.4f, 1.4f + 0.15f * next);
+        }
+        showMarker(p, messages.get("hud.zoom", Placeholder.unparsed("level", Integer.toString(next + 1)),
+                Placeholder.unparsed("levels", Integer.toString(ScopeZoom.LEVELS))), ctx.ticks());
+        return true;
     }
 
     /** The team spawn furthest from living enemies (ties picked at random). */

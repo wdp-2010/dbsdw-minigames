@@ -19,12 +19,15 @@
 //                   steps run in order (1 s apart) after the first join that has no --command left;
 //                   use = select hotbar slot + right-click, click = left-click a slot of the open window,
 //                   drop = select hotbar slot + drop key, quit = disconnect now,
-//                   aim:<player> = look at that player's feet-to-feet line, fire:<n> = n right-clicks 200 ms apart.
+//                   aim:<player> = look at that player's feet-to-feet line, fire:<n> = n right-clicks 200 ms apart,
+//                   sneak:on|off = hold or release sneak, slot:<n> = select a hotbar slot (one wheel notch
+//                   when it is next to the current one).
 //                   --stay counts from the end of the steps (and applies to every earlier join too).
 //
 // Events: start, cookie_stored, cookie_requested, pack_offered, pack_answered, dialog_shown,
 // dialog_submitted, joined, chat, command_sent, transferred, kicked, ended, game_mode, position,
-// title, subtitle, window_open, window_items, held_items, step, actionbar, entity_spawn (snowballs), aimed.
+// title, subtitle, window_open, window_items, held_items, step, actionbar, entity_spawn (snowballs), aimed,
+// held_slot (the server set the selected slot), speed (own movement_speed attribute and its modifiers).
 'use strict';
 
 const fs = require('fs');
@@ -374,6 +377,10 @@ function connect(host, port, transferIntent) {
         setTimeout(() => client.write('use_item', { hand: 0, sequence: ++sequence, rotation: { x: lastPos.yaw, y: lastPos.pitch } }), k * 200);
       }
       return n * 200 + 1000;
+    } else if (kind === 'sneak') {
+      client.write('player_input', { inputs: { shift: arg === 'on' } });
+    } else if (kind === 'slot') {
+      client.write('held_item_slot', { slotId: Number(arg) });
     } else if (kind === 'quit') {
       client.end('quit');
       return Infinity;
@@ -391,7 +398,18 @@ function connect(host, port, transferIntent) {
     if (delay === Infinity) return;
     setTimeout(() => runSteps(i + 1), delay);
   };
+  let selfId = null;
+  client.on('held_item_slot', (p) => emit('held_slot', { slot: p.slot }));
+  client.on('entity_update_attributes', (p) => {
+    if (p.entityId !== selfId) return;
+    for (const prop of p.properties) {
+      if (String(prop.key).endsWith('movement_speed')) {
+        emit('speed', { base: prop.value, modifiers: (prop.modifiers || []).map((m) => [m.uuid ?? m.id, m.amount, m.operation]) });
+      }
+    }
+  });
   client.on('login', (p) => {
+    selfId = p.entityId;
     emit('joined', { host, port });
     reportJoinMode(p);
     if (opts.interactEntity) setTimeout(() => interact(opts.interactEntity), 4000);
