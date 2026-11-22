@@ -97,3 +97,30 @@ configs, messages and pack are on node1 in `/root/army-backup-2211`.
   overlay `dbsdw:misc/scope` on an invisible helmet. `gun.gravity: 0.5` halves the paintball drop.
   Built and tested (unit tests, pack checks); deployed to server 5 after the owner's running match.
   Not yet tried in the real client.
+
+## Afternoon pass (owner feedback)
+
+Owner on the scope: "perfect". Bot difficulty: leave as is. All below is live on server 5 and
+checked with `PaintBot2` (events in the bot log, no screenshots).
+
+- Gun flicker: the side inlay had been snapped onto the body's side plane (z-fighting); the muzzle,
+  the barrel's back part and the trigger guard had smaller coplanar spots. Fixed in `models.py`;
+  `test_models.py` now rejects visible coplanar faces.
+- Raw `hud.streak` on screen: the server kept an older version-2 `messages.yml` without that key.
+  Lesson: raise `version` whenever a key is added, not only when texts change.
+- Queue action bar lagged the countdown title by up to 1 s (own once-a-second phase); it now also
+  updates on the tick the countdown second changes.
+- Scope zoom on the mouse wheel: 4 levels (walk-speed slowdown -0.3 / -0.6 default / -0.8 / -0.95;
+  client FOV = (speed + 1) / 2, so 2x is the limit), subtitle "Zoom n/4", kept for the match.
+  The scroll is a cancelled hotbar change, so number keys next to the gun slot also zoom.
+- Practice range north of lobby spawn (x -8..8, z -9..-39, `tools/console/build-range.sh`): the
+  zone hands out a practice gun in slot 3, five pop-up dummies (armor stands in army leather) sink
+  after 3 hits and rise after 3 s. Splats on blocks, no player hits, nothing counted. Scope works
+  there too (`Scope` class shared with matches). Config under `practice:` in Paintball's config.yml.
+- Forfeit: "Rood wint!" with subtitle "Blauw gaf op · missie geslaagd!" and a chat line;
+  `MatchOutcome.gaveUp()`.
+- Bot: steps `sneak:on|off`, `slot:<n>`, `look:<yaw>:<pitch>`; events `held_slot`, `speed`.
+
+Seen on server 5 around 14:06: someone else ran console commands (`forceload add 300 -48`, a test
+`fill` at x 300, gamerule queries) and there are 75 zombie horses and a few farm animals in the
+world. Not from this work.
