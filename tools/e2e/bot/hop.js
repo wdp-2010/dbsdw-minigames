@@ -12,6 +12,9 @@
 //               [--host-map minigames=127.0.0.1:25571,survival=127.0.0.1:25570]  rewrite transfer targets
 //               [--requeue 11]   stay online; every time the lobby items arrive (first arrival and after each
 //                                match), open the games menu and join the mode in that slot of the modes menu
+//               [--fight 35]     during a match, keep aiming at the nearest enemy player within 35 blocks
+//                                (scoreboard teams tell friend from foe) and fire short bursts, with a little
+//                                aim error and a random pause, like a so-so human; it does not walk
 //               [--do use:0 --do click:10 --do cmd:/leave --do wait:2 --do interact:mannequin --do drop:0 ...]
 //                   steps run in order (1 s apart) after the first join that has no --command left;
 //                   use = select hotbar slot + right-click, click = left-click a slot of the open window,
@@ -52,6 +55,7 @@ function parseArgs(argv) {
     else if (a === '--interact-entity') opts.interactEntity = next();
     else if (a === '--do') opts.steps.push(next());
     else if (a === '--requeue') opts.requeue = Number(next());
+    else if (a === '--fight') opts.fight = Number(next());
     else throw new Error(`unknown argument ${a}`);
   }
   if (!opts.host || !opts.port || !opts.name) throw new Error('--host, --port and --name are required');
@@ -223,6 +227,7 @@ function connect(host, port, transferIntent) {
     for (const id of p.entityIds || []) {
       const e = entities.get(id);
       if (e && playerNames.has(e.objectUUID)) emit('visible', { name: playerNames.get(e.objectUUID), shown: false });
+      entities.delete(id);
     }
   });
   client.on('action_bar', (p) => emit('actionbar', { text: plain(p.text) }));
@@ -235,6 +240,49 @@ function connect(host, port, transferIntent) {
   let lastPos = { x: 0, y: 0, z: 0, yaw: 0, pitch: 0 };
   let heldTimer;
   let inLobby = false;
+  let inMatch = false;
+  // Scoreboard teams (the match puts each side in its own team), so --fight leaves teammates alone.
+  const teamOf = new Map();
+  client.on('teams', (p) => {
+    if ((p.mode === 0 || p.mode === 'add' || p.mode === 3 || p.mode === 'join') && p.players) {
+      for (const name of p.players) teamOf.set(name, p.team);
+    } else if ((p.mode === 4 || p.mode === 'leave') && p.players) {
+      for (const name of p.players) if (teamOf.get(name) === p.team) teamOf.delete(name);
+    } else if (p.mode === 1 || p.mode === 'remove') {
+      for (const [name, team] of teamOf) if (team === p.team) teamOf.delete(name);
+    }
+  });
+  if (opts.fight) {
+    let nextBurst = 0;
+    const gauss = () => (Math.random() + Math.random() + Math.random() - 1.5) * 1.4;
+    setInterval(() => {
+      if (!inMatch || Date.now() < nextBurst) return;
+      const md = require('minecraft-data')(VERSION);
+      const mine = teamOf.get(opts.name);
+      let best = null; let bestD = opts.fight;
+      for (const e of entities.values()) {
+        if (!md.entities[e.type] || md.entities[e.type].name !== 'player') continue;
+        const name = playerNames.get(e.objectUUID);
+        if (!name || name === opts.name || (mine && teamOf.get(name) === mine)) continue;
+        const d = Math.hypot(e.x - lastPos.x, e.y - lastPos.y, e.z - lastPos.z);
+        if (d < bestD) { best = e; bestD = d; }
+      }
+      if (!best) return;
+      // aim at the chest from eye height, a bit higher with distance for the paintball's drop
+      const dx = best.x - lastPos.x; const dz = best.z - lastPos.z;
+      const dy = best.y + 1.1 + bestD * 0.025 - (lastPos.y + 1.62);
+      lastPos.yaw = -Math.atan2(dx, dz) * 180 / Math.PI + gauss();
+      lastPos.pitch = -Math.atan2(dy, Math.hypot(dx, dz)) * 180 / Math.PI + gauss() * 0.6;
+      client.write('look', { yaw: lastPos.yaw, pitch: lastPos.pitch, flags: { onGround: true } });
+      const shots = 2 + Math.floor(Math.random() * 3);
+      for (let k = 0; k < shots; k++) {
+        setTimeout(() => client.write('use_item', { hand: 0, sequence: ++sequence,
+          rotation: { x: lastPos.yaw, y: lastPos.pitch } }), 150 + k * 260);
+      }
+      emit('fight', { at: playerNames.get(best.objectUUID), distance: Number(bestD.toFixed(1)), shots });
+      nextBurst = Date.now() + 1200 + Math.random() * 1300;
+    }, 200);
+  }
   const reportHeld = () => {
     clearTimeout(heldTimer);
     heldTimer = setTimeout(() => {
@@ -253,6 +301,7 @@ function connect(host, port, transferIntent) {
         setTimeout(() => runStep(`click:${opts.requeue}`), 5000);
       }
       inLobby = lobbyNow;
+      inMatch = !lobbyNow && items.some((e) => e.slot === 0);
     }, 300);
   };
   client.on('window_items', (p) => {
