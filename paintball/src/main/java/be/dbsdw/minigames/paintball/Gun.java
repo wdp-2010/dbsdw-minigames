@@ -19,6 +19,8 @@ public final class Gun {
     private static final String GUN = "gun";
     private static final String BALL = "ball";
     private static final String SCOPE = "scope";
+    private static final String DUMMY = "dummy";
+    private static final NamespacedKey PRACTICE = new NamespacedKey("paintball", "practice");
 
     private Gun() {
     }
@@ -33,6 +35,29 @@ public final class Gun {
         meta.getPersistentDataContainer().set(KEY, PersistentDataType.STRING, GUN);
         stack.setItemMeta(meta);
         return stack;
+    }
+
+    /** The gun handed out on the practice range: a gun, marked so leaving the range takes only it. */
+    public static ItemStack practiceGun(Messages messages, int team) {
+        ItemStack stack = gun(messages, team);
+        ItemMeta meta = stack.getItemMeta();
+        meta.itemName(messages.get("item.practice-gun"));
+        meta.getPersistentDataContainer().set(PRACTICE, PersistentDataType.BYTE, (byte) 1);
+        stack.setItemMeta(meta);
+        return stack;
+    }
+
+    public static boolean isPracticeGun(ItemStack stack) {
+        return isGun(stack) && stack.getItemMeta().getPersistentDataContainer().has(PRACTICE);
+    }
+
+    /** Marks a practice-range dummy, so it can be told apart and protected. */
+    public static void tagDummy(Entity entity) {
+        entity.getPersistentDataContainer().set(KEY, PersistentDataType.STRING, DUMMY);
+    }
+
+    public static boolean isDummy(Entity entity) {
+        return DUMMY.equals(entity.getPersistentDataContainer().get(KEY, PersistentDataType.STRING));
     }
 
     public static boolean isGun(ItemStack stack) {

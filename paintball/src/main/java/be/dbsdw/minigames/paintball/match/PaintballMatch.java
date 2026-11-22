@@ -1,7 +1,5 @@
 package be.dbsdw.minigames.paintball.match;
 
-import java.util.Set;
-import java.util.HashSet;
 import be.dbsdw.minigames.core.Messages;
 import be.dbsdw.minigames.core.api.MatchContext;
 import be.dbsdw.minigames.core.api.MatchHandler;
@@ -17,7 +15,6 @@ import be.dbsdw.minigames.paintball.rules.FireGate;
 import be.dbsdw.minigames.paintball.rules.Flags;
 import be.dbsdw.minigames.paintball.rules.ModeRules;
 import be.dbsdw.minigames.paintball.rules.PowerupDirector;
-import be.dbsdw.minigames.paintball.rules.ScopeZoom;
 import be.dbsdw.minigames.paintball.rules.SpawnPicker;
 import be.dbsdw.minigames.paintball.rules.Streaks;
 import be.dbsdw.minigames.paintball.rules.PowerupSettings;
@@ -96,10 +93,7 @@ public final class PaintballMatch implements MatchHandler {
     private final Map<UUID, Integer> matchShots = new HashMap<>();
     private final Map<UUID, Integer> matchHits = new HashMap<>();
     private final Map<UUID, Long> lastDry = new HashMap<>();
-    private final Set<UUID> scoped = new HashSet<>();
-    /** Zoom level per player, kept between aims for the whole match. */
-    private final Map<UUID, Integer> zoom = new HashMap<>();
-    private static final NamespacedKey SCOPE_SLOW = new NamespacedKey("paintball", "scope");
+    private final Scope scope;
     /** Vanilla snowball gravity per tick. */
     private static final double BALL_GRAVITY = 0.03;
     private boolean over;
@@ -114,6 +108,7 @@ public final class PaintballMatch implements MatchHandler {
         this.score = new TeamScore(2, rules.winScore());
         this.hud = new Hud(ctx, messages, settings, rules, mode == Mode.CTF);
         this.splats = new Splats(settings.splatCap(), settings.splatLifetimeTicks());
+        this.scope = new Scope(settings, messages);
     }
 
     @Override
@@ -385,7 +380,7 @@ public final class PaintballMatch implements MatchHandler {
     }
 
     private void launch(Player p, int team, Vector aim, long now) {
-        double spread = scoped.contains(p.getUniqueId()) ? settings.scopeSpreadDegrees() : settings.spreadDegrees();
+        double spread = scope.spread(p.getUniqueId());
         double[] d = Spread.apply(aim.getX(), aim.getY(), aim.getZ(), spread, ThreadLocalRandom.current());
         Snowball ball = p.launchProjectile(Snowball.class, new Vector(d[0], d[1], d[2]).multiply(settings.speed()));
         ball.setItem(Gun.ball(team));
@@ -703,7 +698,7 @@ public final class PaintballMatch implements MatchHandler {
         for (Player other : Bukkit.getOnlinePlayers()) {
             other.showEntity(game.plugin(), p);
         }
-        scope(p, false);
+        scope.forget(p);
         freeze(p, false);
         hud.hide(p);
         p.clearTitle();
@@ -815,37 +810,7 @@ public final class PaintballMatch implements MatchHandler {
     /** Sneaking with the gun in hand aims through the scope; anything else puts it away. */
     private void tickScopes() {
         for (Player p : online()) {
-            UUID id = p.getUniqueId();
-            boolean want = !over && p.isSneaking() && !combat.isOut(id)
-                    && Gun.isGun(p.getInventory().getItemInMainHand());
-            if (want != scoped.contains(id)) {
-                scope(p, want);
-            }
-        }
-    }
-
-    /** Zoom (the client narrows its view when the walk speed drops), slower steps, and the overlay. */
-    private void scope(Player p, boolean on) {
-        AttributeInstance speed = p.getAttribute(Attribute.MOVEMENT_SPEED);
-        if (speed != null) {
-            speed.removeModifier(SCOPE_SLOW);
-            if (on) {
-                speed.addTransientModifier(new AttributeModifier(SCOPE_SLOW,
-                        ScopeZoom.slowdown(zoom.getOrDefault(p.getUniqueId(), ScopeZoom.DEFAULT_LEVEL)),
-                        AttributeModifier.Operation.MULTIPLY_SCALAR_1));
-            }
-        }
-        ItemStack head = p.getInventory().getHelmet();
-        if (on) {
-            scoped.add(p.getUniqueId());
-            if (head == null || head.isEmpty()) { // a carried flag keeps the head slot
-                p.getInventory().setHelmet(Gun.scope());
-            }
-        } else {
-            scoped.remove(p.getUniqueId());
-            if (Gun.isScope(head)) {
-                p.getInventory().setHelmet(null);
-            }
+            scope.update(p, !over && !combat.isOut(p.getUniqueId()));
         }
     }
 
@@ -854,19 +819,11 @@ public final class PaintballMatch implements MatchHandler {
      * slot change was used for that (the caller cancels it).
      */
     public boolean scroll(Player p, int from, int to) {
-        UUID id = p.getUniqueId();
-        if (!scoped.contains(id) || !ScopeZoom.isScroll(from, to)) {
+        Component marker = scope.scroll(p, from, to);
+        if (marker == null) {
             return false;
         }
-        int level = zoom.getOrDefault(id, ScopeZoom.DEFAULT_LEVEL);
-        int next = ScopeZoom.levelAfterScroll(level, from, to);
-        if (next != level) {
-            zoom.put(id, next);
-            scope(p, true);
-            PackItems.play(p, PackAssets.SOUND_DRY_FIRE, 0.4f, 1.4f + 0.15f * next);
-        }
-        showMarker(p, messages.get("hud.zoom", Placeholder.unparsed("level", Integer.toString(next + 1)),
-                Placeholder.unparsed("levels", Integer.toString(ScopeZoom.LEVELS))), ctx.ticks());
+        showMarker(p, marker, ctx.ticks());
         return true;
     }
 

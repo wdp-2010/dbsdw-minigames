@@ -20,7 +20,7 @@
 //                   use = select hotbar slot + right-click, click = left-click a slot of the open window,
 //                   drop = select hotbar slot + drop key, quit = disconnect now,
 //                   aim:<player> = look at that player's feet-to-feet line, fire:<n> = n right-clicks 200 ms apart,
-//                   sneak:on|off = hold or release sneak, slot:<n> = select a hotbar slot (one wheel notch
+//                   look:<yaw>:<pitch> = turn to that view, sneak:on|off = hold or release sneak, slot:<n> = select a hotbar slot (one wheel notch
 //                   when it is next to the current one).
 //                   --stay counts from the end of the steps (and applies to every earlier join too).
 //
@@ -377,6 +377,11 @@ function connect(host, port, transferIntent) {
         setTimeout(() => client.write('use_item', { hand: 0, sequence: ++sequence, rotation: { x: lastPos.yaw, y: lastPos.pitch } }), k * 200);
       }
       return n * 200 + 1000;
+    } else if (kind === 'look') {
+      const [yaw, pitch] = arg.split(':').map(Number);
+      lastPos.yaw = yaw;
+      lastPos.pitch = pitch;
+      client.write('look', { yaw, pitch, flags: { onGround: true } });
     } else if (kind === 'sneak') {
       client.write('player_input', { inputs: { shift: arg === 'on' } });
     } else if (kind === 'slot') {

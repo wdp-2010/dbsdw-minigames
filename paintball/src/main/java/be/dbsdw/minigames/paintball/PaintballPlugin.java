@@ -2,9 +2,11 @@ package be.dbsdw.minigames.paintball;
 
 import be.dbsdw.minigames.core.Messages;
 import be.dbsdw.minigames.core.api.GameRegistry;
+import be.dbsdw.minigames.paintball.match.PracticeRange;
 import be.dbsdw.minigames.paintball.rules.ModeRules;
 import be.dbsdw.minigames.paintball.rules.PowerupSettings;
 import be.dbsdw.minigames.paintball.rules.PowerupType;
+import be.dbsdw.minigames.paintball.rules.RangeBox;
 import be.dbsdw.minigames.paintball.rules.Settings;
 import java.util.ArrayList;
 import java.util.List;
@@ -12,6 +14,49 @@ import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.plugin.java.JavaPlugin;
 
 public final class PaintballPlugin extends JavaPlugin {
+    private PracticeRange range;
+
+    @Override
+    public void onDisable() {
+        if (range != null) {
+            range.shutdown();
+        }
+    }
+
+    /** The lobby practice range from config, or null when it is off. */
+    private static PracticeRange practice(FileConfiguration c, PaintballGame game) {
+        if (!c.getBoolean("practice.enabled")) {
+            return null;
+        }
+        int[] a = block(c, "practice.corner-1");
+        int[] b = block(c, "practice.corner-2");
+        List<PracticeRange.Spot> spots = new ArrayList<>();
+        for (List<?> t : c.getList("practice.targets", List.of()).stream().map(o -> (List<?>) o).toList()) {
+            if (t.size() != 4) {
+                throw new IllegalArgumentException("targets: every target needs x, y, z and yaw");
+            }
+            spots.add(new PracticeRange.Spot(num(t.get(0)), num(t.get(1)), num(t.get(2)), (float) num(t.get(3))));
+        }
+        return new PracticeRange(game, c.getString("practice.world", "world"),
+                RangeBox.of(a[0], a[1], a[2], b[0], b[1], b[2]), spots,
+                c.getInt("practice.target-hits"), seconds(c, "practice.target-down-seconds"));
+    }
+
+    private static int[] block(FileConfiguration c, String key) {
+        List<Integer> v = c.getIntegerList(key);
+        if (v.size() != 3) {
+            throw new IllegalArgumentException(key.substring(key.indexOf('.') + 1) + " needs x, y and z");
+        }
+        return new int[] {v.get(0), v.get(1), v.get(2)};
+    }
+
+    private static double num(Object o) {
+        if (!(o instanceof Number n)) {
+            throw new IllegalArgumentException("targets: " + o + " is not a number");
+        }
+        return n.doubleValue();
+    }
+
     @Override
     public void onEnable() {
         saveDefaultConfig();
@@ -34,7 +79,17 @@ public final class PaintballPlugin extends JavaPlugin {
         Messages messages = Messages.load(this);
         PaintballGame game = new PaintballGame(this, settings, messages, messages.raw("mode.tdm"), messages.raw("mode.ctf"));
         registry.register(this, game);
-        getServer().getPluginManager().registerEvents(new PaintballListener(game), this);
+        try {
+            range = practice(c, game);
+        } catch (IllegalArgumentException e) {
+            getLogger().severe("[paintball] config.yml practice: " + e.getMessage() + " - no practice range");
+        }
+        if (range != null) {
+            getServer().getScheduler().runTaskTimer(this, range::tick, 1, 1);
+            getLogger().info("[paintball] practice range: " + c.getList("practice.targets", List.of()).size()
+                    + " targets in world " + c.getString("practice.world"));
+        }
+        getServer().getPluginManager().registerEvents(new PaintballListener(game, range), this);
         getLogger().info("[paintball] enabled: tdm " + describe(settings.tdm()) + "; ctf " + describe(settings.ctf())
                 + "; power-ups " + settings.powerups().enabled().size());
     }

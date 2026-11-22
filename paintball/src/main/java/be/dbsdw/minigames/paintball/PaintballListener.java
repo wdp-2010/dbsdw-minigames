@@ -1,27 +1,34 @@
 package be.dbsdw.minigames.paintball;
 
 import be.dbsdw.minigames.paintball.match.PaintballMatch;
+import be.dbsdw.minigames.paintball.match.PracticeRange;
 import org.bukkit.entity.Player;
 import org.bukkit.entity.Projectile;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.block.Action;
+import org.bukkit.event.entity.EntityDamageEvent;
 import org.bukkit.event.entity.ProjectileHitEvent;
 import org.bukkit.event.inventory.ClickType;
 import org.bukkit.event.inventory.InventoryClickEvent;
 import org.bukkit.event.inventory.InventoryDragEvent;
+import org.bukkit.event.player.PlayerArmorStandManipulateEvent;
 import org.bukkit.event.player.PlayerDropItemEvent;
 import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.event.player.PlayerItemHeldEvent;
+import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.event.player.PlayerSwapHandItemsEvent;
 import org.bukkit.inventory.EquipmentSlot;
 
-/** Gun trigger, scope zoom, paintball hits, and keeping the gun in the hotbar. */
+/** Gun trigger, scope zoom, paintball hits, practice dummies, and keeping the gun in the hotbar. */
 final class PaintballListener implements Listener {
     private final PaintballGame game;
+    /** The lobby practice range, or null when it is off. */
+    private final PracticeRange range;
 
-    PaintballListener(PaintballGame game) {
+    PaintballListener(PaintballGame game, PracticeRange range) {
         this.game = game;
+        this.range = range;
     }
 
     // No ignoreCancelled: Paper fires right-clicks in the air already marked cancelled.
@@ -36,6 +43,8 @@ final class PaintballListener implements Listener {
         PaintballMatch match = game.players().get(event.getPlayer().getUniqueId());
         if (match != null) {
             match.trigger(event.getPlayer());
+        } else if (range != null) {
+            range.trigger(event.getPlayer());
         }
     }
 
@@ -43,7 +52,10 @@ final class PaintballListener implements Listener {
     @EventHandler(ignoreCancelled = true)
     public void onScroll(PlayerItemHeldEvent event) {
         PaintballMatch match = game.players().get(event.getPlayer().getUniqueId());
-        if (match != null && match.scroll(event.getPlayer(), event.getPreviousSlot(), event.getNewSlot())) {
+        boolean zoomed = match != null
+                ? match.scroll(event.getPlayer(), event.getPreviousSlot(), event.getNewSlot())
+                : range != null && range.scroll(event.getPlayer(), event.getPreviousSlot(), event.getNewSlot());
+        if (zoomed) {
             event.setCancelled(true);
         }
     }
@@ -56,11 +68,36 @@ final class PaintballListener implements Listener {
         }
         PaintballMatch match = game.balls().get(ball.getUniqueId());
         if (match == null) {
+            if (range != null && range.onBallHit(event)) {
+                return;
+            }
             event.setCancelled(true);
             ball.remove();
             return;
         }
         match.onBallHit(event);
+    }
+
+    @EventHandler
+    public void onQuit(PlayerQuitEvent event) {
+        if (range != null) {
+            range.quit(event.getPlayer());
+        }
+    }
+
+    /** Practice dummies can't be broken, robbed or dressed. */
+    @EventHandler
+    public void onDummyDamage(EntityDamageEvent event) {
+        if (Gun.isDummy(event.getEntity())) {
+            event.setCancelled(true);
+        }
+    }
+
+    @EventHandler
+    public void onDummyManipulate(PlayerArmorStandManipulateEvent event) {
+        if (Gun.isDummy(event.getRightClicked())) {
+            event.setCancelled(true);
+        }
     }
 
     @EventHandler
