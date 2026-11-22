@@ -14,21 +14,22 @@ mode:
 item:
   gun: "<#D9C78F><bold>Paintgeweer</bold></#D9C78F> <gray>· rechtsklik om te vuren"
 
-# Icons come from the resource pack font dbsdw:hud:  paint drop (used in code),  shield,
-# - power-ups,  hit marker,  spawn protection,  team splat.
+# Icons come from the resource pack font dbsdw:hud: \uE000 paint drop (used in code), \uE001 shield,
+# \uE002-\uE005 power-ups, \uE006 hit marker, \uE007 spawn protection, \uE008 team splat.
 hud:
   title-tdm: "<#D9C78F><bold>PAINTBALL</bold> <gray>· Teamgevecht"
   title-ctf: "<#D9C78F><bold>PAINTBALL</bold> <gray>· Vlagroof"
   score: "<team><gray>: <white><bold><score>"
   time: "<gray>Tijd <white><time>"
   bossbar: "<#D9C78F>Nog <white><time></white> te gaan"
-  protected: " <font:dbsdw:hud><white></white></font> <aqua>Beschermd"
-  shield: " <font:dbsdw:hud><white></white></font>"
+  protected: " <font:dbsdw:hud><white>\uE007</white></font> <aqua>Beschermd"
+  shield: " <font:dbsdw:hud><white>\uE001</white></font>"
   buff: " <icon> <white><seconds>s"
   # Under the crosshair (subtitle) for the shooter.
-  marker: "<font:dbsdw:hud><white></white></font> <white><bold>RAAK!"
-  marker-shield: "<font:dbsdw:hud><white></white></font> <aqua><bold>SCHILD KAPOT!"
-  eliminated: "<font:dbsdw:hud><white></white></font> <#FFB52E><bold>UITGESCHAKELD</bold></#FFB52E> <white><victim>"
+  marker: "<font:dbsdw:hud><white>\uE006</white></font> <white><bold>RAAK!"
+  marker-shield: "<font:dbsdw:hud><white>\uE001</white></font> <aqua><bold>SCHILD KAPOT!"
+  eliminated: "<font:dbsdw:hud><white>\uE006</white></font> <#FFB52E><bold>UITGESCHAKELD</bold></#FFB52E> <white><victim>"
+  streak: "<font:dbsdw:hud><white>\uE006</white></font> <#FFB52E><bold>OP DREEF!</bold></#FFB52E> <white><count></white> <gray>op rij"
 
 out:
   title: "<red><bold>GERAAKT!"
@@ -60,11 +61,11 @@ powerup:
   # Under the crosshair when picked up.
   picked: "<icon> <#FFB52E><bold><powerup>!"
   icon:
-    rapid_fire: "<font:dbsdw:hud><white></white></font>"
-    triple_shot: "<font:dbsdw:hud><white></white></font>"
-    speed: "<font:dbsdw:hud><white></white></font>"
-    shield: "<font:dbsdw:hud><white></white></font>"
-    repair: "<font:dbsdw:hud><white></white></font>"
+    rapid_fire: "<font:dbsdw:hud><white>\uE002</white></font>"
+    triple_shot: "<font:dbsdw:hud><white>\uE003</white></font>"
+    speed: "<font:dbsdw:hud><white>\uE004</white></font>"
+    shield: "<font:dbsdw:hud><white>\uE001</white></font>"
+    repair: "<font:dbsdw:hud><white>\uE005</white></font>"
   rapid_fire: "Snelvuur"
   triple_shot: "Driedubbel schot"
   speed: "Sprint"

@@ -718,18 +718,15 @@ public final class PaintballMatch implements MatchHandler {
 
     private void finish(MatchOutcome outcome) {
         if (!over) {
-            List<Player> players = online();
             ctx.finish(outcome);
-            // each player's own line, after the shared result lines
-            Bukkit.getScheduler().runTaskLater(game.plugin(), () -> players.forEach(p -> {
-                if (p.isOnline()) {
-                    p.sendMessage(personalLine(p.getUniqueId()));
-                }
-            }), 1);
         }
     }
 
-    private Component personalLine(UUID id) {
+    @Override
+    public Component personalLine(UUID id) {
+        if (!teams.containsKey(id)) {
+            return null;
+        }
         int shots = matchShots.getOrDefault(id, 0);
         int hits = matchHits.getOrDefault(id, 0);
         int accuracy = shots == 0 ? 0 : Math.round(100f * hits / shots);
@@ -740,7 +737,8 @@ public final class PaintballMatch implements MatchHandler {
                 Placeholder.unparsed("streak", Integer.toString(streaks.best(id))));
     }
 
-    private List<Component> resultLines() {
+    @Override
+    public List<Component> resultLines() {
         List<Component> lines = new ArrayList<>();
         lines.add(messages.get(mode == Mode.CTF ? "result.score-ctf" : "result.score",
                 Placeholder.component("red_team", ctx.teamName(0)),

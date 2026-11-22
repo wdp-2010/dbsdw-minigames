@@ -1,5 +1,8 @@
 package be.dbsdw.minigames.core.api;
 
+import java.util.List;
+import java.util.UUID;
+import net.kyori.adventure.text.Component;
 import org.bukkit.entity.Player;
 
 /** A game's logic for one match. The core calls these on the main thread. */
@@ -18,4 +21,14 @@ public interface MatchHandler {
      * shutdown). Remove everything the game spawned.
      */
     void end();
+
+    /** Shared result lines when the core ends the match itself (last team standing). */
+    default List<Component> resultLines() {
+        return List.of();
+    }
+
+    /** One line for this player after the result lines (their own numbers), or null. */
+    default Component personalLine(UUID player) {
+        return null;
+    }
 }

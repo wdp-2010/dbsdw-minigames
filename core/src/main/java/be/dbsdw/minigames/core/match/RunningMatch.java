@@ -125,7 +125,13 @@ final class RunningMatch implements MatchContext {
             guarded(() -> handler.playerLeft(player, team.getAsInt()));
         }
         if (result instanceof MatchState.LeaveResult.LastTeamStanding(int winner)) {
-            finish(MatchOutcome.win(winner, List.of()));
+            List<Component> lines = List.of();
+            try {
+                lines = handler != null ? handler.resultLines() : List.of();
+            } catch (RuntimeException e) {
+                log.log(Level.WARNING, "[match] result lines failed", e);
+            }
+            finish(MatchOutcome.win(winner, lines));
         }
     }
 
@@ -174,6 +180,16 @@ final class RunningMatch implements MatchContext {
                         : team.isPresent() && team.getAsInt() == outcome.winner().getAsInt() ? "match.won-sub" : "match.lost-sub";
                 player.showTitle(Title.title(title, messages.get(sub)));
                 outcome.lines().forEach(player::sendMessage);
+                if (handler != null) {
+                    try {
+                        Component own = handler.personalLine(id);
+                        if (own != null) {
+                            player.sendMessage(own);
+                        }
+                    } catch (RuntimeException e) {
+                        log.log(Level.WARNING, "[match] personal line failed", e);
+                    }
+                }
                 String sound = outcome.winner().isEmpty() ? PackAssets.SOUND_DRAW
                         : team.isPresent() && team.getAsInt() == outcome.winner().getAsInt()
                         ? PackAssets.SOUND_WIN : PackAssets.SOUND_LOSE;

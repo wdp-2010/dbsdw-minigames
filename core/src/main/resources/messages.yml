@@ -26,12 +26,12 @@ leave:
   nothing: "<gray>Je zit niet in een wachtrij of spel."
 
 # Queue menus. The <font:dbsdw:menu> part draws the pack's menu background behind the chest
-# ( and  are negative spaces that line it up); keep it at the start of each title.
+# (\uF800 and \uF801 are negative spaces that line it up); keep it at the start of each title.
 menu:
   games:
-    title: "<font:dbsdw:menu><white></white></font><#D9C78F>Kies je missie"
+    title: "<font:dbsdw:menu><white>\uF800\uE100\uF801</white></font><#D9C78F>Kies je missie"
   modes:
-    title: "<font:dbsdw:menu><white></white></font><game>"
+    title: "<font:dbsdw:menu><white>\uF800\uE100\uF801</white></font><game>"
   mode:
     queued: "<gray>Wachtrij: <white><queued></white>/<white><needed></white> spelers"
     countdown: "<#FFB52E>Start over <white><seconds></white>s"
