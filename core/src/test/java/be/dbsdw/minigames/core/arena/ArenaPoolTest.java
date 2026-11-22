@@ -44,4 +44,15 @@ class ArenaPoolTest {
         assertTrue(pool.anyFits(TDM));
         assertFalse(pool.anyFits(CTF));
     }
+
+    @Test
+    void reserveByNameRefusesBusyAndUnfitting() {
+        ArenaPool pool = new ArenaPool(List.of(ArenaFixtures.tdmArena("a"), ArenaFixtures.tdmArena("b")));
+        assertEquals("b", pool.reserve("b", TDM).orElseThrow().name());
+        assertTrue(pool.isBusy("b"));
+        assertTrue(pool.reserve("b", TDM).isEmpty());
+        assertTrue(pool.reserve("a", CTF).isEmpty());
+        assertFalse(pool.isBusy("a"));
+        assertTrue(pool.reserve("nope", TDM).isEmpty());
+    }
 }

@@ -32,6 +32,16 @@ public final class ArenaPool {
         return Optional.of(picked);
     }
 
+    /** Reserves this arena if it exists, is free and fits the mode. */
+    public Optional<ArenaDefinition> reserve(String name, ModeSpec mode) {
+        ArenaDefinition arena = arenas.get(name);
+        if (arena == null || busy.contains(name) || !arena.fits(mode)) {
+            return Optional.empty();
+        }
+        busy.add(name);
+        return Optional.of(arena);
+    }
+
     public void release(String name) {
         busy.remove(name);
     }

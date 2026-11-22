@@ -1,7 +1,7 @@
 # Player messages (MiniMessage format).
 # Raise "version" when texts change: servers with an older file get it backed up and replaced.
 # Colours: khaki #D9C78F (headings), field green #9CC05A (good news), amber #FFB52E (alerts, numbers).
-version: 3
+version: 4
 
 no-ticket: "<red>Je kunt hier alleen binnenkomen via survival.<newline><gray>Typ daar <white>/minigames</white>."
 unavailable: "<red>De minigames zijn even dicht. Probeer het straks opnieuw."
@@ -21,6 +21,7 @@ item:
   games: "<#D9C78F><bold>Spellen</bold></#D9C78F> <gray>· rechtsklik"
   stats: "<#D9C78F><bold>Statistieken</bold></#D9C78F> <gray>· rechtsklik"
   survival: "<#9CC05A><bold>Terug naar survival</bold></#9CC05A> <gray>· rechtsklik"
+  room: "<#D9C78F><bold>Speel met vrienden</bold></#D9C78F> <gray>· rechtsklik"
 
 leave:
   nothing: "<gray>Je zit niet in een wachtrij of spel."
@@ -96,3 +97,71 @@ leaderboard:
   title: "<#D9C78F><bold>Top <stat></bold><newline><gray><game>"
   line: "<gray><rank>. <white><player></white> <#FFB52E><value>"
   empty: "<gray>Nog niemand"
+
+# Private rooms (/room). <player> and <host> are player names.
+room:
+  created: "<#9CC05A>Je room is klaar. <gray>Nodig vrienden uit met <white>Uitnodigen</white> of <white>/room invite <speler></white>."
+  invite-sent: "<#9CC05A>Uitnodiging gestuurd naar <white><player></white>. <dark_gray>(60 s geldig)"
+  # <join> is the clickable button below.
+  invited: "<#D9C78F><player></#D9C78F> <gray>nodigt je uit voor een room. <join> <dark_gray>(60 s)"
+  join-button: "<#9CC05A><bold>[Meedoen]</bold>"
+  join-hover: "<gray>Klik om mee te doen"
+  joined: "<#9CC05A>Je zit in de room van <white><host></white>."
+  member-joined: "<#9CC05A>»</#9CC05A> <white><player></white> <gray>doet mee."
+  left: "<gray>Je hebt de room verlaten."
+  member-left: "<gray>» <white><player></white> heeft de room verlaten."
+  kicked: "<red>Je bent uit de room gezet."
+  new-host: "<#FFB52E>»</#FFB52E> <white><player></white> <gray>is nu de host."
+  back: "<#9CC05A>Terug in de room van <white><host></white>. <gray>De host kan opnieuw starten."
+  start-failed: "<red>Het spel kon niet starten. Probeer opnieuw."
+  wait-match: "<gray>Je room is aan het spelen. Je doet mee bij het volgende spel."
+  in-room: "<gray>Je zit in een room. Verlaat hem eerst met <white>/room leave</white>."
+  cancelled: "<red>Het aftellen is gestopt."
+  usage: "<gray>Gebruik: <white>/room [invite|join|leave|kick|start] [speler]"
+  no-player: "<red>Speler <white><player></white> is niet online."
+  error:
+    no-room: "<red>Je zit niet in een room."
+    not-host: "<red>Alleen de host kan dat."
+    in-room: "<red>Al in een room."
+    no-invite: "<red>Je hebt geen geldige uitnodiging voor die room."
+    not-member: "<red>Die speler zit niet in je room."
+    full: "<red>De room is vol voor deze modus."
+    team-full: "<red>Dat team is vol."
+    too-few: "<red>Je hebt minstens 2 spelers nodig."
+    empty-team: "<red>Elk team heeft minstens 1 speler nodig."
+    busy: "<red>Die map is bezet. Kies een andere of probeer zo opnieuw."
+    no-arena: "<red>Alle maps zijn bezet. Probeer zo opnieuw."
+    playing: "<red>Je room is aan het spelen."
+    counting: "<red>Het spel start al."
+    not-allowed: "<red>Dat kan niet met deze teamregel."
+  menu:
+    title: "<#D9C78F>Room van <host>"
+    mode-selected: "<#9CC05A>✔ Gekozen"
+    mode-click: "<gray>Klik om te kiezen"
+    map: "<#D9C78F>Map: <white><map>"
+    map-random: "willekeurig"
+    rule: "<#D9C78F>Teams: <white><rule>"
+    rule-pick: "Spelers kiezen"
+    rule-host: "Host verdeelt"
+    rule-random: "Willekeurig"
+    host-click: "<gray>Klik om te wisselen (host)"
+    team-count: "<gray><count>/<max> spelers"
+    team-click: "<#9CC05A>Klik om in dit team te gaan"
+    team-host: "<gray>De host verdeelt de teams"
+    team-random: "<gray>Teams worden willekeurig gemaakt"
+    none: "<gray>Geen team"
+    none-click: "<gray>Klik om geen team te kiezen"
+    none-lore: "<gray>Wie geen team heeft, vult het kleinste team aan"
+    member-host: "<#FFB52E>Host"
+    member-move: "<gray>Klik om naar een ander team te zetten"
+    invite: "<#9CC05A>Uitnodigen"
+    invite-lore: "<gray>Kies een speler die online is"
+    leave: "<red>Room verlaten"
+    start: "<#9CC05A><bold>▶ START"
+    cancel: "<red><bold>✖ Annuleren"
+    start-host-only: "<gray>Alleen de host kan starten"
+    starting: "<#FFB52E>Start over <white><seconds></white>s"
+    playing: "<#FFB52E>Jullie spel is bezig"
+    invite-title: "<#D9C78F>Wie nodig je uit?"
+    invite-empty: "<gray>Niemand om uit te nodigen"
+    back: "<gray>« Terug"

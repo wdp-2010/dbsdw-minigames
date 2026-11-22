@@ -16,6 +16,9 @@ import be.dbsdw.minigames.core.menu.MenuModel;
 import be.dbsdw.minigames.core.menu.ModesMenu;
 import be.dbsdw.minigames.core.queue.QueueBook;
 import be.dbsdw.minigames.core.queue.QueueEvent;
+import be.dbsdw.minigames.core.room.RoomBook;
+import be.dbsdw.minigames.core.room.RoomHooks;
+import be.dbsdw.minigames.core.room.RoomService;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -33,17 +36,19 @@ import net.kyori.adventure.text.minimessage.MiniMessage;
 import net.kyori.adventure.text.minimessage.tag.resolver.Placeholder;
 import net.kyori.adventure.title.Title;
 import org.bukkit.Bukkit;
+import org.bukkit.Material;
 import org.bukkit.World;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.server.PluginDisableEvent;
 import org.bukkit.event.server.ServerLoadEvent;
+import org.bukkit.inventory.ItemStack;
 import org.bukkit.plugin.Plugin;
 import be.dbsdw.minigames.core.stats.StatsStore;
 
 /** Turns queues into matches and matches back into lobby players. Ticked every server tick. */
-public final class MatchManager implements MenuModel, Listener {
+public final class MatchManager implements MenuModel, RoomHooks, Listener {
     /** The countdown ticks audibly for the last seconds only. */
     private static final int COUNTDOWN_SOUND_FROM = 5;
     private static final Title.Times COUNTDOWN_TIMES =
@@ -63,6 +68,9 @@ public final class MatchManager implements MenuModel, Listener {
     private final Map<String, RunningMatch> matchesByArena = new LinkedHashMap<>();
     private final Map<UUID, RunningMatch> matchByPlayer = new HashMap<>();
     private final StatsStore stats;
+    private final RoomService rooms;
+    /** Room id of each running room match. */
+    private final Map<RunningMatch, Integer> roomOfMatch = new HashMap<>();
     /** Countdown second last shown in each queued player's action bar. */
     private final Map<UUID, Integer> barSeconds = new HashMap<>();
     private long tickCount;
@@ -80,6 +88,7 @@ public final class MatchManager implements MenuModel, Listener {
         this.rnd = rnd;
         this.stats = stats;
         this.menus = new MenuListener(plugin, this, messages);
+        this.rooms = new RoomService(plugin, new RoomBook(pool, rnd), pool, messages, this);
         registry.onRegister(game -> game.modes().forEach(queues::addMode));
     }
 
@@ -87,10 +96,15 @@ public final class MatchManager implements MenuModel, Listener {
         return menus;
     }
 
+    public RoomService rooms() {
+        return rooms;
+    }
+
     public void tick() {
         for (QueueEvent event : queues.tick()) {
             handle(event);
         }
+        rooms.tick();
         for (RunningMatch match : List.copyOf(matchesByArena.values())) {
             if (match.tick()) {
                 close(match, true);
@@ -181,16 +195,63 @@ public final class MatchManager implements MenuModel, Listener {
             plugin.getLogger().info("[queue] " + mode.key() + " start fell through: " + online.size() + " player(s) online");
             return;
         }
+        open(game.get(), mode, arena, world, TeamSplit.split(online, mode.teams(), rnd), null);
+    }
+
+    /** Starts a match with ready-made teams on the reserved arena. */
+    private void open(GameType game, ModeSpec mode, ArenaDefinition arena, World world, List<List<UUID>> teams,
+                      Integer roomId) {
         ArenaChunks.hold(plugin, world, arena);
         heldChunks.put(arena.name(), arena);
-        RunningMatch match = new RunningMatch(game.get(), mode, new BukkitArenaView(arena, world),
-                TeamSplit.split(online, mode.teams(), rnd), resultsTicks, messages, plugin.getLogger(), stats);
+        RunningMatch match = new RunningMatch(game, mode, new BukkitArenaView(arena, world),
+                teams, resultsTicks, messages, plugin.getLogger(), stats);
         matchesByArena.put(arena.name(), match);
-        online.forEach(id -> matchByPlayer.put(id, match));
+        if (roomId != null) {
+            roomOfMatch.put(match, roomId);
+        }
+        teams.forEach(team -> team.forEach(id -> matchByPlayer.put(id, match)));
         match.start();
         if (match.failed()) {
             close(match, true);
         }
+    }
+
+    // RoomHooks
+
+    @Override
+    public boolean launch(int roomId, ModeSpec mode, ArenaDefinition arena, List<List<UUID>> teams) {
+        List<List<UUID>> online = teams.stream().map(team -> team.stream()
+                .filter(id -> Bukkit.getPlayer(id) != null && !matchByPlayer.containsKey(id)).toList()).toList();
+        Optional<GameType> game = registry.game(mode.gameId());
+        World world = Bukkit.getWorld(arena.world());
+        if (online.stream().anyMatch(List::isEmpty) || game.isEmpty() || world == null) {
+            if (world == null) {
+                plugin.getLogger().severe("[match] arena " + arena.name() + ": world " + arena.world() + " is not loaded");
+            }
+            pool.release(arena.name());
+            plugin.getLogger().info("[room] room " + roomId + " start of " + mode.key() + " fell through");
+            return false;
+        }
+        online.forEach(team -> team.forEach(queues::remove));
+        open(game.get(), mode, arena, world, online, roomId);
+        return true;
+    }
+
+    @Override
+    public void leaveQueue(UUID player) {
+        if (queues.remove(player)) {
+            plugin.getLogger().info("[queue] " + player + " left the queue (room)");
+        }
+    }
+
+    @Override
+    public List<ModeSpec> modes() {
+        return registry.games().stream().flatMap(g -> g.modes().stream()).toList();
+    }
+
+    @Override
+    public ItemStack modeIcon(ModeSpec mode) {
+        return registry.game(mode.gameId()).map(g -> g.modeIcon(mode)).orElseGet(() -> ItemStack.of(Material.PAPER));
     }
 
     /** Ends a match's bookkeeping: players back to the lobby (unless shutting down), arena free. */
@@ -203,12 +264,16 @@ public final class MatchManager implements MenuModel, Listener {
         matchesByArena.remove(arena);
         matchByPlayer.values().removeIf(m -> m == match);
         pool.release(arena);
+        Integer roomId = roomOfMatch.remove(match);
         if (toLobby) {
             for (Player player : players(match.players())) {
                 lobby.send(player);
                 if (match.failed()) {
                     player.sendMessage(messages.get("match.error"));
                 }
+            }
+            if (roomId != null) {
+                rooms.matchEnded(roomId);
             }
         }
     }
@@ -239,10 +304,15 @@ public final class MatchManager implements MenuModel, Listener {
             plugin.getLogger().info("[queue] " + player.getName() + " left the queue");
             return;
         }
+        if (rooms.inRoom(player.getUniqueId())) {
+            rooms.leave(player);
+            return;
+        }
         player.sendMessage(messages.get("leave.nothing"));
     }
 
     public void quit(Player player) {
+        rooms.quit(player);
         if (queues.remove(player.getUniqueId())) {
             plugin.getLogger().info("[queue] " + player.getName() + " left the queue (quit)");
         }
@@ -338,6 +408,10 @@ public final class MatchManager implements MenuModel, Listener {
         }
         Optional<ModeSpec> mode = registry.mode(modeKey);
         if (mode.isEmpty()) {
+            return;
+        }
+        if (rooms.inRoom(player.getUniqueId())) {
+            player.sendMessage(messages.get("room.in-room"));
             return;
         }
         Component name = MiniMessage.miniMessage().deserialize(mode.get().displayName());

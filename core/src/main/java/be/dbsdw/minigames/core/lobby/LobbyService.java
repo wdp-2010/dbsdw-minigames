@@ -24,6 +24,8 @@ public final class LobbyService {
     public enum LobbyItem {
         GAMES(0, Material.COMPASS, "item.games", PackAssets.LOBBY_GAMES),
         STATS(4, Material.BOOK, "item.stats", PackAssets.LOBBY_STATS),
+        /** Private rooms; no pack model yet, the plain item shows. */
+        ROOM(6, Material.CAKE, "item.room", null),
         SURVIVAL(8, Material.RED_BED, "item.survival", PackAssets.LOBBY_SURVIVAL);
 
         final int slot;
@@ -120,7 +122,7 @@ public final class LobbyService {
     }
 
     private ItemStack create(LobbyItem item) {
-        ItemStack stack = PackItems.item(item.material, item.model, null);
+        ItemStack stack = item.model == null ? ItemStack.of(item.material) : PackItems.item(item.material, item.model, null);
         ItemMeta meta = stack.getItemMeta();
         meta.itemName(messages.get(item.messageKey));
         meta.getPersistentDataContainer().set(ITEM_KEY, PersistentDataType.STRING, item.name());
