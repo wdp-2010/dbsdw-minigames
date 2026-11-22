@@ -31,6 +31,8 @@ final class Hud {
     private static final String[] LINES = {"score0", "score1", "blank", "time"};
     private static final Title.Times SPLASH_TIMES =
             Title.Times.times(Duration.ZERO, Duration.ofMillis(300), Duration.ofMillis(400));
+    private static final Title.Times MARKER_TIMES =
+            Title.Times.times(Duration.ZERO, Duration.ofMillis(700), Duration.ofMillis(250));
 
     private final MatchContext ctx;
     private final Messages messages;
@@ -95,9 +97,8 @@ final class Hud {
     }
 
     /** Hits left as paint drops in the team colour, then grey drops; then shield, power-ups, protection. */
-    void actionBar(Player player, int team, int hitsLeft, boolean protectedNow, boolean shield, Component buffs,
-                   Component prefix) {
-        Component bar = prefix
+    void actionBar(Player player, int team, int hitsLeft, boolean protectedNow, boolean shield, Component buffs) {
+        Component bar = Component.empty()
                 .append(drops(hitsLeft, PackAssets.teamColour(team)))
                 .append(drops(settings.hitsToOut() - hitsLeft, NamedTextColor.DARK_GRAY));
         if (shield) {
@@ -119,6 +120,11 @@ final class Hud {
         victim.showTitle(Title.title(
                 Component.text(PackAssets.OVERLAY, PackAssets.teamColour(shooterTeam)).font(PackAssets.OVERLAY_FONT),
                 Component.empty(), SPLASH_TIMES));
+    }
+
+    /** Hit marker, power-up and similar feedback: a quick subtitle, just under the crosshair. */
+    void marker(Player player, Component text) {
+        player.showTitle(Title.title(Component.empty(), text, MARKER_TIMES));
     }
 
     void outTitle(Player player, long secondsLeft) {

@@ -68,6 +68,9 @@ def _face_image(box: Box, d: str, w: int, h: int) -> Image.Image:
 
 def build(boxes: list[Box], texture_id: str, size: int = 128) -> tuple[dict, Image.Image]:
     """Pack all faces into one size x size texture; return (model elements json, texture)."""
+    for b in boxes:
+        if any(b.to[i] < b.frm[i] for i in range(3)):
+            raise ValueError(f"{texture_id}: box {b.frm} -> {b.to} is inside out")
     faces = []
     for b in boxes:
         for d in b.faces:

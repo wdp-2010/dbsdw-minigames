@@ -93,6 +93,26 @@ public final class MatchManager implements MenuModel, Listener {
         }
         if (++tickCount % 20 == 0) {
             menus.refreshOpen();
+            queueBars();
+        }
+    }
+
+    /** Players waiting in a queue see its state in the action bar, once a second. */
+    private void queueBars() {
+        for (Player player : Bukkit.getOnlinePlayers()) {
+            if (matchByPlayer.containsKey(player.getUniqueId())) {
+                continue;
+            }
+            queues.queueOf(player.getUniqueId()).flatMap(registry::mode).ifPresent(mode -> {
+                OptionalInt left = queues.secondsLeft(mode.key());
+                Component modeName = MiniMessage.miniMessage().deserialize(mode.displayName());
+                player.sendActionBar(left.isPresent()
+                        ? messages.get("queue.bar-countdown", Placeholder.component("mode", modeName),
+                                Placeholder.unparsed("seconds", String.valueOf(left.getAsInt())))
+                        : messages.get("queue.bar", Placeholder.component("mode", modeName),
+                                Placeholder.unparsed("queued", String.valueOf(queues.size(mode.key()))),
+                                Placeholder.unparsed("needed", String.valueOf(mode.startMinimum()))));
+            });
         }
     }
 

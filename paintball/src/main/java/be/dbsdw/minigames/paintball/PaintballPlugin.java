@@ -31,8 +31,8 @@ public final class PaintballPlugin extends JavaPlugin {
         if (registry == null) {
             throw new IllegalStateException("MinigameCore's GameRegistry is not available");
         }
-        PaintballGame game = new PaintballGame(this, settings, Messages.load(this),
-                c.getString("tdm.display-name", "Team Deathmatch"), c.getString("ctf.display-name", "Capture the Flag"));
+        Messages messages = Messages.load(this);
+        PaintballGame game = new PaintballGame(this, settings, messages, messages.raw("mode.tdm"), messages.raw("mode.ctf"));
         registry.register(this, game);
         getServer().getPluginManager().registerEvents(new PaintballListener(game), this);
         getLogger().info("[paintball] enabled: tdm " + describe(settings.tdm()) + "; ctf " + describe(settings.ctf())
@@ -61,7 +61,8 @@ public final class PaintballPlugin extends JavaPlugin {
                 seconds(c, "ctf.flag-return-seconds"),
                 new PowerupSettings(enabled, seconds(c, "powerups.respawn-seconds"),
                         seconds(c, "powerups.rapid-fire-seconds"), seconds(c, "powerups.triple-shot-seconds"),
-                        seconds(c, "powerups.speed-seconds"), c.getDouble("powerups.triple-shot-fan-degrees")),
+                        seconds(c, "powerups.speed-seconds"), c.getDouble("powerups.triple-shot-fan-degrees"),
+                        c.getInt("powerups.max-active"), c.getDouble("powerups.catch-up")),
                 seconds(c, "splats.lifetime-seconds"),
                 c.getInt("splats.max-per-arena"));
     }

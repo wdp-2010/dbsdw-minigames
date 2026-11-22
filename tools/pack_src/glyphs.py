@@ -13,7 +13,8 @@ import random
 import sys
 from pathlib import Path
 
-from palette import BLUE, CYAN, GOLD, GREEN, MAGENTA, ORANGE, OUTLINE, RED, WHITE, YELLOW
+from palette import (BLUE, BROWN, CYAN, GOLD, GREEN, KHAKI_DARK, MAGENTA, OLIVE, OLIVE_DARK, OLIVE_LIGHT, ORANGE,
+                     OUTLINE, RED, SAND, WHITE, YELLOW)
 from pixel import Canvas, blob, darken, ellipse, erode, intersect, lighten, mask, polygon, rect, shift, subtract, union
 
 # --------------------------------------------------------------- HUD icons (9 x 9)
@@ -167,19 +168,25 @@ SLOT_ROWS = (17, 35, 53, 84, 102, 120, 142)
 
 
 def menu_background() -> Canvas:
-    """The whole 3-row chest screen: a navy top with paint splashes for the menu, a light lower
-    part where the client's dark "Inventory" label stays readable. Slot interiors are transparent,
+    """The whole 3-row chest screen: an olive camo top with paint splashes for the menu, a sand
+    lower part where the client's dark "Inventory" label stays readable. Slot interiors are transparent,
     so the vanilla slots and the items in them show through whatever order the client draws in."""
     w, h = 176, 168
     c = Canvas(w, h)
-    navy, light = (34, 38, 70), (206, 211, 228)
+    navy, light = OLIVE, SAND
     panel = rect(mask((w, h)), (0, 0, w - 1, h - 1), radius=4)
     top = intersect(panel, rect(mask((w, h)), (0, 0, w - 1, 71)))
     c.fill(panel, light)
     c.fill(top, navy)
+    camo_rng = random.Random(21)
+    for i in range(16):
+        colour = (OLIVE_DARK, BROWN, OLIVE_LIGHT)[i % 3]
+        x, y = camo_rng.uniform(0, w), camo_rng.uniform(16, 72)
+        b = intersect(blob(camo_rng, w, x, y, camo_rng.uniform(8, 14), bumps=5, wobble=0.6).crop((0, 0, w, h)), top)
+        c.fill(b, darken(colour, 0.15))
     c.fill(rect(mask((w, h)), (1, 72, w - 2, 72)), darken(light, 0.25))
     header = rect(mask((w, h)), (3, 3, w - 4, 14), radius=2)
-    c.fill(header, (48, 54, 98))
+    c.fill(header, OLIVE_DARK)
     rng = random.Random(5)
     for colour, x in ((RED, 128), (BLUE, 146), (YELLOW, 162)):
         b = intersect(blob(rng, w, x, 6, 6.5, bumps=5, wobble=0.5).crop((0, 0, w, h)), panel)
@@ -193,7 +200,7 @@ def menu_background() -> Canvas:
         c.fill(intersect(ellipse(mask((w, h)), (x - r, y - r, x + r, y + r)), panel), colour)
     for y in SLOT_ROWS:
         dark = y < 72
-        frame_c = (22, 24, 46) if dark else darken(light, 0.45)
+        frame_c = darken(OLIVE_DARK, 0.45) if dark else darken(light, 0.45)
         rim_c = lighten(navy, 0.25) if dark else WHITE
         for col in range(9):
             x = 7 + 18 * col

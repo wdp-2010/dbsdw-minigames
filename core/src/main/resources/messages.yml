@@ -1,9 +1,13 @@
 # Player messages (MiniMessage format).
-no-ticket: "<red>Je kunt hier alleen binnenkomen via de survivalserver.<newline><gray>Ga naar survival en typ <white>/minigames</white>."
-unavailable: "<red>De minigames zijn nu niet beschikbaar. Probeer het later opnieuw."
-survival-unavailable: "<red>Survival is nu niet bereikbaar. Probeer het later opnieuw."
-to-survival: "<green>Je gaat terug naar survival..."
-shutdown: "<yellow>De minigameserver start opnieuw op."
+# Raise "version" when texts change: servers with an older file get it backed up and replaced.
+# Colours: khaki #D9C78F (headings), field green #9CC05A (good news), amber #FFB52E (alerts, numbers).
+version: 2
+
+no-ticket: "<red>Je kunt hier alleen binnenkomen via survival.<newline><gray>Typ daar <white>/minigames</white>."
+unavailable: "<red>De minigames zijn even dicht. Probeer het straks opnieuw."
+survival-unavailable: "<red>Survival is even niet bereikbaar. Probeer het straks opnieuw."
+to-survival: "<#9CC05A>Terug naar survival..."
+shutdown: "<#FFB52E>De minigameserver herstart. Tot zo!"
 
 # Teams (by index)
 team:
@@ -14,63 +18,69 @@ team:
 
 # Lobby items
 item:
-  games: "<gold><bold>Spellen</bold></gold> <gray>(rechtsklik)"
-  stats: "<aqua><bold>Statistieken</bold></aqua> <gray>(rechtsklik)"
-  survival: "<green><bold>Terug naar survival</bold></green> <gray>(rechtsklik)"
+  games: "<#D9C78F><bold>Spellen</bold></#D9C78F> <gray>· rechtsklik"
+  stats: "<#D9C78F><bold>Statistieken</bold></#D9C78F> <gray>· rechtsklik"
+  survival: "<#9CC05A><bold>Terug naar survival</bold></#9CC05A> <gray>· rechtsklik"
 
 leave:
-  nothing: "<gray>Je staat niet in een wachtrij of spel."
+  nothing: "<gray>Je zit niet in een wachtrij of spel."
 
 # Queue menus. The <font:dbsdw:menu> part draws the pack's menu background behind the chest
-# (\uF800 and \uF801 are negative spaces that line it up); keep it at the start of each title.
+# ( and  are negative spaces that line it up); keep it at the start of each title.
 menu:
   games:
-    title: "<font:dbsdw:menu><white>\uF800\uE100\uF801</white></font><white>Kies een spel"
+    title: "<font:dbsdw:menu><white></white></font><#D9C78F>Kies je missie"
   modes:
-    title: "<font:dbsdw:menu><white>\uF800\uE100\uF801</white></font><game>"
+    title: "<font:dbsdw:menu><white></white></font><game>"
   mode:
-    queued: "<gray><white><queued></white>/<white><needed></white> spelers in de wachtrij"
-    countdown: "<yellow>Start over <white><seconds></white> s"
-    no-arena: "<red>Geen arena beschikbaar"
-    click-join: "<green>Klik om mee te doen"
-    click-leave: "<red>Klik om de wachtrij te verlaten"
+    queued: "<gray>Wachtrij: <white><queued></white>/<white><needed></white> spelers"
+    countdown: "<#FFB52E>Start over <white><seconds></white>s"
+    no-arena: "<red>Geen veld vrij"
+    click-join: "<#9CC05A>▶ Klik om mee te doen"
+    click-leave: "<red>✖ Klik om de wachtrij te verlaten"
 
 queue:
-  joined: "<green>Je staat in de wachtrij voor <white><mode></white>."
-  left: "<gray>Je hebt de wachtrij verlaten."
-  moved: "<green>Je staat nu in de wachtrij voor <white><mode></white>."
-  cancelled: "<red>Te weinig spelers: het aftellen is gestopt."
-  waiting: "<yellow>Genoeg spelers! Wachten op een vrije arena..."
-  closed: "<red>Dit spel is nu niet beschikbaar; je bent uit de wachtrij gehaald."
+  joined: "<#9CC05A>Je staat in de wachtrij voor <white><mode></white>."
+  left: "<gray>Je bent uit de wachtrij."
+  moved: "<#9CC05A>Je wacht nu op <white><mode></white>."
+  cancelled: "<red>Te weinig spelers: het aftellen stopt."
+  waiting: "<#FFB52E>Genoeg spelers! Wachten op een vrij veld..."
+  closed: "<red>Dit spel is even dicht; je bent uit de wachtrij gehaald."
+  # Action bar in the lobby while waiting in a queue.
+  bar: "<gray>Wachtrij <white><mode></white> <dark_gray>·</dark_gray> <white><queued></white><gray>/<white><needed></white> <gray>spelers"
+  bar-countdown: "<white><mode></white> <dark_gray>·</dark_gray> <#FFB52E>start over <white><seconds></white>s"
   countdown:
-    title: "<yellow><seconds>"
-    subtitle: "<gray>Het spel begint bijna"
+    title: "<#FFB52E><bold><seconds>"
+    subtitle: "<gray>Maak je klaar..."
 
 match:
-  start: "<green><bold>Start!"
-  start-team: "<gray>Jij zit in team <team>"
-  win: "<team> <gold>wint!"
-  draw: "<yellow>Gelijkspel!"
+  start: "<#9CC05A><bold>GO GO GO!"
+  start-team: "<gray>Jij vecht voor team <team>"
+  win: "<team> <#FFB52E><bold>wint!"
+  draw: "<#FFB52E><bold>Gelijkspel!"
+  won-sub: "<#9CC05A>Missie geslaagd. Goed geschoten!"
+  lost-sub: "<gray>Missie mislukt... volgende keer beter."
+  draw-sub: "<gray>Niemand wint deze keer."
   error: "<red>Er ging iets mis met dit spel. Je bent terug in de lobby."
 
 # Resource pack
 pack:
-  prompt: "<gold>Deze server gebruikt een eigen resourcepack voor de minigames."
-  declined: "<red>Je hebt de resourcepack nodig om de minigames te spelen.<newline><gray>Zet <white>Server Resource Packs</white> aan bij de serverinstellingen en probeer opnieuw via <white>/minigames</white>."
+  prompt: "<#D9C78F>De minigames gebruiken een eigen resourcepack (geweer, geluiden, HUD)."
+  declined: "<red>Zonder de resourcepack kun je niet meedoen.<newline><gray>Zet <white>Server Resource Packs</white> aan bij de serverinstellingen en probeer opnieuw via <white>/minigames</white>."
   failed: "<red>De resourcepack kon niet geladen worden.<newline><gray>Probeer opnieuw via <white>/minigames</white> op survival."
 
 # Stats
 stats:
-  unavailable: "<red>Statistieken zijn nu niet beschikbaar."
-  usage: "<gray>Gebruik: /stats <speler>"
+  unavailable: "<red>Statistieken zijn even niet beschikbaar."
+  usage: "<gray>Gebruik: <white>/stats <speler>"
   none: "<gray><player> heeft nog geen statistieken."
-  header: "<gold><bold>Statistieken van <player>"
-  game: "<aqua><game>"
+  header: "<#D9C78F><bold>Statistieken van <player>"
+  game: "<#9CC05A><game>"
   line: "<gray>  <stat>: <white><value>"
-  top-usage: "<gray>Gebruik: /top <statistiek> [spel]"
+  top-usage: "<gray>Gebruik: <white>/top <statistiek> [spel]"
   unknown-stat: "<red>Onbekende statistiek: <stat>"
-  top-header: "<gold><bold>Top 10 <stat></bold> <gray>(<game><gray>)"
-  top-line: "<gray><rank>. <white><player></white> - <yellow><value>"
+  top-header: "<#D9C78F><bold>Top 10 · <stat></bold> <gray>(<game><gray>)"
+  top-line: "<gray> <rank>. <white><player></white> <dark_gray>·</dark_gray> <#FFB52E><value>"
   top-empty: "<gray>Nog niemand."
   name:
     matches: "Gespeeld"
@@ -80,6 +90,6 @@ stats:
 
 leaderboard:
   loading: "<gray>Ranglijst laden..."
-  title: "<gold><bold>Top <stat></bold><newline><gray><game>"
-  line: "<gray><rank>. <white><player></white> <yellow><value>"
+  title: "<#D9C78F><bold>Top <stat></bold><newline><gray><game>"
+  line: "<gray><rank>. <white><player></white> <#FFB52E><value>"
   empty: "<gray>Nog niemand"

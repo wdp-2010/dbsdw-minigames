@@ -21,6 +21,7 @@ public final class PackAssets {
     public static final String SOUND_SPLAT = "dbsdw:paintball.splat";
     public static final String SOUND_HIT = "dbsdw:paintball.hit";
     public static final String SOUND_HITMARKER = "dbsdw:paintball.hitmarker";
+    public static final String SOUND_DRY_FIRE = "dbsdw:paintball.dry";
     public static final String SOUND_ELIMINATE = "dbsdw:paintball.eliminate";
     public static final String SOUND_OUT = "dbsdw:paintball.out";
     public static final String SOUND_RESPAWN = "dbsdw:paintball.respawn";

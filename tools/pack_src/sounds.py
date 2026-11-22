@@ -113,7 +113,16 @@ def shot(seed: int) -> Signal:
     thump = tone((190 * pitch, 55), 0.09, attack=0.002, decay=0.07, harmonics=(1.0, 0.3))
     hiss = noise(rng, 0.16, lowpass=0.35, highpass=0.2, attack=0.01, decay=0.12, curve=4)
     click = tone(2600 * pitch, 0.012, attack=0.0005, decay=0.01)
-    return mix((0, gain(pop, 0.9)), (0, gain(thump, 0.8)), (0.004, gain(hiss, 0.25)), (0, gain(click, 0.3)))
+    # a low sub-thump under the pop gives the marker some punch
+    sub = tone((92 * pitch, 36), 0.12, attack=0.001, decay=0.1, harmonics=(1.0, 0.2))
+    return mix((0, gain(pop, 1.0)), (0, gain(thump, 0.95)), (0, gain(sub, 0.7)), (0.004, gain(hiss, 0.22)),
+               (0, gain(click, 0.35)))
+
+
+def dry_fire() -> Signal:
+    """Trigger pulled while out: two dry metal clicks, no air."""
+    c = lambda f: tone(f, 0.018, attack=0.0005, decay=0.014, harmonics=(1.0, 0.0, 0.35))
+    return mix((0, gain(c(1900), 0.5)), (0.045, gain(c(1500), 0.4)))
 
 
 def splat(seed: int, size: float = 1.0) -> Signal:
@@ -233,6 +242,7 @@ EVENTS: dict[str, list[tuple[str, callable]]] = {
     "paintball.splat": [("paintball/splat1", lambda: splat(11)), ("paintball/splat2", lambda: splat(12))],
     "paintball.hit": [("paintball/hit1", lambda: hit(21)), ("paintball/hit2", lambda: hit(22))],
     "paintball.hitmarker": [("paintball/hitmarker", hitmarker)],
+    "paintball.dry": [("paintball/dry", dry_fire)],
     "paintball.eliminate": [("paintball/eliminate", eliminate)],
     "paintball.out": [("paintball/out", out_sound)],
     "paintball.respawn": [("paintball/respawn", respawn)],

@@ -14,7 +14,11 @@ import be.dbsdw.minigames.paintball.rules.Combat;
 import be.dbsdw.minigames.paintball.rules.FireGate;
 import be.dbsdw.minigames.paintball.rules.Flags;
 import be.dbsdw.minigames.paintball.rules.ModeRules;
+import be.dbsdw.minigames.paintball.rules.PowerupDirector;
+import be.dbsdw.minigames.paintball.rules.SpawnPicker;
+import be.dbsdw.minigames.paintball.rules.Streaks;
 import be.dbsdw.minigames.paintball.rules.PowerupSettings;
+import be.dbsdw.minigames.paintball.rules.WalkableArea;
 import be.dbsdw.minigames.paintball.rules.PowerupSpawns;
 import be.dbsdw.minigames.paintball.rules.PowerupType;
 import be.dbsdw.minigames.paintball.rules.Settings;
@@ -25,6 +29,7 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Optional;
 import java.util.Map;
 import java.util.OptionalInt;
 import java.util.UUID;
@@ -57,7 +62,6 @@ public final class PaintballMatch implements MatchHandler {
     public enum Mode { TDM, CTF }
 
     private static final NamespacedKey FROZEN = new NamespacedKey("paintball", "frozen");
-    private static final long MARKER_TICKS = 20;
     private static final double TOUCH_RADIUS = 1.5;
     private static final double POWERUP_RADIUS = 1.3;
 
@@ -76,8 +80,6 @@ public final class PaintballMatch implements MatchHandler {
     private final Map<UUID, String> names = new HashMap<>();
     private final Map<UUID, FireGate> gates = new HashMap<>();
     private final Map<UUID, Shot> balls = new HashMap<>();
-    private final Map<UUID, Long> markerUntil = new HashMap<>();
-    private final Map<UUID, Component> marker = new HashMap<>();
     private final Buffs buffs = new Buffs();
     private final Splats splats;
     private Combat combat;
@@ -86,6 +88,11 @@ public final class PaintballMatch implements MatchHandler {
     private Location[] flagHomes;
     private PowerupSpawns powerupSpawns;
     private PowerupView powerups;
+    private PowerupDirector powerupDirector;
+    private final Streaks streaks = new Streaks();
+    private final Map<UUID, Integer> matchShots = new HashMap<>();
+    private final Map<UUID, Integer> matchHits = new HashMap<>();
+    private final Map<UUID, Long> lastDry = new HashMap<>();
     private boolean over;
 
     public PaintballMatch(MatchContext ctx, PaintballGame game, Mode mode) {
@@ -125,10 +132,12 @@ public final class PaintballMatch implements MatchHandler {
             flagView.sync(flags);
         }
         PowerupSettings ps = settings.powerups();
-        List<Location> points = ctx.arena().powerups();
-        if (!ps.enabled().isEmpty() && !points.isEmpty()) {
-            powerupSpawns = new PowerupSpawns(points.size(), ps.respawnTicks());
-            powerups = new PowerupView(points);
+        if (!ps.enabled().isEmpty()) {
+            powerupDirector = PowerupPlaces.director(ctx.arena(), ps.catchUp());
+            if (powerupDirector.hasSpots()) {
+                powerupSpawns = new PowerupSpawns(ps.maxActive(), ps.respawnTicks());
+                powerups = new PowerupView(ps.maxActive());
+            }
         }
         hud.refresh(0, score, flagStatus());
         online().forEach(p -> updateBar(p, 0));
@@ -229,10 +238,17 @@ public final class PaintballMatch implements MatchHandler {
     public void trigger(Player p) {
         UUID id = p.getUniqueId();
         FireGate gate = gates.get(id);
-        if (over || gate == null || combat.isOut(id)) {
+        if (over || gate == null) {
             return;
         }
         long now = ctx.ticks();
+        if (combat.isOut(id)) {
+            if (now - lastDry.getOrDefault(id, Long.MIN_VALUE / 2) >= 6) {
+                lastDry.put(id, now);
+                PackItems.play(p, PackAssets.SOUND_DRY_FIRE, 0.8f, 1f);
+            }
+            return;
+        }
         if (gate.request(now, interval(p, now)) == FireGate.Decision.FIRE) {
             fire(p, now);
         }
@@ -278,18 +294,37 @@ public final class PaintballMatch implements MatchHandler {
                 updateBar(victim, now);
                 if (shooter != null) {
                     ctx.addStat(shooter, "hits", 1);
+                    matchHits.merge(shooter.getUniqueId(), 1, Integer::sum);
                     PackItems.play(shooter, PackAssets.SOUND_HITMARKER, 0.9f, 1f);
                     showMarker(shooter, messages.get("hud.marker"), now);
                 }
             }
             case OUT -> {
                 victim.playHurtAnimation(0);
+                int ended = streaks.out(victim.getUniqueId());
                 if (shooter != null) {
                     ctx.addStat(shooter, "hits", 1);
                     ctx.addStat(shooter, "eliminations", 1);
+                    matchHits.merge(shooter.getUniqueId(), 1, Integer::sum);
                     PackItems.play(shooter, PackAssets.SOUND_ELIMINATE, 1f, 1f);
-                    showMarker(shooter, messages.get("hud.eliminated",
-                            Placeholder.component("victim", Component.text(victim.getName()))), now);
+                    int streak = streaks.eliminated(shooter.getUniqueId());
+                    if (Streaks.announce(streak)) {
+                        showMarker(shooter, messages.get("hud.streak",
+                                Placeholder.unparsed("count", Integer.toString(streak))), now);
+                        PackItems.play(shooter, PackAssets.SOUND_FLAG_CAPTURED, 0.7f, 1.3f);
+                        feed(messages.get(streak >= Streaks.UNSTOPPABLE ? "streak.unstoppable" : "streak.on-fire",
+                                Placeholder.component("player", coloured(shooter.getName(), shot.team())),
+                                Placeholder.unparsed("count", Integer.toString(streak))));
+                    } else {
+                        showMarker(shooter, messages.get("hud.eliminated",
+                                Placeholder.component("victim", Component.text(victim.getName()))), now);
+                    }
+                }
+                if (ended >= Streaks.ON_FIRE) {
+                    feed(messages.get("streak.ended",
+                            Placeholder.component("player", coloured(names.getOrDefault(shot.shooter(), "?"), shot.team())),
+                            Placeholder.component("victim", coloured(victim.getName(), team(victim))),
+                            Placeholder.unparsed("count", Integer.toString(ended))));
                 }
                 eliminate(victim, shot.team(), now, false);
                 feed(messages.get("feed.out",
@@ -321,6 +356,7 @@ public final class PaintballMatch implements MatchHandler {
         boolean wasProtected = combat.isProtected(id, now);
         combat.shot(id);
         ctx.addStat(p, "shots", 1);
+        matchShots.merge(p.getUniqueId(), 1, Integer::sum);
         Vector aim = p.getLocation().getDirection();
         launch(p, team, aim, now);
         if (buffs.active(id, PowerupType.TRIPLE_SHOT, now)) {
@@ -380,7 +416,7 @@ public final class PaintballMatch implements MatchHandler {
                 combat.outOfBounds(id, now);
                 int team = team(p);
                 eliminate(p, team, now, true);
-                p.teleport(randomSpawn(team));
+                p.teleport(safestSpawn(team));
                 feed(messages.get("feed.out-bounds", Placeholder.component("victim", coloured(p.getName(), team))));
             }
         }
@@ -390,6 +426,7 @@ public final class PaintballMatch implements MatchHandler {
     private void eliminate(Player victim, int paintTeam, long now, boolean outOfBounds) {
         UUID id = victim.getUniqueId();
         ctx.addStat(victim, "outs", 1);
+        streaks.out(id);
         if (flags != null) {
             if (outOfBounds) {
                 flags.carriedBy(id).ifPresent(f -> {
@@ -428,7 +465,7 @@ public final class PaintballMatch implements MatchHandler {
     }
 
     private void respawn(Player p, long now) {
-        p.teleport(randomSpawn(team(p)));
+        p.teleport(safestSpawn(team(p)));
         p.setFallDistance(0);
         for (Player other : Bukkit.getOnlinePlayers()) {
             other.showEntity(game.plugin(), p);
@@ -549,8 +586,33 @@ public final class PaintballMatch implements MatchHandler {
             return;
         }
         List<PowerupType> enabled = settings.powerups().enabled();
-        for (int i : powerupSpawns.due(now)) {
-            powerups.spawn(i, enabled.get(ThreadLocalRandom.current().nextInt(enabled.size())));
+        List<Integer> due = powerupSpawns.due(now);
+        if (!due.isEmpty()) {
+            List<PowerupDirector.Mover> movers = new ArrayList<>();
+            for (Player p : online()) {
+                if (!combat.isOut(p.getUniqueId())) {
+                    Location l = p.getLocation();
+                    movers.add(new PowerupDirector.Mover(l.getX(), l.getY(), l.getZ(), team(p)));
+                }
+            }
+            int[] points = {score.points(0), score.points(1)};
+            for (int i : due) {
+                List<WalkableArea.Cell> occupied = new ArrayList<>();
+                for (int j = 0; j < powerups.size(); j++) {
+                    Location o = powerups.point(j);
+                    if (o != null) {
+                        occupied.add(new WalkableArea.Cell(o.getBlockX(), o.getBlockY(), o.getBlockZ()));
+                    }
+                }
+                Optional<WalkableArea.Cell> spot = powerupDirector.pickSpot(movers, occupied, points, rules.winScore());
+                if (spot.isEmpty()) {
+                    powerupSpawns.taken(i, now); // try again later
+                    continue;
+                }
+                WalkableArea.Cell c = spot.get();
+                PowerupType type = powerupDirector.pickType(c, movers, enabled, points, rules.winScore());
+                powerups.spawn(i, new Location(ctx.arena().world(), c.x() + 0.5, c.y(), c.z() + 0.5), type);
+            }
         }
         if (now % 2 == 0) {
             powerups.animate();
@@ -560,7 +622,8 @@ public final class PaintballMatch implements MatchHandler {
                 continue;
             }
             for (int i = 0; i < powerups.size(); i++) {
-                if (powerupSpawns.present(i) && near(p.getLocation(), powerups.point(i), POWERUP_RADIUS)) {
+                if (powerupSpawns.present(i) && powerups.point(i) != null
+                        && near(p.getLocation(), powerups.point(i), POWERUP_RADIUS)) {
                     PowerupType type = powerups.type(i);
                     powerups.remove(i);
                     powerupSpawns.taken(i, now);
@@ -609,14 +672,15 @@ public final class PaintballMatch implements MatchHandler {
         if (combat.isOut(id) || !teams.containsKey(id)) {
             return;
         }
-        Component prefix = now < markerUntil.getOrDefault(id, Long.MIN_VALUE) ? marker.get(id) : Component.empty();
         hud.actionBar(p, team(p), combat.hitsLeft(id), combat.isProtected(id, now), combat.hasShield(id),
-                buffsText(id, now), prefix);
+                buffsText(id, now));
     }
 
+    /** Short feedback under the crosshair (subtitle); not while the player is out (the out title wins). */
     private void showMarker(Player p, Component text, long now) {
-        markerUntil.put(p.getUniqueId(), now + MARKER_TICKS);
-        marker.put(p.getUniqueId(), text);
+        if (!combat.isOut(p.getUniqueId())) {
+            hud.marker(p, text);
+        }
         updateBar(p, now);
     }
 
@@ -654,8 +718,26 @@ public final class PaintballMatch implements MatchHandler {
 
     private void finish(MatchOutcome outcome) {
         if (!over) {
+            List<Player> players = online();
             ctx.finish(outcome);
+            // each player's own line, after the shared result lines
+            Bukkit.getScheduler().runTaskLater(game.plugin(), () -> players.forEach(p -> {
+                if (p.isOnline()) {
+                    p.sendMessage(personalLine(p.getUniqueId()));
+                }
+            }), 1);
         }
+    }
+
+    private Component personalLine(UUID id) {
+        int shots = matchShots.getOrDefault(id, 0);
+        int hits = matchHits.getOrDefault(id, 0);
+        int accuracy = shots == 0 ? 0 : Math.round(100f * hits / shots);
+        return messages.get("result.you",
+                Placeholder.unparsed("eliminations", Integer.toString(combat.eliminations(id))),
+                Placeholder.unparsed("hits", Integer.toString(hits)),
+                Placeholder.unparsed("accuracy", Integer.toString(accuracy)),
+                Placeholder.unparsed("streak", Integer.toString(streaks.best(id))));
     }
 
     private List<Component> resultLines() {
@@ -665,6 +747,14 @@ public final class PaintballMatch implements MatchHandler {
                 Placeholder.unparsed("red", Integer.toString(score.points(0))),
                 Placeholder.component("blue_team", ctx.teamName(1)),
                 Placeholder.unparsed("blue", Integer.toString(score.points(1)))));
+        List<UUID> top = combat.top(1);
+        if (!top.isEmpty() && combat.eliminations(top.get(0)) > 0) {
+            UUID mvp = top.get(0);
+            lines.add(messages.get("result.mvp",
+                    Placeholder.component("name", coloured(names.getOrDefault(mvp, "?"), teams.getOrDefault(mvp, 0))),
+                    Placeholder.unparsed("count", Integer.toString(combat.eliminations(mvp))),
+                    Placeholder.unparsed("hits", Integer.toString(matchHits.getOrDefault(mvp, 0)))));
+        }
         lines.add(messages.get("result.top-header"));
         int rank = 1;
         for (UUID id : combat.top(3)) {
@@ -709,9 +799,18 @@ public final class PaintballMatch implements MatchHandler {
                 new Particle.DustOptions(colour, size));
     }
 
-    private Location randomSpawn(int team) {
+    /** The team spawn furthest from living enemies (ties picked at random). */
+    private Location safestSpawn(int team) {
         List<Location> spawns = ctx.arena().spawns(team);
-        return spawns.get(ThreadLocalRandom.current().nextInt(spawns.size()));
+        List<double[]> at = spawns.stream().map(l -> new double[] {l.getX(), l.getY(), l.getZ()}).toList();
+        List<double[]> enemies = new ArrayList<>();
+        for (Player e : ctx.team(1 - team)) {
+            if (!combat.isOut(e.getUniqueId())) {
+                Location l = e.getLocation();
+                enemies.add(new double[] {l.getX(), l.getY(), l.getZ()});
+            }
+        }
+        return spawns.get(SpawnPicker.safest(at, enemies, ThreadLocalRandom.current()));
     }
 
     /** Online players still in this match. */

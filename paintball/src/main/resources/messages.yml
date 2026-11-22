@@ -1,68 +1,89 @@
 # Paintball player messages (MiniMessage format).
+# Raise "version" when texts change: servers with an older file get it backed up and replaced.
+# Colours: khaki #D9C78F (headings), field green #9CC05A (good news), amber #FFB52E (alerts, numbers).
+version: 2
+
 game:
-  name: "<aqua><bold>Paintball"
+  name: "<#D9C78F><bold>Paintball"
+
+# Mode names in the queue menus.
+mode:
+  tdm: "<#D9C78F>Teamgevecht"
+  ctf: "<#D9C78F>Vlagroof"
 
 item:
-  gun: "<gold><bold>Paintgeweer</bold></gold> <gray>(rechtsklik)"
+  gun: "<#D9C78F><bold>Paintgeweer</bold></#D9C78F> <gray>· rechtsklik om te vuren"
 
-# Icons come from the resource pack font dbsdw:hud: \uE000 paint drop (used in code), \uE001 shield,
-# \uE002-\uE005 power-ups, \uE006 hit marker, \uE007 spawn protection, \uE008 team splat.
+# Icons come from the resource pack font dbsdw:hud:  paint drop (used in code),  shield,
+# - power-ups,  hit marker,  spawn protection,  team splat.
 hud:
-  title-tdm: "<aqua><bold>Paintball</bold> <gray>TDM"
-  title-ctf: "<aqua><bold>Paintball</bold> <gray>CTF"
-  score: "<team><gray>: <white><score>"
-  time: "<gray>Tijd: <white><time>"
-  bossbar: "<white>Tijd over: <yellow><time>"
-  protected: " <font:dbsdw:hud><white>\uE007</white></font> <aqua>Beschermd"
-  shield: " <font:dbsdw:hud><white>\uE001</white></font>"
+  title-tdm: "<#D9C78F><bold>PAINTBALL</bold> <gray>· Teamgevecht"
+  title-ctf: "<#D9C78F><bold>PAINTBALL</bold> <gray>· Vlagroof"
+  score: "<team><gray>: <white><bold><score>"
+  time: "<gray>Tijd <white><time>"
+  bossbar: "<#D9C78F>Nog <white><time></white> te gaan"
+  protected: " <font:dbsdw:hud><white></white></font> <aqua>Beschermd"
+  shield: " <font:dbsdw:hud><white></white></font>"
   buff: " <icon> <white><seconds>s"
-  marker: "<font:dbsdw:hud><white>\uE006</white></font> <white><bold>Raak!</bold> "
-  marker-shield: "<font:dbsdw:hud><white>\uE001</white></font> <aqua><bold>Schild!</bold> "
-  eliminated: "<font:dbsdw:hud><white>\uE006</white></font> <gold><bold>Uitgeschakeld: <victim></bold> "
+  # Under the crosshair (subtitle) for the shooter.
+  marker: "<font:dbsdw:hud><white></white></font> <white><bold>RAAK!"
+  marker-shield: "<font:dbsdw:hud><white></white></font> <aqua><bold>SCHILD KAPOT!"
+  eliminated: "<font:dbsdw:hud><white></white></font> <#FFB52E><bold>UITGESCHAKELD</bold></#FFB52E> <white><victim>"
 
 out:
-  title: "<red><bold>Uit!"
-  subtitle: "<gray>Terug over <white><seconds></white> s"
+  title: "<red><bold>GERAAKT!"
+  subtitle: "<gray>Terug in het veld over <white><seconds></white>s"
 
 feed:
-  out: "<victim> <gray>is uit (door <shooter><gray>)"
-  out-bounds: "<victim> <gray>is uit (buiten de arena)"
+  out: "<dark_gray>✖</dark_gray> <shooter> <gray>schakelt</gray> <victim> <gray>uit"
+  out-bounds: "<dark_gray>✖</dark_gray> <victim> <gray>liep het veld uit"
 
+# Eliminations in a row without going out (3, 5, 10, ...).
+streak:
+  on-fire: "<#FFB52E>»</#FFB52E> <player> <gray>is</gray> <#FFB52E><bold>op dreef</bold></#FFB52E><gray>: <white><count></white> op rij!"
+  unstoppable: "<#FFB52E>»</#FFB52E> <player> <gray>is</gray> <red><bold>niet te stoppen</bold></red><gray>: <white><count></white> op rij!"
+  ended: "<#FFB52E>»</#FFB52E> <player> <gray>stopt de reeks van <victim> <gray>(<white><count></white>)"
+
+# Flag events go to chat and, short, under the crosshair of everyone in the match.
 flag:
-  taken: "<player> <gray>heeft de vlag van <flag> <gray>gepakt!"
-  dropped: "<gray>De vlag van <flag> <gray>is gevallen."
-  returned: "<player> <gray>heeft de vlag van <flag> <gray>teruggebracht."
-  returned-auto: "<gray>De vlag van <flag> <gray>is terug op de basis."
-  captured: "<player> <gold><bold>heeft de vlag van <flag> <gold><bold>veroverd!"
+  taken: "<#FFB52E>⚑</#FFB52E> <player> <gray>steelt de vlag van <flag><gray>!"
+  dropped: "<#FFB52E>⚑</#FFB52E> <gray>De vlag van <flag> <gray>ligt op de grond!"
+  returned: "<#FFB52E>⚑</#FFB52E> <player> <gray>brengt de vlag van <flag> <gray>terug."
+  returned-auto: "<#FFB52E>⚑</#FFB52E> <gray>De vlag van <flag> <gray>is terug op de basis."
+  captured: "<#FFB52E>⚑</#FFB52E> <player> <#FFB52E><bold>verovert de vlag van</bold></#FFB52E> <flag><#FFB52E><bold>!"
   status: "<team><gray>: <state>"
-  state-home: "<green>thuis"
-  state-carried: "<yellow>bij <player>"
-  state-dropped: "<red>gevallen (<seconds>s)"
+  state-home: "<#9CC05A>op de basis"
+  state-carried: "<#FFB52E>bij <player>"
+  state-dropped: "<red>op de grond (<seconds>s)"
 
 powerup:
-  picked: "<icon> <yellow><bold>+ <powerup></bold> "
+  # Under the crosshair when picked up.
+  picked: "<icon> <#FFB52E><bold><powerup>!"
   icon:
-    rapid_fire: "<font:dbsdw:hud><white>\uE002</white></font>"
-    triple_shot: "<font:dbsdw:hud><white>\uE003</white></font>"
-    speed: "<font:dbsdw:hud><white>\uE004</white></font>"
-    shield: "<font:dbsdw:hud><white>\uE001</white></font>"
-    repair: "<font:dbsdw:hud><white>\uE005</white></font>"
+    rapid_fire: "<font:dbsdw:hud><white></white></font>"
+    triple_shot: "<font:dbsdw:hud><white></white></font>"
+    speed: "<font:dbsdw:hud><white></white></font>"
+    shield: "<font:dbsdw:hud><white></white></font>"
+    repair: "<font:dbsdw:hud><white></white></font>"
   rapid_fire: "Snelvuur"
-  triple_shot: "Drievoudig schot"
-  speed: "Snelheid"
+  triple_shot: "Driedubbel schot"
+  speed: "Sprint"
   shield: "Schild"
-  repair: "Herstel"
+  repair: "EHBO-kit"
 
 stat:
   eliminations: "Uitgeschakeld"
-  outs: "Zelf uit"
-  hits: "Raak"
+  outs: "Zelf geraakt"
+  hits: "Treffers"
   shots: "Schoten"
   captures: "Vlaggen veroverd"
-  returns: "Vlaggen teruggebracht"
+  returns: "Vlaggen gered"
 
 result:
-  score: "<gray>Score: <red_team> <white><red></white> <gray>-</gray> <blue_team> <white><blue>"
-  score-ctf: "<gray>Veroverd: <red_team> <white><red></white> <gray>-</gray> <blue_team> <white><blue>"
-  top-header: "<gold>Beste spelers:"
-  top: "<gray><rank>. <white><name></white> - <yellow><count></yellow> uitgeschakeld"
+  score: "<#D9C78F><bold>Eindstand</bold></#D9C78F> <red_team> <white><bold><red></bold></white> <dark_gray>-</dark_gray> <white><bold><blue></bold></white> <blue_team>"
+  score-ctf: "<#D9C78F><bold>Vlaggen</bold></#D9C78F> <red_team> <white><bold><red></bold></white> <dark_gray>-</dark_gray> <white><bold><blue></bold></white> <blue_team>"
+  mvp: "<#FFB52E><bold>MVP</bold></#FFB52E> <name> <dark_gray>·</dark_gray> <white><count></white> <gray>uitgeschakeld, <white><hits></white> <gray>treffers"
+  top-header: "<#D9C78F>Beste schutters:"
+  top: "<gray> <rank>. <white><name></white> <dark_gray>·</dark_gray> <#FFB52E><count></#FFB52E> uitgeschakeld"
+  # Sent to each player after the shared lines.
+  you: "<#D9C78F>Jij:</#D9C78F> <white><eliminations></white> <gray>uitgeschakeld <dark_gray>·</dark_gray> <white><hits></white> <gray>treffers <dark_gray>·</dark_gray> <white><accuracy>%</white> <gray>raak <dark_gray>·</dark_gray> <gray>beste reeks <white><streak>"

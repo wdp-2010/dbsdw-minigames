@@ -22,6 +22,11 @@
       "dbsdw:paintball/hitmarker"
     ]
   },
+  "paintball.dry": {
+    "sounds": [
+      "dbsdw:paintball/dry"
+    ]
+  },
   "paintball.eliminate": {
     "sounds": [
       "dbsdw:paintball/eliminate"

@@ -12,7 +12,8 @@ import random
 import sys
 from pathlib import Path
 
-from palette import BLUE, CYAN, GOLD, GREEN, MAGENTA, ORANGE, OUTLINE, RED, WHITE, YELLOW
+from palette import (BLUE, BROWN, CYAN, GOLD, GREEN, GUNMETAL_DARK, KHAKI, KHAKI_DARK, MAGENTA, OLIVE, OLIVE_DARK,
+                     OLIVE_LIGHT, ORANGE, OUTLINE, RED, SAND, WHITE, YELLOW)
 from pixel import (Canvas, blob, darken, dilate, ellipse, erode, intersect, lighten, mask, polygon,
                    rect, shift, subtract, union)
 
@@ -77,15 +78,21 @@ def splat(shape: int, stage: int) -> Canvas:
 
 
 def badge(colour, icon_mask, icon_colour=WHITE) -> Canvas:
-    """A round glossy badge in the power-up colour with a white icon and dark outlines."""
+    """A round army patch: olive drab cloth, a rim in the power-up colour, khaki stitching and the
+    icon in white. The coloured rim keeps each power-up recognisable from a distance."""
     c = Canvas(32)
     disc = ellipse(mask((32, 32)), (2, 2, 29, 29))
-    c.shaded(disc, colour, light=0.35, shade=0.35, outline=OUTLINE)
-    ring = subtract(disc, erode(disc, 2))
-    c.fill(ring, darken(colour, 0.25))
-    gloss = intersect(ellipse(mask((32, 32)), (7, 5, 22, 13)), erode(disc, 3))
-    c.fill(gloss, lighten(colour, 0.35))
-    c.shaded(icon_mask, icon_colour, light=0.0, shade=0.12, outline=OUTLINE)
+    c.shaded(disc, OLIVE, light=0.25, shade=0.3, outline=OUTLINE)
+    rim = subtract(disc, erode(disc, 3))
+    c.fill(rim, colour)
+    c.fill(subtract(rim, shift(rim, -1, -1)), darken(colour, 0.3))
+    # stitching: a dashed khaki ring just inside the rim
+    stitch = subtract(erode(disc, 4), erode(disc, 5))
+    for y in range(32):
+        for x in range(32):
+            if stitch.getpixel((x, y)) and (x + y) % 3 == 0:
+                c.px(x, y, SAND)
+    c.shaded(icon_mask, icon_colour, light=0.0, shade=0.15, outline=OUTLINE)
     return c
 
 
@@ -140,7 +147,7 @@ def powerup(name: str) -> Canvas:
 def gun_side(c: Canvas, ox: int, oy: int, hopper=BLUE) -> None:
     """Side view of the paintball marker for 2D icons, nose to the right (matches the 3D model)."""
     s = (32, 32)
-    body_c, black, tank_c = (226, 230, 238), (44, 46, 58), (72, 78, 92)
+    body_c, black, tank_c = OLIVE, GUNMETAL_DARK, KHAKI
     barrel = rect(mask(s), (ox + 17, oy + 13, ox + 29, oy + 14))
     muzzle = rect(mask(s), (ox + 29, oy + 12, ox + 30, oy + 15))
     body = rect(mask(s), (ox + 7, oy + 11, ox + 17, oy + 16), radius=1)
@@ -177,26 +184,22 @@ def lobby_games() -> Canvas:
 
 
 def lobby_stats() -> Canvas:
+    """A medal on a striped ribbon (army honours instead of a sports cup)."""
     c = Canvas(32)
     s = (32, 32)
-    cup = union(polygon(mask(s), [(8, 4), (24, 4), (22, 15), (19, 18), (13, 18), (10, 15)]),
-                ellipse(mask(s), (8, 2, 24, 7)))
-    handles = union(subtract(ellipse(mask(s), (3, 5, 12, 14)), ellipse(mask(s), (5, 7, 10, 12))),
-                    subtract(ellipse(mask(s), (20, 5, 29, 14)), ellipse(mask(s), (22, 7, 27, 12))))
-    stem = rect(mask(s), (14, 18, 18, 23))
-    base = rect(mask(s), (9, 23, 23, 28), radius=1)
-    whole = union(cup, handles, stem, base)
-    c.outline(whole, OUTLINE)
-    c.shaded(handles, darken(GOLD, 0.1))
-    c.shaded(stem, darken(GOLD, 0.15))
-    c.shaded(cup, GOLD, light=0.55, shade=0.3)
-    c.shaded(base, (90, 60, 40), light=0.3)
-    c.fill(rect(mask(s), (13, 24, 19, 26)), lighten(GOLD, 0.2))
-    c.fill(rect(mask(s), (11, 6, 12, 12)), WHITE)
-    # A star on the cup.
-    star = polygon(mask(s), [(16, 7), (17, 10), (20, 10), (17.5, 12), (18.5, 15), (16, 13),
-                             (13.5, 15), (14.5, 12), (12, 10), (15, 10)])
-    c.fill(star, WHITE)
+    ribbon = polygon(mask(s), [(9, 1), (23, 1), (23, 12), (16, 16), (9, 12)])
+    disc = ellipse(mask(s), (7, 12, 25, 30))
+    c.outline(union(ribbon, disc), OUTLINE)
+    c.fill(ribbon, OLIVE)
+    for x0 in (11, 19):
+        c.fill(intersect(rect(mask(s), (x0, 0, x0 + 1, 15)), ribbon), RED)
+    c.fill(intersect(rect(mask(s), (15, 0, 16, 15)), ribbon), SAND)
+    c.shaded(disc, GOLD, light=0.55, shade=0.35)
+    c.fill(subtract(erode(disc, 2), erode(disc, 3)), darken(GOLD, 0.3))
+    star = polygon(mask(s), [(16, 15), (17.6, 19), (22, 19.2), (18.6, 22), (19.8, 26.4), (16, 23.8),
+                             (12.2, 26.4), (13.4, 22), (10, 19.2), (14.4, 19)])
+    c.shaded(star, lighten(GOLD, 0.5), light=0.0, shade=0.2)
+    c.px(11, 17, WHITE).px(12, 16, WHITE)
     return c
 
 
@@ -227,11 +230,21 @@ def lobby_survival() -> Canvas:
     return c
 
 
+def camo(c: Canvas, area, rng: random.Random, size: int, blobs: int = 14) -> None:
+    """Woodland camo blobs (dark olive, brown, light olive) inside `area`."""
+    for i in range(blobs):
+        colour = (OLIVE_DARK, BROWN, OLIVE_LIGHT)[i % 3]
+        x, y = rng.uniform(0, size), rng.uniform(0, size)
+        b = intersect(blob(rng, size, x, y, rng.uniform(size * 0.07, size * 0.14), bumps=5, wobble=0.6), area)
+        c.fill(b, colour)
+
+
 def pack_icon() -> Canvas:
     c = Canvas(128)
     s = (128, 128)
     bg = rect(mask(s), (2, 2, 125, 125), radius=18)
-    c.fill(bg, (32, 36, 64))
+    c.fill(bg, OLIVE)
+    camo(c, bg, random.Random(11), 128)
     rng = random.Random(42)
     for colour, (x, y, r) in ((BLUE, (44, 46, 30)), (RED, (84, 82, 30)), (YELLOW, (92, 34, 12))):
         b = intersect(blob(rng, 128, x, y, r, bumps=7, wobble=0.6), erode(bg, 3))

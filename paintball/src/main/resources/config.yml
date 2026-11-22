@@ -1,8 +1,7 @@
 # Paintball
 
+# Mode names and every other text are in messages.yml.
 tdm:
-  # Shown in the queue menu (MiniMessage).
-  display-name: "<gold>Team Deathmatch"
   min-per-team: 2
   max-per-team: 8
   # First team to this many eliminations wins.
@@ -11,7 +10,6 @@ tdm:
   time-limit-minutes: 10
 
 ctf:
-  display-name: "<gold>Capture the Flag"
   min-per-team: 2
   max-per-team: 8
   # First team to this many captures wins.
@@ -37,10 +35,17 @@ gun:
   ball-lifetime-ticks: 60
 
 powerups:
-  # Picked at random at each power-up point of the arena: rapid_fire, triple_shot, speed, shield, repair.
+  # Power-ups appear on random floor that players can walk to from the team spawns (never on roofs or
+  # in closed rooms), away from players, spawns and each other. Picked from: rapid_fire, triple_shot,
+  # speed, shield, repair.
   enabled: [rapid_fire, triple_shot, speed, shield, repair]
-  # A point fills again this long after a pickup.
+  # How many lie on the field at once.
+  max-active: 3
+  # A new one appears this long after one is picked up.
   respawn-seconds: 30
+  # Quiet help for the team that is behind: power-ups land a bit more often near its players, and near
+  # them repair and shield come up more often. Grows with the score gap. 0 = off, 1 = normal, 2 = strong.
+  catch-up: 1.0
   # Double fire rate.
   rapid-fire-seconds: 10
   # Each shot fires 3 paintballs in a small fan.

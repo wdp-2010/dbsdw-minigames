@@ -175,6 +175,9 @@ def check_references(src: Path, files: list[Path]) -> None:
         owner = rel.as_posix()
         data = load_json(path)
         if kind == "models" and isinstance(data, dict):
+            for i, el in enumerate(data.get("elements") or []):
+                if any(el["to"][k] < el["from"][k] for k in range(3)):
+                    raise PackError(f"{owner}: element {i} is inside out (from {el['from']} to {el['to']})")
             if isinstance(data.get("parent"), str) and not data["parent"].startswith("builtin/"):
                 _require(src, owner, data["parent"], "models", ".json")
             for value in (data.get("textures") or {}).values():
@@ -212,6 +215,20 @@ def build_zip(src: Path, files: list[Path]) -> bytes:
     return data
 
 
+def check_zip(path: Path) -> None:
+    """A zip made by hand (for example re-zipped on a Mac) must still have pack.mcmeta at its root,
+    or the client loads nothing. Also refuses Finder clutter."""
+    with zipfile.ZipFile(path) as zf:
+        names = zf.namelist()
+    if "pack.mcmeta" not in names:
+        roots = sorted({n.split("/")[0] for n in names})
+        raise PackError(f"{path}: no pack.mcmeta at the root of the zip (top level: {roots}); "
+                        "zip the contents of the pack folder, not the folder itself")
+    clutter = [n for n in names if n.startswith("__MACOSX/") or n.endswith(".DS_Store")]
+    if clutter:
+        raise PackError(f"{path}: remove Finder files from the zip: {clutter[:3]}")
+
+
 def build(src: Path, out: Path) -> str:
     """Validate src, write the zip and .sha1 to out, and return the SHA1."""
     if not src.is_dir():
@@ -234,7 +251,16 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--src", type=Path, default=root / "resourcepack")
     parser.add_argument("--out", type=Path, default=root / "dist")
+    parser.add_argument("--check-zip", type=Path, help="only check an existing pack zip and exit")
     args = parser.parse_args(argv)
+    if args.check_zip:
+        try:
+            check_zip(args.check_zip)
+        except PackError as e:
+            print(f"error: {e}", file=sys.stderr)
+            return 1
+        print(f"{args.check_zip}: ok")
+        return 0
     try:
         sha1 = build(args.src, args.out)
     except PackError as e:

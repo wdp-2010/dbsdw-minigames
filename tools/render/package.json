@@ -1,0 +1,9 @@
+{
+  "name": "dbsdw-model-render",
+  "private": true,
+  "description": "Offline renderer for the pack's item models (see README.md)",
+  "dependencies": {
+    "playwright-core": "1.49.1",
+    "three": "0.149.0"
+  }
+}

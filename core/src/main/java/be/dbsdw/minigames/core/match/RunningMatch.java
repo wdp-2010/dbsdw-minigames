@@ -169,9 +169,11 @@ final class RunningMatch implements MatchContext {
         for (UUID id : state.everyone()) {
             Player player = Bukkit.getPlayer(id);
             if (player != null) {
-                player.showTitle(Title.title(title, Component.empty()));
-                outcome.lines().forEach(player::sendMessage);
                 OptionalInt team = state.teamOf(id);
+                String sub = outcome.winner().isEmpty() ? "match.draw-sub"
+                        : team.isPresent() && team.getAsInt() == outcome.winner().getAsInt() ? "match.won-sub" : "match.lost-sub";
+                player.showTitle(Title.title(title, messages.get(sub)));
+                outcome.lines().forEach(player::sendMessage);
                 String sound = outcome.winner().isEmpty() ? PackAssets.SOUND_DRAW
                         : team.isPresent() && team.getAsInt() == outcome.winner().getAsInt()
                         ? PackAssets.SOUND_WIN : PackAssets.SOUND_LOSE;

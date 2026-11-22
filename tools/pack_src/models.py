@@ -13,8 +13,9 @@ from pathlib import Path
 
 from PIL import Image
 
-from boxmodel import Box, build
-from palette import GOLD, OUTLINE, STEEL, WHITE, WOOD, YELLOW
+from boxmodel import PX_PER_UNIT, Box, build
+from palette import (GOLD, GUNMETAL, GUNMETAL_DARK, KHAKI, OLIVE, OUTLINE, STEEL, WHITE, WINDOW, WOOD,
+                     YELLOW)
 from pixel import darken, lighten
 
 TINT_GREY = (236, 236, 236)
@@ -40,10 +41,21 @@ def save_png(path: Path, img: Image.Image) -> None:
 # on a feed neck, a front foregrip, raked grip with trigger guard, and the air tank bottom-line,
 # pointing back under the grip. The barrel points north (-Z); 16 units = one block.
 
-BODY = (226, 230, 238)
-BLACK = (44, 46, 58)
-BARREL_BACK = (66, 70, 84)
-TANK = (72, 78, 92)
+# Army look, not too serious: olive drab body, khaki tank, dark gunmetal; the team colour stays
+# bright on the loader, the muzzle and the side inlay so a gun still reads as red or blue.
+BODY = OLIVE
+BLACK = GUNMETAL_DARK
+BARREL_BACK = GUNMETAL
+TANK = KHAKI
+
+# Every box corner sits on this grid (1 / PX_PER_UNIT): each face then covers a whole number of
+# texture pixels at the same size, so no pixel is stretched or cut. EPS only separates crossed boxes.
+GRID = 1 / PX_PER_UNIT
+EPS = 0.01
+
+
+def snap(v: float) -> float:
+    return round(v / GRID) * GRID
 
 
 def soft(colour):
@@ -51,9 +63,12 @@ def soft(colour):
     return darken(colour, 0.55)
 
 
-def part(frm, to, colour, **kw) -> Box:
+def part(frm, to, colour, shrink=(0.0, 0.0, 0.0), **kw) -> Box:
+    """A box snapped to the pixel grid; `shrink` pulls both ends in by a hair on those axes."""
     kw.setdefault("outline", soft(TINT_GREY if kw.get("tint") else colour))
-    return Box(frm, to, colour, **kw)
+    f = tuple(snap(v) + s for v, s in zip(frm, shrink))
+    t = tuple(snap(v) - s for v, s in zip(to, shrink))
+    return Box(f, t, colour, **kw)
 
 
 def rod(axis: str, centre: tuple[float, float], r: float, start: float, end: float, colour, **kw) -> list[Box]:
@@ -61,15 +76,15 @@ def rod(axis: str, centre: tuple[float, float], r: float, start: float, end: flo
     a, b = centre
     k = 0.62
 
-    def box(ra: float, rb: float, s: float, e: float) -> Box:
+    def box(ra: float, rb: float, eps: float) -> Box:
         if axis == "z":
-            return part((a - ra, b - rb, s), (a + ra, b + rb, e), colour, **kw)
+            return part((a - ra, b - rb, start), (a + ra, b + rb, end), colour, shrink=(0, 0, eps), **kw)
         if axis == "y":
-            return part((a - ra, s, b - rb), (a + ra, e, b + rb), colour, **kw)
-        return part((s, a - ra, b - rb), (e, a + ra, b + rb), colour, **kw)
+            return part((a - ra, start, b - rb), (a + ra, end, b + rb), colour, shrink=(0, eps, 0), **kw)
+        return part((start, a - ra, b - rb), (end, a + ra, b + rb), colour, shrink=(eps, 0, 0), **kw)
 
     # the second box is a hair shorter so the two end caps never share a plane
-    return [box(r, r * k, start, end), box(r * k, r, start + 0.01, end - 0.01)]
+    return [box(r, r * k, 0), box(r * k, r, EPS)]
 
 
 def _barrel_ports(img: Image.Image, d: str) -> None:
@@ -115,19 +130,32 @@ def _tank_band(img: Image.Image, d: str) -> None:
 def _hopper_window(img: Image.Image, d: str) -> None:
     """Smoked window stripe along the loader sides, with a white shine on top."""
     w, h = img.size
+    rows = range(int(h * 0.42), max(int(h * 0.58), int(h * 0.42) + 1))
     if d in ("east", "west"):
         for x in range(3, w - 3):
-            for y in range(int(h * 0.42), int(h * 0.58)):
-                img.putpixel((x, y), (52, 56, 70, 255))
+            for y in rows:
+                img.putpixel((x, y), WINDOW + (255,))
         for x in range(4, w // 2):
             img.putpixel((x, 3), (255, 255, 255, 255))
+    elif d == "south" and w >= 20:
+        # the window wraps a little way round the back corners (owner's edit, 2026-11-19)
+        for x in (3, 4, w - 5, w - 4):
+            for y in rows:
+                img.putpixel((x, y), WINDOW + (255,))
 
 
 def rounded(frm, to, inset: float, colour, **kw) -> list[Box]:
     """A box with its four vertical edges cut back by `inset`, seen from above a rounded rectangle."""
     (x0, y0, z0), (x1, y1, z1) = frm, to
-    return [part((x0, y0, z0 + inset), (x1, y1, z1 - inset), colour, **kw),
-            part((x0 + inset, y0 + 0.01, z0), (x1 - inset, y1 - 0.01, z1), colour, **kw)]
+    boxes = []
+    if z1 - z0 > 2 * inset:  # a thin plate has no room for the long box; it would turn inside out
+        boxes.append(part((x0, y0, z0 + inset), (x1, y1, z1 - inset), colour, **kw))
+    if inset >= 1:
+        # a middle step halves the corner cut, so the ends read as round instead of a deep notch
+        h = inset / 2
+        boxes.append(part((x0 + h, y0, z0 + h), (x1 - h, y1, z1 - h), colour, shrink=(0, EPS / 2, 0), **kw))
+    boxes.append(part((x0 + inset, y0, z0), (x1 - inset, y1, z1), colour, shrink=(0, EPS, 0), **kw))
+    return boxes
 
 
 def gun_boxes() -> list[Box]:
@@ -151,11 +179,11 @@ def gun_boxes() -> list[Box]:
         # with a smoked window and a black lid
         *rounded((6.6, 13.8, 0.5), (9.4, 14.4, 7.5), 0.6, TINT_GREY, **hop),
         *rounded((6, 14.4, -1.5), (10, 15.2, 9), 1, TINT_GREY, **hop),
-        *rounded((5.5, 15.2, -2.5), (10.5, 18.2, 9.8), 1.2, TINT_GREY, decorate=_hopper_window, **hop),
+        *rounded((5.5, 15.2, -2.5), (10.5, 18.2, 9.8), 1.0, TINT_GREY, decorate=_hopper_window, **hop),
         *rounded((6, 18.2, -1.5), (10, 19.2, 9.5), 1, TINT_GREY, **hop),
         *rounded((6.8, 19.2, 0), (9.2, 19.8, 8.5), 0.6, TINT_GREY, **hop),
         *rounded((6.3, 15.6, -3.2), (9.7, 17.6, -2.5), 0.8, TINT_GREY, **hop),
-        *rounded((6.3, 15.6, 9.8), (9.7, 18.8, 10.4), 0.8, TINT_GREY, **hop),
+        *rounded((6.3, 15.6, 9.5), (9.7, 17.8, 10.0), 0.8, TINT_GREY, **hop),  # back plate: 2 px, 1 px sunk in
         part((7.2, 19.8, 1.5), (8.8, 20.2, 6), BLACK, gloss=False),
         # foregrip (front, vertical), trigger guard and trigger
         *rod("y", (8, 1.15), 0.75, 3.5, 7.4, BLACK, decorate=_grip_texture),
@@ -176,11 +204,12 @@ def gun_boxes() -> list[Box]:
 
 
 GUN_DISPLAY = {
-    # Values found by comparing variants in the real client (armor stands for third person).
-    "firstperson_righthand": {"rotation": [4, -6, 0], "translation": [5, -1, -6], "scale": [0.55, 0.55, 0.55]},
-    "firstperson_lefthand": {"rotation": [4, 6, 0], "translation": [5, -1, -6], "scale": [0.55, 0.55, 0.55]},
-    "thirdperson_righthand": {"rotation": [90, 0, 0], "translation": [0, 0, -5], "scale": [0.6, 0.6, 0.6]},
-    "thirdperson_lefthand": {"rotation": [90, 0, 0], "translation": [0, 0, -5], "scale": [0.6, 0.6, 0.6]},
+    # Hand values from the owner's Blockbench edit (2026-11-19); the left hand mirrors the right
+    # (same translation, rotation around y and z negated), as vanilla hand models do.
+    "firstperson_righthand": {"rotation": [5, 0, 0], "translation": [5.25, -4, -5.5], "scale": [1, 1, 1]},
+    "firstperson_lefthand": {"rotation": [5, 0, 0], "translation": [5.25, -4, -5.5], "scale": [1, 1, 1]},
+    "thirdperson_righthand": {"rotation": [0, 0, 0], "translation": [0, 0.5, 0.25], "scale": [0.6, 0.6, 0.6]},
+    "thirdperson_lefthand": {"rotation": [0, 0, 0], "translation": [0, 0.5, 0.25], "scale": [0.6, 0.6, 0.6]},
     "gui": {"rotation": [0, 90, -30], "translation": [0, 0, 0], "scale": [0.68, 0.68, 0.68]},
     "ground": {"rotation": [0, 0, 0], "translation": [0, 2, 0], "scale": [0.3, 0.3, 0.3]},
     "fixed": {"rotation": [0, 90, 0], "translation": [-1.5, 0, 0], "scale": [0.8, 0.8, 0.8]},

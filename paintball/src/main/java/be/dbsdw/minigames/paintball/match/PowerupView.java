@@ -3,8 +3,6 @@ package be.dbsdw.minigames.paintball.match;
 import be.dbsdw.minigames.core.pack.PackItems;
 import be.dbsdw.minigames.paintball.PackAssets;
 import be.dbsdw.minigames.paintball.rules.PowerupType;
-import java.util.List;
-import org.bukkit.Color;
 import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.entity.Display;
@@ -14,57 +12,49 @@ import org.bukkit.util.Transformation;
 import org.joml.AxisAngle4f;
 import org.joml.Vector3f;
 
-/** Floating, spinning power-ups at the arena's spawn points. Placeholder items until the pack. */
+/**
+ * Floating, spinning power-ups. Each slot holds at most one, at a spot chosen when it appears.
+ * No glow outline: the badge's coloured rim and full brightness make it readable on its own.
+ */
 final class PowerupView {
-    private final List<Location> points;
+    private final Location[] points;
     private final ItemDisplay[] displays;
     private final PowerupType[] types;
     private float spin;
     private long ticks;
 
-    PowerupView(List<Location> points) {
-        this.points = points;
-        this.displays = new ItemDisplay[points.size()];
-        this.types = new PowerupType[points.size()];
+    PowerupView(int slots) {
+        this.points = new Location[slots];
+        this.displays = new ItemDisplay[slots];
+        this.types = new PowerupType[slots];
     }
 
     static ItemStack item(PowerupType type) {
         return PackItems.item(Material.PAPER, PackAssets.powerup(type), null);
     }
 
-    /** Glow outline in the badge colour; the default white outline washes the badge out at a distance. */
-    private static Color glow(PowerupType type) {
-        return Color.fromRGB(switch (type) {
-            case RAPID_FIRE -> 0xFF8A1F;
-            case TRIPLE_SHOT -> 0xD93BE8;
-            case SPEED -> 0x2EE6E0;
-            case SHIELD -> 0xFFD73A;
-            case REPAIR -> 0x4CD94C;
-        });
-    }
-
     int size() {
-        return points.size();
+        return points.length;
     }
 
+    /** The spot of slot i; null when the slot is empty. */
     Location point(int i) {
-        return points.get(i);
+        return points[i];
     }
 
     PowerupType type(int i) {
         return types[i];
     }
 
-    void spawn(int i, PowerupType type) {
+    void spawn(int i, Location point, PowerupType type) {
         remove(i);
         types[i] = type;
-        Location at = points.get(i).clone().add(0, 1.0, 0);
+        points[i] = point;
+        Location at = point.clone().add(0, 1.0, 0);
         displays[i] = at.getWorld().spawn(at, ItemDisplay.class, d -> {
             d.setPersistent(false);
             d.setItemStack(item(type));
             d.setBrightness(new Display.Brightness(15, 15));
-            d.setGlowing(true);
-            d.setGlowColorOverride(glow(type));
             d.setInterpolationDuration(2);
         });
     }
@@ -75,6 +65,7 @@ final class PowerupView {
             displays[i] = null;
         }
         types[i] = null;
+        points[i] = null;
     }
 
     /** Spin and bob; call every 2 ticks. */
