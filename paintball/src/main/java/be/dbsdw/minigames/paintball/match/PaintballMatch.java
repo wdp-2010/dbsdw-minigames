@@ -270,7 +270,7 @@ public final class PaintballMatch implements MatchHandler {
         if (!(event.getHitEntity() instanceof Player victim)) {
             untrack(ballId);
             if (event.getHitBlock() != null) {
-                splats.add(event.getHitBlock(), event.getHitBlockFace(), shot.team(), now);
+                splats.add(event.getHitBlock(), event.getHitBlockFace(), event.getEntity(), shot.team(), now);
             }
             return;
         }

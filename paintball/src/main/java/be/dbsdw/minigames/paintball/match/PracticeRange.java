@@ -179,7 +179,7 @@ public final class PracticeRange {
         if (hit != null && Gun.isDummy(hit)) {
             hitDummy(hit, team, event.getEntity().getShooter() instanceof Player p ? p : null);
         } else if (event.getHitBlock() != null) {
-            splats.add(event.getHitBlock(), event.getHitBlockFace(), team, now);
+            splats.add(event.getHitBlock(), event.getHitBlockFace(), event.getEntity(), team, now);
         }
         return true;
     }
