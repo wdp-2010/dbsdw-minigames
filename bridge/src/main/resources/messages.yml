@@ -1,10 +1,10 @@
 # Player messages (MiniMessage format).
 # Raise "version" when texts change: servers with an older file get it backed up and replaced.
-version: 2
+version: 3
 
 not-logged-in: "<red>Log eerst in, dan kun je naar de minigames."
 bedrock: "<red>De minigames werken voorlopig alleen op Minecraft Java Edition."
-wrong-version: "<red>De minigames werken alleen met Minecraft 26.3. Jij speelt met een andere versie."
+wrong-version: "<red>De minigames werken vanaf Minecraft 1.21.9. Jij speelt met een oudere versie."
 unavailable: "<red>De minigames zijn even dicht. Probeer het straks opnieuw."
 transferring: "<#9CC05A>Op naar de minigames..."
 npc-set: "<green>Minigames-NPC geplaatst."

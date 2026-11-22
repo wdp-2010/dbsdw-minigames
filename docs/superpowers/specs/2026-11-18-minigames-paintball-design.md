@@ -143,8 +143,9 @@ players to the lobby and saving stats.
 2. DbsdwBridge refuses, with a clear Dutch message, if:
    - the player is not logged in to AuthMe yet;
    - the player is a Bedrock player (Floodgate) — "Java only for now";
-   - the player's client is not on the 26.3 protocol (checked through ViaVersion's API when
-     ViaVersion is present), because the minigame server and pack only support 26.3.
+   - the player's client is older than 1.21.9 (protocol 773, checked through ViaVersion's API when
+     ViaVersion is present): older clients cannot read the pack's `min_format`/`max_format`.
+     ViaVersion + ViaBackwards on the minigame server translate for every other version.
 3. Otherwise it stores a ticket cookie and transfers the player to the minigame server's public
    address and port (from config).
 

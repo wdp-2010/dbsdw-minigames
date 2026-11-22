@@ -52,8 +52,7 @@ public final class BridgeTravel {
         boolean bedrock = Bukkit.getPluginManager().isPluginEnabled("floodgate") && FloodgateHook.isBedrock(id);
         boolean via = Bukkit.getPluginManager().isPluginEnabled("ViaVersion");
         int client = via ? ViaHook.clientProtocol(id) : 0;
-        int server = via ? ViaHook.serverProtocol() : 0;
-        return Eligibility.check(loggedIn, bedrock, client, server);
+        return Eligibility.check(loggedIn, bedrock, client);
     }
 
     private void probeThenTransfer(Player player) {
@@ -90,10 +89,6 @@ public final class BridgeTravel {
     private static final class ViaHook {
         static int clientProtocol(UUID id) {
             return Via.getAPI().getPlayerProtocolVersion(id).getVersion();
-        }
-
-        static int serverProtocol() {
-            return Via.getAPI().getServerVersion().highestSupportedProtocolVersion().getVersion();
         }
     }
 }
