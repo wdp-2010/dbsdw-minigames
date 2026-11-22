@@ -60,6 +60,8 @@ public final class MatchManager implements MenuModel, Listener {
     private final Map<String, RunningMatch> matchesByArena = new LinkedHashMap<>();
     private final Map<UUID, RunningMatch> matchByPlayer = new HashMap<>();
     private final StatsStore stats;
+    /** Countdown second last shown in each queued player's action bar. */
+    private final Map<UUID, Integer> barSeconds = new HashMap<>();
     private long tickCount;
 
     public MatchManager(Plugin plugin, GameRegistryImpl registry, ArenaPool pool, QueueBook queues,
@@ -91,20 +93,35 @@ public final class MatchManager implements MenuModel, Listener {
                 close(match, true);
             }
         }
-        if (++tickCount % 20 == 0) {
+        boolean fullSecond = ++tickCount % 20 == 0;
+        if (fullSecond) {
             menus.refreshOpen();
-            queueBars();
         }
+        queueBars(fullSecond);
     }
 
-    /** Players waiting in a queue see its state in the action bar, once a second. */
-    private void queueBars() {
+    /**
+     * Players waiting in a queue see its state in the action bar, once a second; during a countdown
+     * also the very tick its second changes, so the bar counts in step with the countdown title.
+     */
+    private void queueBars(boolean fullSecond) {
         for (Player player : Bukkit.getOnlinePlayers()) {
-            if (matchByPlayer.containsKey(player.getUniqueId())) {
+            UUID id = player.getUniqueId();
+            if (matchByPlayer.containsKey(id)) {
+                barSeconds.remove(id);
                 continue;
             }
-            queues.queueOf(player.getUniqueId()).flatMap(registry::mode).ifPresent(mode -> {
+            queues.queueOf(id).flatMap(registry::mode).ifPresentOrElse(mode -> {
                 OptionalInt left = queues.secondsLeft(mode.key());
+                Integer shown = left.isPresent() ? left.getAsInt() : null;
+                if (!fullSecond && Objects.equals(shown, barSeconds.get(id))) {
+                    return;
+                }
+                if (shown == null) {
+                    barSeconds.remove(id);
+                } else {
+                    barSeconds.put(id, shown);
+                }
                 Component modeName = MiniMessage.miniMessage().deserialize(mode.displayName());
                 player.sendActionBar(left.isPresent()
                         ? messages.get("queue.bar-countdown", Placeholder.component("mode", modeName),
@@ -112,7 +129,7 @@ public final class MatchManager implements MenuModel, Listener {
                         : messages.get("queue.bar", Placeholder.component("mode", modeName),
                                 Placeholder.unparsed("queued", String.valueOf(queues.size(mode.key()))),
                                 Placeholder.unparsed("needed", String.valueOf(mode.startMinimum()))));
-            });
+            }, () -> barSeconds.remove(id));
         }
     }
 
