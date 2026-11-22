@@ -1,0 +1,9 @@
+walkable floor cells: 13278
+team 0 spawns on walkable floor: yes
+team 1 spawns on walkable floor: yes
+team 0 flag reachable: yes
+team 1 flag reachable: yes
+team 0: spawn pairs with a clear line to an enemy spawn: 0 of 36
+team 1: spawn pairs with a clear line to an enemy spawn: 0 of 36
+floor with full cover within 3 blocks: 74% (aim 55-85)
+far pairs (30+ blocks) that see each other: 5% (aim 5-25), longest seen 100

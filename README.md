@@ -11,7 +11,7 @@ Runs on Paper 26.3 (Java 25).
 | `testgame/` | **MgTestGame**: test-only game (first team to 3 points) for the e2e checks. **Never deploy it.** |
 | `paintball/` | **Paintball** plugin: team deathmatch and capture the flag, built on MinigameCore |
 | `resourcepack/` | The required resource pack (models, textures, sounds, HUD) |
-| `tools/` | Resource pack validation and build script; `tools/e2e/` throwaway test servers and bots |
+| `tools/` | Resource pack validation and build script; `tools/e2e/` throwaway test servers and bots; `tools/maps/` arena builder (see `docs/building-method.md`) |
 | `build-logic/` | Shared Gradle convention plugin (`dbsdw.paper-plugin`) for every plugin module |
 | `gradle/libs.versions.toml` | All dependency versions in one place |
 
