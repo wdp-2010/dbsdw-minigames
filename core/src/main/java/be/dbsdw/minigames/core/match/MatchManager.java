@@ -3,6 +3,7 @@ package be.dbsdw.minigames.core.match;
 import be.dbsdw.minigames.core.Messages;
 import be.dbsdw.minigames.core.api.GameType;
 import be.dbsdw.minigames.core.api.ModeSpec;
+import be.dbsdw.minigames.core.arena.ArenaChunks;
 import be.dbsdw.minigames.core.arena.ArenaDefinition;
 import be.dbsdw.minigames.core.arena.ArenaPool;
 import be.dbsdw.minigames.core.pack.PackAssets;
@@ -49,6 +50,8 @@ public final class MatchManager implements MenuModel, Listener {
             Title.Times.times(Duration.ZERO, Duration.ofMillis(1100), Duration.ofMillis(200));
 
     private final Plugin plugin;
+    /** Arenas whose chunks are held loaded for a running match, by arena name. */
+    private final Map<String, ArenaDefinition> heldChunks = new HashMap<>();
     private final GameRegistryImpl registry;
     private final ArenaPool pool;
     private final QueueBook queues;
@@ -178,6 +181,8 @@ public final class MatchManager implements MenuModel, Listener {
             plugin.getLogger().info("[queue] " + mode.key() + " start fell through: " + online.size() + " player(s) online");
             return;
         }
+        ArenaChunks.hold(plugin, world, arena);
+        heldChunks.put(arena.name(), arena);
         RunningMatch match = new RunningMatch(game.get(), mode, new BukkitArenaView(arena, world),
                 TeamSplit.split(online, mode.teams(), rnd), resultsTicks, messages, plugin.getLogger(), stats);
         matchesByArena.put(arena.name(), match);
@@ -191,6 +196,10 @@ public final class MatchManager implements MenuModel, Listener {
     /** Ends a match's bookkeeping: players back to the lobby (unless shutting down), arena free. */
     private void close(RunningMatch match, boolean toLobby) {
         String arena = match.arena().name();
+        ArenaDefinition held = heldChunks.remove(arena);
+        if (held != null) {
+            ArenaChunks.release(plugin, match.arena().world(), held);
+        }
         matchesByArena.remove(arena);
         matchByPlayer.values().removeIf(m -> m == match);
         pool.release(arena);
