@@ -22,6 +22,7 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.minimessage.tag.resolver.Placeholder;
+import net.kyori.adventure.text.minimessage.tag.resolver.TagResolver;
 import net.kyori.adventure.title.Title;
 import org.bukkit.Bukkit;
 import org.bukkit.GameMode;
@@ -131,7 +132,7 @@ final class RunningMatch implements MatchContext {
             } catch (RuntimeException e) {
                 log.log(Level.WARNING, "[match] result lines failed", e);
             }
-            finish(MatchOutcome.win(winner, lines));
+            finish(MatchOutcome.forfeit(winner, team.getAsInt(), lines));
         }
     }
 
@@ -172,13 +173,20 @@ final class RunningMatch implements MatchContext {
         Component title = outcome.winner().isPresent()
                 ? messages.get("match.win", Placeholder.component("team", teamName(outcome.winner().getAsInt())))
                 : messages.get("match.draw");
+        // A forfeit names the team that gave up, so a strange score (the winners behind) makes sense.
+        TagResolver gaveUp = outcome.gaveUp().isPresent()
+                ? Placeholder.component("team", teamName(outcome.gaveUp().getAsInt())) : null;
         for (UUID id : state.everyone()) {
             Player player = Bukkit.getPlayer(id);
             if (player != null) {
                 OptionalInt team = state.teamOf(id);
                 String sub = outcome.winner().isEmpty() ? "match.draw-sub"
                         : team.isPresent() && team.getAsInt() == outcome.winner().getAsInt() ? "match.won-sub" : "match.lost-sub";
-                player.showTitle(Title.title(title, messages.get(sub)));
+                Component subtitle = gaveUp != null ? messages.get("match.forfeit-sub", gaveUp) : messages.get(sub);
+                player.showTitle(Title.title(title, subtitle));
+                if (gaveUp != null) {
+                    player.sendMessage(messages.get("match.forfeit-line", gaveUp));
+                }
                 outcome.lines().forEach(player::sendMessage);
                 if (handler != null) {
                     try {
@@ -197,7 +205,8 @@ final class RunningMatch implements MatchContext {
             }
         }
         log.info("[match] " + mode.key() + " on " + arena.name() + " ended: "
-                + (outcome.winner().isPresent() ? "winner team " + outcome.winner().getAsInt() : "draw"));
+                + (outcome.winner().isPresent() ? "winner team " + outcome.winner().getAsInt() : "draw")
+                + (outcome.gaveUp().isPresent() ? " (team " + outcome.gaveUp().getAsInt() + " gave up)" : ""));
     }
 
     @Override
