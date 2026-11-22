@@ -10,6 +10,8 @@ from __future__ import annotations
 import math
 import random
 import sys
+
+from PIL import ImageChops
 from pathlib import Path
 
 from palette import (BLUE, BROWN, CYAN, GOLD, GREEN, GUNMETAL_DARK, KHAKI, KHAKI_DARK, MAGENTA, OLIVE, OLIVE_DARK,
@@ -258,6 +260,32 @@ def pack_icon() -> Canvas:
     return c
 
 
+def scope_overlay() -> Canvas:
+    """Camera overlay while aiming. The client stretches it over the whole screen, so the round view
+    is drawn as an ellipse 9/16 as wide as it is tall: round again on a 16:9 screen."""
+    w = h = 256
+    c = Canvas(w, h)
+    cx, cy, ry = 127.5, 127.5, 118
+    rx = ry * 9 / 16
+    view = ellipse(mask((w, h)), (cx - rx, cy - ry, cx + rx, cy + ry))
+    c.fill(ImageChops.invert(view), (12, 14, 8), 235)
+    rim = subtract(view, ellipse(mask((w, h)), (cx - rx + 2, cy - ry + 3, cx + rx - 2, cy + ry - 3)))
+    c.fill(rim, OLIVE_DARK)
+    # thin crosshair with a gap in the middle, and mil-dots on the horizontal line
+    line = (20, 22, 16)
+    for y in range(int(cy - ry), int(cy + ry) + 1):
+        if abs(y - cy) > 7 and view.getpixel((128, y)):
+            c.px(127, y, line, 200).px(128, y, line, 200)
+    for x in range(int(cx - rx), int(cx + rx) + 1):
+        if abs(x - cx) > 4 and view.getpixel((x, 128)):
+            c.px(x, 127, line, 200).px(x, 128, line, 200)
+    for k in (-3, -2, -1, 1, 2, 3):
+        x = round(cx + k * 10)
+        c.px(x, 126, line, 200).px(x, 129, line, 200)
+    c.px(127, 127, RED).px(128, 127, RED).px(127, 128, RED).px(128, 128, RED)
+    return c
+
+
 def main(out: Path) -> None:
     tex = out / "assets" / "dbsdw" / "textures" / "item"
     paintball().save(tex / "paintball.png")
@@ -270,6 +298,7 @@ def main(out: Path) -> None:
     lobby_stats().save(tex / "lobby_stats.png")
     lobby_survival().save(tex / "lobby_survival.png")
     pack_icon().save(out / "pack.png")
+    scope_overlay().save(out / "assets" / "dbsdw" / "textures" / "misc" / "scope.png")
 
 
 if __name__ == "__main__":

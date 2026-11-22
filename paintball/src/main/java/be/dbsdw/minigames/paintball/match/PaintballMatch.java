@@ -1,5 +1,7 @@
 package be.dbsdw.minigames.paintball.match;
 
+import java.util.Set;
+import java.util.HashSet;
 import be.dbsdw.minigames.core.Messages;
 import be.dbsdw.minigames.core.api.MatchContext;
 import be.dbsdw.minigames.core.api.MatchHandler;
@@ -93,6 +95,10 @@ public final class PaintballMatch implements MatchHandler {
     private final Map<UUID, Integer> matchShots = new HashMap<>();
     private final Map<UUID, Integer> matchHits = new HashMap<>();
     private final Map<UUID, Long> lastDry = new HashMap<>();
+    private final Set<UUID> scoped = new HashSet<>();
+    private static final NamespacedKey SCOPE_SLOW = new NamespacedKey("paintball", "scope");
+    /** Vanilla snowball gravity per tick. */
+    private static final double BALL_GRAVITY = 0.03;
     private boolean over;
 
     public PaintballMatch(MatchContext ctx, PaintballGame game, Mode mode) {
@@ -160,6 +166,7 @@ public final class PaintballMatch implements MatchHandler {
             }
         }
         expireBalls(now);
+        tickScopes();
         checkBounds(now);
         if (over) {
             return;
@@ -375,7 +382,8 @@ public final class PaintballMatch implements MatchHandler {
     }
 
     private void launch(Player p, int team, Vector aim, long now) {
-        double[] d = Spread.apply(aim.getX(), aim.getY(), aim.getZ(), settings.spreadDegrees(), ThreadLocalRandom.current());
+        double spread = scoped.contains(p.getUniqueId()) ? settings.scopeSpreadDegrees() : settings.spreadDegrees();
+        double[] d = Spread.apply(aim.getX(), aim.getY(), aim.getZ(), spread, ThreadLocalRandom.current());
         Snowball ball = p.launchProjectile(Snowball.class, new Vector(d[0], d[1], d[2]).multiply(settings.speed()));
         ball.setItem(Gun.ball(team));
         Gun.tagBall(ball);
@@ -399,6 +407,9 @@ public final class PaintballMatch implements MatchHandler {
                 }
                 it.remove();
                 game.balls().remove(e.getKey(), this);
+            } else if (settings.ballGravity() < 1) {
+                // give back part of the gravity: a flatter arc that still drops a little
+                ball.setVelocity(ball.getVelocity().add(new Vector(0, BALL_GRAVITY * (1 - settings.ballGravity()), 0)));
             }
         }
     }
@@ -689,6 +700,7 @@ public final class PaintballMatch implements MatchHandler {
         for (Player other : Bukkit.getOnlinePlayers()) {
             other.showEntity(game.plugin(), p);
         }
+        scope(p, false);
         freeze(p, false);
         hud.hide(p);
         p.clearTitle();
@@ -795,6 +807,42 @@ public final class PaintballMatch implements MatchHandler {
         Color colour = Color.fromRGB(PackAssets.teamRgb(team));
         at.getWorld().spawnParticle(Particle.DUST, at, count, 0.35, 0.5, 0.35, 0,
                 new Particle.DustOptions(colour, size));
+    }
+
+    /** Sneaking with the gun in hand aims through the scope; anything else puts it away. */
+    private void tickScopes() {
+        for (Player p : online()) {
+            UUID id = p.getUniqueId();
+            boolean want = !over && p.isSneaking() && !combat.isOut(id)
+                    && Gun.isGun(p.getInventory().getItemInMainHand());
+            if (want != scoped.contains(id)) {
+                scope(p, want);
+            }
+        }
+    }
+
+    /** Zoom (the client narrows its view when the walk speed drops), slower steps, and the overlay. */
+    private void scope(Player p, boolean on) {
+        AttributeInstance speed = p.getAttribute(Attribute.MOVEMENT_SPEED);
+        if (speed != null) {
+            speed.removeModifier(SCOPE_SLOW);
+            if (on) {
+                speed.addTransientModifier(new AttributeModifier(SCOPE_SLOW, -0.6,
+                        AttributeModifier.Operation.MULTIPLY_SCALAR_1));
+            }
+        }
+        ItemStack head = p.getInventory().getHelmet();
+        if (on) {
+            scoped.add(p.getUniqueId());
+            if (head == null || head.isEmpty()) { // a carried flag keeps the head slot
+                p.getInventory().setHelmet(Gun.scope());
+            }
+        } else {
+            scoped.remove(p.getUniqueId());
+            if (Gun.isScope(head)) {
+                p.getInventory().setHelmet(null);
+            }
+        }
     }
 
     /** The team spawn furthest from living enemies (ties picked at random). */

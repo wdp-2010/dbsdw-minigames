@@ -64,7 +64,9 @@ public final class PaintballPlugin extends JavaPlugin {
                         seconds(c, "powerups.speed-seconds"), c.getDouble("powerups.triple-shot-fan-degrees"),
                         c.getInt("powerups.max-active"), c.getDouble("powerups.catch-up")),
                 seconds(c, "splats.lifetime-seconds"),
-                c.getInt("splats.max-per-arena"));
+                c.getInt("splats.max-per-arena"),
+                c.getDouble("gun.gravity"),
+                c.getDouble("gun.scope-spread-degrees"));
     }
 
     private static ModeRules mode(FileConfiguration c, String key, String winKey) {

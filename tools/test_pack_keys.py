@@ -28,6 +28,9 @@ def sources() -> list[Path]:
 def pack_ids() -> set[str]:
     ids = {f"dbsdw:{p.stem}" for p in (PACK / "items").glob("*.json")}
     ids |= {f"dbsdw:{p.stem}" for p in (PACK / "font").glob("*.json")}
+    # textures by path, for ids such as a camera overlay (dbsdw:misc/scope)
+    ids |= {"dbsdw:" + p.relative_to(PACK / "textures").with_suffix("").as_posix()
+            for p in (PACK / "textures").rglob("*.png")}
     sounds = PACK / "sounds.json"
     if sounds.exists():
         ids |= {f"dbsdw:{event}" for event in json.loads(sounds.read_text(encoding="utf-8"))}

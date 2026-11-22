@@ -326,6 +326,9 @@ def main(out: Path) -> None:
         write_json(items / f"{name}.json", {"model": model_ref(f"dbsdw:item/{name}", True)})
 
     # Splat: a flat square centred on the model origin, facing up; brightness comes from the display.
+    # The scope helmet: nothing to see on the head; its camera_overlay (set by the plugin) is the point.
+    write_json(models / "scope.json", {"textures": {"particle": "dbsdw:misc/scope"}, "elements": []})
+    write_json(items / "scope.json", {"model": {"type": "minecraft:model", "model": "dbsdw:item/scope"}})
     write_json(models / "splat_base.json", {
         "textures": {"particle": "#splat"},
         "elements": [{"from": [0, 8, 0], "to": [16, 8, 16], "shade": False,

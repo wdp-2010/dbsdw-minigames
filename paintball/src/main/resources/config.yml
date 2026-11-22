@@ -28,9 +28,13 @@ player:
 gun:
   # 5 ticks = 4 shots per second.
   shot-interval-ticks: 5
-  # Blocks per tick (vanilla snowball: 1.5). Gravity and drag stay vanilla.
+  # Blocks per tick (vanilla snowball: 1.5). Drag stays vanilla.
   speed: 3.0
+  # Share of vanilla gravity on a paintball: 1 = vanilla arc, 0.5 = half the drop, 0 = straight line.
+  gravity: 0.5
   spread-degrees: 1.0
+  # Sneak with the gun to aim through the scope: zoomed in, slower, and this much spread.
+  scope-spread-degrees: 0.2
   # A paintball that hits nothing is removed after this (60 = 3 s).
   ball-lifetime-ticks: 60
 

@@ -17,6 +17,9 @@ public final class PackAssets {
     public static final String SPLAT = "dbsdw:splat";
     public static final String FLAG = "dbsdw:flag";
 
+    /** Invisible helmet that shows the scope overlay (equippable camera_overlay). */
+    public static final String SCOPE = "dbsdw:scope";
+    public static final String SCOPE_OVERLAY = "dbsdw:misc/scope";
     public static final String SOUND_SHOT = "dbsdw:paintball.shot";
     public static final String SOUND_SPLAT = "dbsdw:paintball.splat";
     public static final String SOUND_HIT = "dbsdw:paintball.hit";

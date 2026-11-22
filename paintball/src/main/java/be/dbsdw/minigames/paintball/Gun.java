@@ -2,9 +2,13 @@ package be.dbsdw.minigames.paintball;
 
 import be.dbsdw.minigames.core.Messages;
 import be.dbsdw.minigames.core.pack.PackItems;
+import io.papermc.paper.datacomponent.DataComponentTypes;
+import io.papermc.paper.datacomponent.item.Equippable;
+import net.kyori.adventure.key.Key;
 import org.bukkit.Material;
 import org.bukkit.NamespacedKey;
 import org.bukkit.entity.Entity;
+import org.bukkit.inventory.EquipmentSlot;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.persistence.PersistentDataType;
@@ -14,6 +18,7 @@ public final class Gun {
     public static final NamespacedKey KEY = new NamespacedKey("paintball", "item");
     private static final String GUN = "gun";
     private static final String BALL = "ball";
+    private static final String SCOPE = "scope";
 
     private Gun() {
     }
@@ -33,6 +38,22 @@ public final class Gun {
     public static boolean isGun(ItemStack stack) {
         return stack != null && !stack.isEmpty() && stack.hasItemMeta()
                 && GUN.equals(stack.getItemMeta().getPersistentDataContainer().get(KEY, PersistentDataType.STRING));
+    }
+
+    /** The scope: worn on the head while aiming, it shows the scope overlay and nothing else. */
+    public static ItemStack scope() {
+        ItemStack stack = PackItems.item(Material.PAPER, PackAssets.SCOPE, null);
+        stack.setData(DataComponentTypes.EQUIPPABLE, Equippable.equippable(EquipmentSlot.HEAD)
+                .cameraOverlay(Key.key(PackAssets.SCOPE_OVERLAY)).build());
+        ItemMeta meta = stack.getItemMeta();
+        meta.getPersistentDataContainer().set(KEY, PersistentDataType.STRING, SCOPE);
+        stack.setItemMeta(meta);
+        return stack;
+    }
+
+    public static boolean isScope(ItemStack stack) {
+        return stack != null && !stack.isEmpty() && stack.hasItemMeta()
+                && SCOPE.equals(stack.getItemMeta().getPersistentDataContainer().get(KEY, PersistentDataType.STRING));
     }
 
     /** What a flying paintball of this team looks like. */
