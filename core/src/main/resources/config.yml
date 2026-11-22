@@ -20,7 +20,7 @@ lobby:
 
 queue:
   # Countdown once enough players are queued and an arena is free.
-  countdown-seconds: 30
+  countdown-seconds: 15
   # Shorter countdown once the queue is full.
   full-countdown-seconds: 10
 
