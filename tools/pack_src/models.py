@@ -164,13 +164,15 @@ def gun_boxes() -> list[Box]:
     return [
         # barrel: thin and long, a thicker threaded back part, team-coloured muzzle
         *rod("z", (8, 9.6), 0.75, -14.5, 0, BLACK, decorate=_barrel_ports),
-        *rod("z", (8, 9.6), 1.05, -2.5, 0.4, BARREL_BACK),
-        *rod("z", (8, 9.6), 0.95, -15.5, -14.2, TINT_GREY, decorate=_muzzle, **tint),
+        *rod("z", (8, 9.6), 1.05, -2.5, 0, BARREL_BACK),
+        *rod("z", (8, 9.6), 1.05, -15.5, -14.2, TINT_GREY, decorate=_muzzle, **tint),
         # body: slim, polished, crowned top, black frame rail, team inlay, bolt cap at the back
         part((7, 8, 0), (9, 11.2, 9.5), BODY),
         part((7.25, 11.2, 1), (8.75, 11.8, 8.5), BODY, gloss=False),
         part((7.15, 7.4, 0.5), (8.85, 8, 9), BLACK, gloss=False),
-        part((6.95, 9.3, 1.5), (9.05, 10.2, 7.5), TINT_GREY, faces=("east", "west"), gloss=False, **tint),
+        # the inlay stands a hair proud of the body sides: snapped to the grid it would share their plane
+        part((7, 9.3, 1.5), (9, 10.2, 7.5), TINT_GREY, shrink=(-0.05, 0, 0), faces=("east", "west"),
+             gloss=False, **tint),
         *rod("z", (8, 9.6), 0.6, 9.5, 10.6, STEEL, gloss=False),
         # feed neck and collar
         *rod("y", (8, 4), 0.65, 11.8, 13.6, BLACK, gloss=False),
@@ -188,7 +190,7 @@ def gun_boxes() -> list[Box]:
         # foregrip (front, vertical), trigger guard and trigger
         *rod("y", (8, 1.15), 0.75, 3.5, 7.4, BLACK, decorate=_grip_texture),
         *rod("y", (8, 1.15), 0.55, 3, 3.5, STEEL, gloss=False),
-        part((7.65, 4.6, 2.6), (8.35, 7.4, 3.2), BODY, gloss=False),
+        part((7.65, 4.6, 2.6), (8.35, 7.4, 3.2), BODY, shrink=(EPS, 0, EPS), gloss=False),
         part((7.65, 4.2, 2.6), (8.35, 4.8, 6.6), BODY, gloss=False),
         part((7.75, 5.2, 4.2), (8.25, 7.4, 4.7), STEEL, gloss=False),
         # raked grip
