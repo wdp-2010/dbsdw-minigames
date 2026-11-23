@@ -19,6 +19,7 @@ import java.util.random.RandomGenerator;
 import net.kyori.adventure.text.Component;
 import org.bukkit.ChunkSnapshot;
 import org.bukkit.Material;
+import org.bukkit.Tag;
 import org.bukkit.World;
 import org.bukkit.entity.Player;
 import org.bukkit.plugin.Plugin;
@@ -104,9 +105,30 @@ final class VerstopGame implements GameType {
         return new VerstopMatch(plugin, context, settings, blocks, messages, plugin.getLogger(), rnd, active);
     }
 
+    /** A whole cube (or leaves): hiding as a slab, fence or path block would look wrong. */
+    private static boolean fullBlock(Material m) {
+        return !m.isAir() && (m.isOccluding() || Tag.LEAVES.isTagged(m));
+    }
+
+    /** Something see-through next to it (above or a side within the chunk): not buried ground. */
+    private static boolean visible(ChunkSnapshot snap, int x, int y, int z, World w) {
+        if (y + 1 >= w.getMaxHeight() || !snap.getBlockType(x, y + 1, z).isOccluding()) {
+            return true;
+        }
+        int[][] sides = {{1, 0}, {-1, 0}, {0, 1}, {0, -1}};
+        for (int[] d : sides) {
+            int nx = x + d[0];
+            int nz = z + d[1];
+            if (nx >= 0 && nx < 16 && nz >= 0 && nz < 16 && !snap.getBlockType(nx, y, nz).isOccluding()) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     /**
      * The blocks the arena is built from that players may use, most common first (up to 36: hotbar
-     * plus inventory). Blocks seen fewer than {@link #MIN_COUNT} times are left out: hiding as one is
+     * plus inventory). Only whole blocks that can be seen count. Blocks seen fewer than {@link #MIN_COUNT} times are left out: hiding as one is
      * a giveaway. Falls back to the configured disguises when the scan finds nothing.
      */
     private List<Material> scan(ArenaView arena) {
@@ -127,7 +149,7 @@ final class VerstopGame implements GameType {
                     for (int z = Math.max(z0, cz << 4); z <= Math.min(z1, (cz << 4) + 15); z++) {
                         for (int y = y0; y <= y1; y++) {
                             Material m = snap.getBlockType(x & 15, y, z & 15);
-                            if (!m.isAir()) {
+                            if (fullBlock(m) && visible(snap, x & 15, y, z & 15, w)) {
                                 counts.merge(m, 1, Integer::sum);
                             }
                         }

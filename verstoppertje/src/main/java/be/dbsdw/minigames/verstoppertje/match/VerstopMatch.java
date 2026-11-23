@@ -214,7 +214,8 @@ public final class VerstopMatch implements MatchHandler {
         }
         Location l = d.hider.getLocation();
         Block feet = l.getBlock();
-        boolean moved = d.still.update(Stillness.key(feet.getX(), feet.getY(), feet.getZ()), now);
+        boolean moved = d.still.update(Stillness.key(feet.getX(), feet.getY(), feet.getZ()), now)
+                | d.still.look(l.getYaw(), l.getPitch(), now);
         if (moved && d.solid()) {
             d.loosen(all);
             d.hider.sendActionBar(messages.get("solid.loose"));

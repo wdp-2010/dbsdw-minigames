@@ -1,7 +1,7 @@
 # Verstoppertje player messages (MiniMessage format).
 # Raise "version" when texts change: servers with an older file get it backed up and replaced.
 # Colours: khaki #D9C78F (headings), field green #9CC05A (good news), amber #FFB52E (alerts, numbers).
-version: 2
+version: 3
 
 game:
   name: "<#D9C78F><bold>Verstoppertje"
@@ -24,7 +24,7 @@ item:
 hide:
   title: "<#9CC05A><bold>Verstop je!"
   subtitle: "<gray>Je bent het blok in je hand · <white>E</white> voor meer · <white><seconds></white>s tot de zoekers komen"
-  bar: "<gray>Zoekers komen over <white><seconds></white>s <dark_gray>·</dark_gray> <gray>sta <white>3s</white> stil om een echt blok te worden <dark_gray>·</dark_gray> <gray>druk <white>E</white> voor alle blokken"
+  bar: "<gray>Zoekers komen over <white><seconds></white>s <dark_gray>·</dark_gray> <gray>sta <white>3s</white> stil (niet rondkijken) om een echt blok te worden <dark_gray>·</dark_gray> <gray>druk <white>E</white> voor alle blokken"
 
 wait:
   title: "<#FFB52E><bold>Jij zoekt!"
@@ -45,7 +45,7 @@ build:
   break-full: "<#FFB52E>Je mag geen blokken meer breken."
 
 solid:
-  on: "<#9CC05A>Je staat vast als blok. <gray>Bewegen maakt je weer los."
+  on: "<#9CC05A>Je staat vast als blok. <gray>Bewegen of rondkijken maakt je weer los."
   loose: "<#FFB52E>Je bent los: ze kunnen je zien bewegen!"
 
 hint: "<#FFB52E>Piep!</#FFB52E> <gray>Alle verstoppers maakten een geluidje."
