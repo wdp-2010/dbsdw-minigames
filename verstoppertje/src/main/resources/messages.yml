@@ -1,7 +1,7 @@
 # Verstoppertje player messages (MiniMessage format).
 # Raise "version" when texts change: servers with an older file get it backed up and replaced.
 # Colours: khaki #D9C78F (headings), field green #9CC05A (good news), amber #FFB52E (alerts, numbers).
-version: 3
+version: 4
 
 game:
   name: "<#D9C78F><bold>Verstoppertje"
@@ -23,8 +23,8 @@ item:
 
 hide:
   title: "<#9CC05A><bold>Verstop je!"
-  subtitle: "<gray>Je bent het blok in je hand · <white>E</white> voor meer · <white><seconds></white>s tot de zoekers komen"
-  bar: "<gray>Zoekers komen over <white><seconds></white>s <dark_gray>·</dark_gray> <gray>sta <white>3s</white> stil (niet rondkijken) om een echt blok te worden <dark_gray>·</dark_gray> <gray>druk <white>E</white> voor alle blokken"
+  subtitle: "<gray>Zoekers over <white><seconds></white>s"
+  bar: "<gray>Zoekers over <white><seconds></white>s <dark_gray>·</dark_gray> <gray>sta stil = blok <dark_gray>·</dark_gray> <white>E</white> <gray>meer blokken"
 
 wait:
   title: "<#FFB52E><bold>Jij zoekt!"
@@ -39,16 +39,17 @@ coming:
   subtitle: "<gray>Blijf stil staan..."
 
 build:
-  placed: "<gray>Blok geplaatst <dark_gray>·</dark_gray> <gray>nog <white><left></white> te plaatsen"
-  broken: "<gray>Blok gebroken <dark_gray>·</dark_gray> <gray>nog <white><left></white> te breken"
-  place-full: "<#FFB52E>Je mag geen blokken meer plaatsen."
-  break-full: "<#FFB52E>Je mag geen blokken meer breken."
+  placed: "<gray>Geplaatst <dark_gray>·</dark_gray> <gray>nog <white><left>"
+  broken: "<gray>Gebroken <dark_gray>·</dark_gray> <gray>nog <white><left>"
+  place-full: "<#FFB52E>Geen blokken meer"
+  break-full: "<#FFB52E>Breken op"
 
+# Not "on": YAML reads that key as true.
 solid:
-  on: "<#9CC05A>Je staat vast als blok. <gray>Bewegen of rondkijken maakt je weer los."
-  loose: "<#FFB52E>Je bent los: ze kunnen je zien bewegen!"
+  locked: "<#9CC05A>Vast als blok"
+  loose: "<#FFB52E>Los: je beweegt!"
 
-hint: "<#FFB52E>Piep!</#FFB52E> <gray>Alle verstoppers maakten een geluidje."
+hint: "<#FFB52E>Piep!</#FFB52E> <gray>De verstoppers piepten"
 
 hud:
   bar: "<#9CC05A>Verstoppers <white><bold><hiders></bold></white> <dark_gray>·</dark_gray> <gray>tijd <white><time>"

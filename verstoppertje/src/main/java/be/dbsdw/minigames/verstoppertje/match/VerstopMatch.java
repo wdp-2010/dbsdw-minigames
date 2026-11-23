@@ -212,8 +212,7 @@ public final class VerstopMatch implements MatchHandler {
         }
         Location l = d.hider.getLocation();
         Block feet = l.getBlock();
-        boolean moved = d.still.update(Stillness.key(feet.getX(), feet.getY(), feet.getZ()), now)
-                | d.still.look(l.getYaw(), l.getPitch(), now);
+        boolean moved = d.still.update(Stillness.key(feet.getX(), feet.getY(), feet.getZ()), now);
         if (moved && d.solid()) {
             d.loosen(all);
             d.hider.sendActionBar(messages.get("solid.loose"));
@@ -223,7 +222,7 @@ public final class VerstopMatch implements MatchHandler {
         }
         if (d.still.stillFor(now) >= settings.solidTicks() && Disguise.canSolidify(feet)) {
             d.solidify(feet, all);
-            d.hider.sendActionBar(messages.get("solid.on"));
+            d.hider.sendActionBar(messages.get("solid.locked"));
             d.hider.playSound(d.hider, Sound.BLOCK_WOOD_PLACE, 0.6f, 1.2f);
         } else {
             d.follow();

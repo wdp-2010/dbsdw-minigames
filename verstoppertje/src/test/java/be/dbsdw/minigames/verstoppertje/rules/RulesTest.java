@@ -91,19 +91,6 @@ class RulesTest {
     }
 
     @Test
-    void lookingAroundCountsAsMoving() {
-        Stillness s = new Stillness();
-        s.update(Stillness.key(1, 2, 3), 0);
-        assertFalse(s.look(90, 0, 0));
-        assertFalse(s.look(95, 5, 40), "a small turn is fine");
-        assertEquals(40, s.stillFor(40));
-        assertTrue(s.look(120, 0, 50), "looking around restarts the count");
-        assertEquals(0, s.stillFor(50));
-        assertFalse(s.look(-235, 0, 60), "-235 is 125: within the turn");
-        assertTrue(s.look(120, 30, 70), "looking up");
-    }
-
-    @Test
     void limitNeverBelowZero() {
         assertEquals(30, BlockRules.left(30, 0));
         assertEquals(1, BlockRules.left(30, 29));
