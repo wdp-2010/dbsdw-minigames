@@ -29,8 +29,6 @@ import org.bukkit.scoreboard.Team;
  */
 final class Hud {
     private static final String[] LINES = {"score0", "score1", "blank", "time"};
-    private static final Title.Times SPLASH_TIMES =
-            Title.Times.times(Duration.ZERO, Duration.ofMillis(300), Duration.ofMillis(400));
     private static final Title.Times MARKER_TIMES =
             Title.Times.times(Duration.ZERO, Duration.ofMillis(700), Duration.ofMillis(250));
 
@@ -113,13 +111,6 @@ final class Hud {
 
     private static Component drops(int count, TextColor colour) {
         return Component.text(PackAssets.DROP.repeat(Math.max(0, count)), colour).font(PackAssets.HUD_FONT);
-    }
-
-    /** Paint on the goggles: a full-screen splash in the shooter's colour for a moment. */
-    void splash(Player victim, int shooterTeam) {
-        victim.showTitle(Title.title(
-                Component.text(PackAssets.OVERLAY, PackAssets.teamColour(shooterTeam)).font(PackAssets.OVERLAY_FONT),
-                Component.empty(), SPLASH_TIMES));
     }
 
     /** Hit marker, power-up and similar feedback: a quick subtitle, just under the crosshair. */

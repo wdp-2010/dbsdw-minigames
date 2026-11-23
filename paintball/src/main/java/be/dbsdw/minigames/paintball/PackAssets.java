@@ -39,9 +39,21 @@ public final class PackAssets {
     /** HUD icons: paint drop (coloured by the text colour) and the full-colour power-up icons. */
     public static final Key HUD_FONT = Key.key("dbsdw:hud");
     public static final String DROP = "";
-    /** Full-screen paint splash shown as a title when the player is hit. */
-    public static final Key OVERLAY_FONT = Key.key("dbsdw:overlay");
-    public static final String OVERLAY = "";
+    /**
+     * Paint on the goggles when hit: camera overlays (the client stretches them over the whole
+     * screen, whatever its size) per team, full and fading.
+     */
+    public static final String SPLASH_RED = "dbsdw:misc/splash_red";
+    public static final String SPLASH_RED_FADE = "dbsdw:misc/splash_red_fade";
+    public static final String SPLASH_BLUE = "dbsdw:misc/splash_blue";
+    public static final String SPLASH_BLUE_FADE = "dbsdw:misc/splash_blue_fade";
+
+    public static String splash(int team, boolean fade) {
+        if (team == 0) {
+            return fade ? SPLASH_RED_FADE : SPLASH_RED;
+        }
+        return fade ? SPLASH_BLUE_FADE : SPLASH_BLUE;
+    }
 
     private PackAssets() {
     }

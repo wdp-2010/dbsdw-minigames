@@ -1,4 +1,5 @@
-"""Font glyphs: HUD icons, the hit splash overlay and the chest-menu background.
+"""Font glyphs: HUD icons and the chest-menu background; also the hit splash art (worn as a camera
+overlay, see textures.splash_overlay).
 
 Run: python3 tools/pack_src/glyphs.py <resourcepack dir>
 Code points are the contract with messages.yml (see the plan's glyph table). White glyphs are
@@ -219,7 +220,6 @@ HUD = [  # (char, file, ascent, height)
     ("", "triple_shot", 8, 9), ("", "speed", 8, 9), ("", "repair", 8, 9),
     ("", "hit_marker", 8, 9), ("", "protected", 8, 9), ("", "team", 8, 9),
 ]
-OVERLAY_ASCENT, OVERLAY_HEIGHT = 45, 90
 MENU_ASCENT, MENU_HEIGHT = 13, 168
 
 
@@ -238,7 +238,6 @@ def main(out: Path) -> None:
     hit_marker().save(tex / "hit_marker.png")
     bubble().save(tex / "protected.png")
     team_splat().save(tex / "team.png")
-    overlay().save(tex / "overlay.png")
     menu_background().save(tex / "menu.png")
 
     def write(name: str, providers: list[dict]) -> None:
@@ -248,7 +247,6 @@ def main(out: Path) -> None:
 
     # The space keeps its normal width, so messages can put spaces between icons in this font.
     write("hud", [bitmap(f, a, h, ch) for ch, f, a, h in HUD] + [{"type": "space", "advances": {" ": 4}}])
-    write("overlay", [bitmap("overlay", OVERLAY_ASCENT, OVERLAY_HEIGHT, "")])
     write("menu", [bitmap("menu", MENU_ASCENT, MENU_HEIGHT, ""),
                    {"type": "space", "advances": {"": -8, "": -169}}])
 

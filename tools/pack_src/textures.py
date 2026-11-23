@@ -286,6 +286,21 @@ def scope_overlay() -> Canvas:
     return c
 
 
+def splash_overlay(colour, fade: bool) -> Canvas:
+    """Paint on the goggles, worn as a camera overlay: the client stretches it over the whole screen,
+    so the splats reach the edges on any screen. Same art as the old title glyph, in team colour."""
+    from glyphs import overlay
+    art = overlay()
+    c = Canvas(art.img.width, art.img.height)
+    for y in range(art.img.height):
+        for x in range(art.img.width):
+            r, g, b, a = art.img.getpixel((x, y))
+            if a:
+                k = r / 255
+                c.px(x, y, tuple(round(v * k) for v in colour), round(a * (0.45 if fade else 1)))
+    return c
+
+
 def main(out: Path) -> None:
     tex = out / "assets" / "dbsdw" / "textures" / "item"
     paintball().save(tex / "paintball.png")
@@ -299,6 +314,10 @@ def main(out: Path) -> None:
     lobby_survival().save(tex / "lobby_survival.png")
     pack_icon().save(out / "pack.png")
     scope_overlay().save(out / "assets" / "dbsdw" / "textures" / "misc" / "scope.png")
+    for name, colour in (("red", RED), ("blue", BLUE)):
+        for fade in (False, True):
+            splash_overlay(colour, fade).save(
+                out / "assets" / "dbsdw" / "textures" / "misc" / f"splash_{name}{'_fade' if fade else ''}.png")
 
 
 if __name__ == "__main__":

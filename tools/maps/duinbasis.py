@@ -392,7 +392,7 @@ def hq(c: Canvas):
     c.set(x2 - 2, G + 15, z1 + 2, "team_banner[rotation=12]")
     # roof: antenna, dish, AC units, a sandbag nest facing east
     c.column(x1 + 2, z1 + 2, G + 9, G + 16, "iron_bars")
-    c.set(x1 + 2, G + 17, z1 + 2, "lightning_rod")
+    c.set(x1 + 2, G + 17, z1 + 2, "waxed_lightning_rod")
     c.set(x1 + 5, G + 9, z1 + 3, "daylight_detector[inverted=false,power=0]")
     c.set(x1 + 5, G + 10, z1 + 3, "white_concrete")
     c.set(x1 + 4, G + 9, z2 - 3, "smooth_stone")
@@ -507,7 +507,7 @@ def plaza(c: Canvas):
     by = c.top_solid(mx, mz)
     c.box(mx - 1, by + 1, mz - 1, mx + 1, by + 1, mz + 1, "polished_andesite")
     c.column(mx, mz, by + 2, by + 20, "iron_bars")
-    c.set(mx, by + 21, mz, "lightning_rod")
+    c.set(mx, by + 21, mz, "waxed_lightning_rod")
     for k in (8, 13, 18):
         for d in (-1, 1):
             c.set(mx + d, by + k, mz, "iron_bars")
@@ -549,7 +549,7 @@ def dome(c: Canvas, x, z, r, top):
                 if dx * dx + dz * dz <= rr * rr + 0.3:
                     c.set(x + dx, top + 2 + y, z + dz, Pal(("smooth_sandstone", 5), ("white_terracotta", 1), seed=5))
     yt = c.top(x, z)
-    c.set(x, yt + 1, z, "lightning_rod")
+    c.set(x, yt + 1, z, "waxed_lightning_rod")
 
 
 def village_tower(c: Canvas):
@@ -613,12 +613,15 @@ def street_shades(c: Canvas):
             for x in range(x1, x2 + 1):
                 if h3(x, 0, z, 88) < 0.12:
                     continue
+                # a carpet needs a block under it, or the first block update pops it off
+                c.set(x, G + 5, z, "spruce_slab[type=top]")
                 c.set(x, G + 6, z, ("white_carpet", "yellow_carpet", "white_carpet", "orange_carpet")[(z // 2) % 4]
                       if x1 != 50 else ("white_carpet", "lime_carpet")[(x // 2) % 2])
         for x in (x1, x2):
             for z in (STREET[1] - 1, STREET[3] + 1):
-                if c.empty(x, G + 5, z):
-                    c.column(x, z, G + 1, G + 5, "spruce_fence")
+                if c.empty(x, G + 4, z):
+                    c.column(x, z, G + 1, G + 4, "spruce_fence")
+                    c.set(x, G + 5, z, "spruce_log[axis=y]")
 
 
 def tank(c: Canvas):
@@ -732,6 +735,55 @@ def border(c: Canvas):
                     c.set(x, y, z, "barrier")
 
 
+# The owner's in-game edits of 2026-11-22, ported into the west half so the rotation repeats them
+# for team 1: a supply cache dug into the south cliff off the wadi footbridge (entrance tunnel,
+# chests, barrels, a short rail track, a sandstone roof so the sand above stays put), sugar cane
+# at the oasis, an opened doorway in a timber screen, a removed roof slab and one floor tile.
+STASH = [
+    (54, 8, 89, "spruce_planks"), (55, 8, 89, "spruce_planks"), (56, 8, 89, "spruce_planks"),
+    (54, 9, 89, "spruce_fence"), (56, 11, 89, "sandstone"), (56, 12, 89, "sand"),
+    (55, 8, 92, "sand"), (58, 9, 91, "sand"), (60, 9, 92, "sand"),
+    (54, 9, 92, "chest[facing=east,type=left,waterlogged=false]"),
+    (54, 9, 93, "chest[facing=east,type=right,waterlogged=false]"),
+    (59, 9, 92, "chest[facing=west,type=single,waterlogged=false]"),
+    (59, 10, 92, "chest[facing=west,type=single,waterlogged=false]"),
+    (59, 9, 93, "barrel[facing=west,open=false]"), (59, 10, 93, "barrel[facing=west,open=false]"),
+    (59, 9, 94, "barrel[facing=west,open=false]"),
+    (55, 9, 95, "rail[shape=ascending_east,waterlogged=false]"),
+    (56, 9, 95, "barrel[facing=up,open=false]"), (57, 9, 95, "barrel[facing=up,open=false]"),
+    (56, 10, 95, "rail[shape=east_west,waterlogged=false]"),
+    (57, 10, 95, "rail[shape=east_west,waterlogged=false]"),
+    (58, 9, 95, "rail[shape=ascending_west,waterlogged=false]"),
+    (59, 9, 95, "chest[facing=west,type=single,waterlogged=false]"),
+]
+STASH_AIR = [  # the tunnel and the room
+    (55, 9, 89), (56, 9, 89), (55, 10, 89), (56, 10, 89), (55, 9, 90), (56, 9, 90), (55, 10, 90), (56, 10, 90),
+    (55, 9, 91), (56, 9, 91), (55, 10, 91), (56, 10, 91),
+    (55, 9, 92), (56, 9, 92), (57, 9, 92), (58, 9, 92), (54, 10, 92), (55, 10, 92), (56, 10, 92), (57, 10, 92),
+    (58, 10, 92), (55, 9, 93), (56, 9, 93), (57, 9, 93), (58, 9, 93), (55, 10, 93), (56, 10, 93), (57, 10, 93),
+    (58, 10, 93), (55, 9, 94), (56, 9, 94), (57, 9, 94), (58, 9, 94), (55, 10, 94), (56, 10, 94),
+    (57, 10, 94), (58, 10, 94), (59, 10, 94), (55, 10, 95), (58, 10, 95),
+    (54, 10, 93), (59, 10, 95), (60, 9, 93),
+]
+STASH_ROOF = [(x, 11, z) for x in range(54, 60) for z in range(90, 93)]
+CANE = [(61, 80), (62, 80), (63, 80), (59, 81), (64, 81), (60, 85)]
+
+
+def owner_edits(c: Canvas):
+    for p in STASH_AIR:
+        c.set(*p, "air")
+    for p in STASH_ROOF:
+        if c.get(*p) in ("sand", "air"):
+            c.set(*p, "sandstone")
+    for x, y, z, s in STASH:
+        c.set(x, y, z, s)
+    for x, z in CANE:
+        c.set(x, G, z, "sugar_cane[age=0]")
+    c.set(9, 10, 32, "air")              # doorway through the timber screen
+    c.set(49, 13, 60, "air")             # roof slab
+    c.set(35, 10, 46, "smooth_sandstone")
+
+
 def build():
     c = CANVAS
     c.b.clear()
@@ -745,6 +797,7 @@ def build():
     field(c)
     tank(c)
     ground_cover(c)
+    owner_edits(c)
     c.rotate_west_half()
     c.drop_floating()
     border(c)

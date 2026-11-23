@@ -1,0 +1,12 @@
+walkable floor from the spawn: 10689 blocks
+  practice range: reachable
+  npc: reachable
+  hq hall: reachable
+  friends' camp: reachable
+  sand table woudfront: reachable
+  sand table duinbasis: reachable
+  bridge: reachable
+  barracks: reachable
+  depot: reachable
+floor at the edge of the build: 0 (must be 0)
+LOBBY OK

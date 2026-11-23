@@ -3213,14 +3213,14 @@
   "display": {
     "firstperson_righthand": {
       "rotation": [
-        5,
-        0,
-        0
+        5.077,
+        -9.962,
+        0.88
       ],
       "translation": [
-        5.25,
+        16.239,
         -4,
-        -5.5
+        -2.721
       ],
       "scale": [
         1,
@@ -3230,14 +3230,14 @@
     },
     "firstperson_lefthand": {
       "rotation": [
-        5,
-        0,
-        0
+        5.077,
+        9.962,
+        -0.88
       ],
       "translation": [
-        5.25,
+        -16.239,
         -4,
-        -5.5
+        -2.721
       ],
       "scale": [
         1,

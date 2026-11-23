@@ -94,6 +94,7 @@ public final class PaintballMatch implements MatchHandler {
     private final Map<UUID, Integer> matchHits = new HashMap<>();
     private final Map<UUID, Long> lastDry = new HashMap<>();
     private final Scope scope;
+    private final Goggles goggles = new Goggles();
     /** Vanilla snowball gravity per tick. */
     private static final double BALL_GRAVITY = 0.03;
     private boolean over;
@@ -165,6 +166,7 @@ public final class PaintballMatch implements MatchHandler {
         }
         expireBalls(now);
         tickScopes();
+        goggles.tick(now, this::headWithoutPaint);
         checkBounds(now);
         if (over) {
             return;
@@ -295,7 +297,7 @@ public final class PaintballMatch implements MatchHandler {
                 victim.playHurtAnimation(0);
                 PackItems.play(at, PackAssets.SOUND_HIT, 1f, 0.95f + ThreadLocalRandom.current().nextFloat() * 0.1f);
                 paintBurst(at.clone().add(0, 1, 0), shot.team(), 20, 1.4f);
-                hud.splash(victim, shot.team());
+                goggles.splash(victim, shot.team(), now);
                 updateBar(victim, now);
                 if (shooter != null) {
                     ctx.addStat(shooter, "hits", 1);
@@ -693,12 +695,25 @@ public final class PaintballMatch implements MatchHandler {
         updateBar(p, now);
     }
 
+    /** What the head slot holds when there is no paint on the goggles: a carried flag, the scope or nothing. */
+    private ItemStack headWithoutPaint(Player p) {
+        UUID id = p.getUniqueId();
+        if (flags != null) {
+            OptionalInt carried = flags.carriedBy(id);
+            if (carried.isPresent()) {
+                return FlagView.flag(carried.getAsInt());
+            }
+        }
+        return scope.isScoped(id) ? Gun.scope() : null;
+    }
+
     /** Undoes everything this match did to the player; safe to call twice. */
     private void cleanup(Player p) {
         for (Player other : Bukkit.getOnlinePlayers()) {
             other.showEntity(game.plugin(), p);
         }
         scope.forget(p);
+        goggles.forget(p);
         freeze(p, false);
         hud.hide(p);
         p.clearTitle();

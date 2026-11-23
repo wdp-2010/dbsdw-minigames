@@ -70,15 +70,15 @@ practice:
   enabled: true
   world: world
   # Two corner blocks of the zone (both included).
-  corner-1: [-8, -63, -9]
-  corner-2: [8, -55, -39]
+  corner-1: [-8, -59, -9]
+  corner-2: [8, -51, -39]
   # Pop-up dummies: x, y, z (feet) and yaw (0 = facing south, +Z).
   targets:
-    - [-4.5, -62, -20.5, 0]
-    - [0.5, -62, -25.5, 0]
-    - [4.5, -62, -21.5, 0]
-    - [-2.5, -62, -31.5, 0]
-    - [3.5, -62, -34.5, 0]
+    - [-4.5, -58, -20.5, 0]
+    - [0.5, -58, -25.5, 0]
+    - [4.5, -58, -21.5, 0]
+    - [-2.5, -58, -31.5, 0]
+    - [3.5, -58, -34.5, 0]
   # A dummy sinks into the floor after this many hits and rises again after this long.
   target-hits: 3
   target-down-seconds: 3

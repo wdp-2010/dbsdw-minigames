@@ -2,8 +2,11 @@ package be.dbsdw.minigames.paintball;
 
 import be.dbsdw.minigames.paintball.match.PaintballMatch;
 import be.dbsdw.minigames.paintball.match.PracticeRange;
+import org.bukkit.Color;
+import org.bukkit.Particle;
 import org.bukkit.entity.Player;
 import org.bukkit.entity.Projectile;
+import org.bukkit.entity.Snowball;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.block.Action;
@@ -67,15 +70,33 @@ final class PaintballListener implements Listener {
             return;
         }
         PaintballMatch match = game.balls().get(ball.getUniqueId());
-        if (match == null) {
-            if (range != null && range.onBallHit(event)) {
-                return;
-            }
+        if (match != null) {
+            match.onBallHit(event);
+        } else if (range == null || !range.onBallHit(event)) {
             event.setCancelled(true);
             ball.remove();
             return;
         }
-        match.onBallHit(event);
+        if (!event.isCancelled()) {
+            pop(event);
+        }
+    }
+
+    /**
+     * Ends a paintball that hit something ourselves. Left to vanilla, the snowball breaks into item
+     * particles of its pack model, which players saw as missing-texture squares. A cancelled hit
+     * sends no break particles, so the ball is removed here and a small puff of paint in its colour
+     * takes their place.
+     */
+    private static void pop(ProjectileHitEvent event) {
+        Projectile ball = event.getEntity();
+        event.setCancelled(true);
+        Color colour = ball instanceof Snowball snowball ? Gun.ballColour(snowball.getItem()) : null;
+        if (colour != null) {
+            ball.getWorld().spawnParticle(Particle.DUST, ball.getLocation(), 8, 0.1, 0.1, 0.1, 0,
+                    new Particle.DustOptions(colour, 1.0f));
+        }
+        ball.remove();
     }
 
     @EventHandler

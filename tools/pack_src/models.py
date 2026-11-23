@@ -208,8 +208,11 @@ def gun_boxes() -> list[Box]:
 GUN_DISPLAY = {
     # Hand values from the owner's Blockbench edit (2026-11-19); the left hand mirrors the right
     # (same translation, rotation around y and z negated), as vanilla hand models do.
-    "firstperson_righthand": {"rotation": [5, 0, 0], "translation": [5.25, -4, -5.5], "scale": [1, 1, 1]},
-    "firstperson_lefthand": {"rotation": [5, 0, 0], "translation": [5.25, -4, -5.5], "scale": [1, 1, 1]},
+    # The gun is a loaded crossbow underneath, and the client shifts a loaded crossbow in first person
+    # (translate x -0.641864, then turn 10 degrees about y) before this transform. These values undo
+    # that exactly, so the gun sits where it was tuned: rotation [5, 0, 0], translation [5.25, -4, -5.5].
+    "firstperson_righthand": {"rotation": [5.077, -9.962, 0.88], "translation": [16.239, -4, -2.721], "scale": [1, 1, 1]},
+    "firstperson_lefthand": {"rotation": [5.077, 9.962, -0.88], "translation": [-16.239, -4, -2.721], "scale": [1, 1, 1]},
     "thirdperson_righthand": {"rotation": [0, 0, 0], "translation": [0, 0.5, 0.25], "scale": [0.6, 0.6, 0.6]},
     "thirdperson_lefthand": {"rotation": [0, 0, 0], "translation": [0, 0.5, 0.25], "scale": [0.6, 0.6, 0.6]},
     "gui": {"rotation": [0, 90, -30], "translation": [0, 0, 0], "scale": [0.68, 0.68, 0.68]},

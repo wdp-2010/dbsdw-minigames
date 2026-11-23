@@ -3,6 +3,7 @@
 #   1. python3 tools/maps/build.py <map> must have run (out/<map>/ exists)
 #   2. uploads the datapack functions to <server>/world/datapacks/dbsdw_maps and reloads datapacks
 #   3. force-loads the area, runs build_0..n (clear + strict fills), unloads it
+#   lobby maps (LOBBY = True) also run entities (text displays, NPC) before unloading
 #   --arena also copies out/<map>/<map>.yml to plugins/MinigameCore/arenas/ (loaded at the next start)
 # Test servers only (default server 5, DBSDW Minigames); never live.
 set -eu
@@ -31,6 +32,10 @@ while [ "$i" -lt "$n" ]; do
   MCC_WAIT=8 "$MCC" "function dbsdw_maps:$MAP/build_$i"
   i=$((i + 1))
 done
+if [ -f "$OUT/datapack/dbsdw_maps/data/dbsdw_maps/function/$MAP/entities.mcfunction" ]; then
+  sleep 10  # entities load after their chunks; killing old ones earlier misses them
+  MCC_WAIT=4 "$MCC" "function dbsdw_maps:$MAP/entities"
+fi
 MCC_WAIT=2 "$MCC" "function dbsdw_maps:$MAP/unload"
 
 if [ "${2:-}" = "--arena" ]; then

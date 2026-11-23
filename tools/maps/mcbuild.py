@@ -138,6 +138,9 @@ def rot180(state: str) -> str:
     for k, v in props.items():
         if k == "facing" and v in _FLIP:
             out[k] = _FLIP[v]
+        elif k == "shape" and any(d in v for d in _FLIP):    # rails; stair shapes are relative
+            v2 = "_".join(_FLIP.get(t, t) for t in v.split("_"))
+            out[k] = {"west_east": "east_west", "south_north": "north_south"}.get(v2, v2)
         elif k == "rotation":
             out[k] = str((int(v) + 8) % 16)
         elif k in _FLIP:
@@ -176,7 +179,8 @@ def is_solid(state: str | None) -> bool:
     soft = ("flower", "short_grass", "tall_grass", "fern", "bush", "sapling", "torch", "rail",
             "sign", "banner", "vine", "water", "lever", "plate", "button", "carpet", "dandelion",
             "poppy", "tulip", "daisy", "allium", "orchid", "bluet", "cornflower", "petals",
-            "leaf_litter", "lily", "candle", "snow", "kelp", "seagrass", "roots")
+            "leaf_litter", "lily", "candle", "snow", "kelp", "seagrass", "roots", "sugar_cane",
+            "propagule", "hanging_moss")
     if name == "barrier":
         return True
     return not any(k in name for k in soft)

@@ -124,3 +124,26 @@ checked with `PaintBot2` (events in the bot log, no screenshots).
 Seen on server 5 around 14:06: someone else ran console commands (`forceload add 300 -48`, a test
 `fill` at x 300, gamerule queries) and there are 75 zombie horses and a few farm animals in the
 world. Not from this work.
+
+## Evening: hit splash fills any screen
+
+Owner: on a big screen the hit splash did not reach the screen edges. It was a title glyph, which
+has a fixed size in GUI units, so with a large window, a low GUI scale or a wide aspect the edges
+stayed clear. It is now a camera overlay (like the scope), which the client always stretches over
+the whole screen: `Goggles` wears an invisible head item with `equippable.camera_overlay`
+`dbsdw:misc/splash_<team>` for 8 ticks, then `splash_<team>_fade` for 6, then puts back what the
+head slot should hold (carried flag, scope or nothing). A carried flag stays visible under the
+paint (the flag item itself gets the overlay). Swaps make no sound (`intentionally_empty`). The
+old `dbsdw:overlay` font is gone. Deployed to server 5 (jar + pack, backup
+`/root/splash-backup-20261122/`); not yet seen in the real client.
+
+## Evening: gun held up in third person
+
+Owner asked for the arm to be raised in third person. In the 26.3 client (`AvatarRenderer.getArmPose`)
+the only item held in an aiming pose without being used is a loaded crossbow (`CROSSBOW_HOLD`, both
+arms up). The gun is now a crossbow with a charged arrow underneath (tooltip line hidden); the
+plugin already cancels every right-click with it, and the client clears the charge only on the
+server side, so it never fires. In first person the client shifts a loaded crossbow (translate x
+-0.641864, turn 10 degrees about y); the gun model's first-person display undoes exactly that, so
+the gun sits where it was tuned. The lobby NPC holds the same crossbow gun. Owner checked it in
+the client: fine.
