@@ -1,7 +1,7 @@
 # Player messages (MiniMessage format).
 # Raise "version" when texts change: servers with an older file get it backed up and replaced.
 # Colours: khaki #D9C78F (headings), field green #9CC05A (good news), amber #FFB52E (alerts, numbers).
-version: 6
+version: 7
 
 no-ticket: "<red>Je kunt hier alleen binnenkomen via survival.<newline><gray>Typ daar <white>/minigames</white>."
 unavailable: "<red>De minigames zijn even dicht. Probeer het straks opnieuw."
@@ -141,8 +141,11 @@ room:
     not-allowed: "<red>Dat kan niet met deze teamregel."
   menu:
     title: "<#D9C78F>Room van <host>"
+    game-selected: "<#9CC05A>✔ Gekozen spel <dark_gray>· <gray>kies de modus eronder"
+    game-click: "<gray>Klik om dit spel te kiezen"
     mode-selected: "<#9CC05A>✔ Gekozen"
     mode-click: "<gray>Klik om te kiezen"
+    more: "<gray>+<white><count></white> meer"
     map: "<#D9C78F>Map: <white><map>"
     map-random: "willekeurig"
     rule: "<#D9C78F>Teams: <white><rule>"

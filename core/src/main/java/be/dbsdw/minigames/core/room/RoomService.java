@@ -38,11 +38,14 @@ import org.bukkit.plugin.Plugin;
 /** Private rooms on the Bukkit side: commands, menus, messages and countdowns around a {@link RoomBook}. */
 public final class RoomService {
     private static final int SIZE = 54;
+    /** Row 1: one icon per game (slots 0-5), then the map and the team rule. */
     private static final int MAP_SLOT = 6;
     private static final int RULE_SLOT = 8;
-    /** Header slot of each team row; the member heads follow it. Row 3 (slot 27) is "no team". */
-    private static final int[] TEAM_ROWS = {9, 18};
-    private static final int NONE_SLOT = 27;
+    /** Row 2: the modes of the chosen game. */
+    private static final int MODE_ROW = 9;
+    /** Header slot of each team row; the member heads follow it. Row 5 (slot 36) is "no team". */
+    private static final int[] TEAM_ROWS = {18, 27};
+    private static final int NONE_SLOT = 36;
     private static final int NONE_LAST = 44;
     private static final int INVITE_SLOT = 45;
     private static final int LEAVE_SLOT = 49;
@@ -295,9 +298,28 @@ public final class RoomService {
         menu.clearActions();
         boolean host = room.host().equals(viewer.getUniqueId());
 
+        // Row 1 picks the game, row 2 the mode of that game.
         List<ModeSpec> modes = hooks.modes();
-        for (int i = 0; i < modes.size() && i < MAP_SLOT; i++) {
-            ModeSpec mode = modes.get(i);
+        String chosenGame = room.mode().gameId();
+        List<String> games = modes.stream().map(ModeSpec::gameId).distinct().toList();
+        for (int i = 0; i < games.size() && i < MAP_SLOT; i++) {
+            String game = games.get(i);
+            boolean selected = game.equals(chosenGame);
+            ItemStack icon = hooks.gameIcon(game);
+            ItemMeta meta = icon.getItemMeta();
+            meta.lore(List.of(messages.get(selected ? "room.menu.game-selected" : host ? "room.menu.game-click"
+                    : "room.menu.start-host-only")));
+            meta.setEnchantmentGlintOverride(selected);
+            icon.setItemMeta(meta);
+            inv.setItem(i, icon);
+            if (!selected) {
+                ModeSpec first = modes.stream().filter(m -> m.gameId().equals(game)).findFirst().orElseThrow();
+                menu.action(i, p -> act(p, book.setMode(p.getUniqueId(), first)));
+            }
+        }
+        List<ModeSpec> gameModes = modes.stream().filter(m -> m.gameId().equals(chosenGame)).toList();
+        for (int i = 0; i < gameModes.size() && i < 9; i++) {
+            ModeSpec mode = gameModes.get(i);
             boolean selected = mode.key().equals(room.mode().key());
             ItemStack icon = hooks.modeIcon(mode);
             ItemMeta meta = icon.getItemMeta();
@@ -306,8 +328,8 @@ public final class RoomService {
                     : "room.menu.start-host-only")));
             meta.setEnchantmentGlintOverride(selected);
             icon.setItemMeta(meta);
-            inv.setItem(i, icon);
-            menu.action(i, p -> act(p, book.setMode(p.getUniqueId(), mode)));
+            inv.setItem(MODE_ROW + i, icon);
+            menu.action(MODE_ROW + i, p -> act(p, book.setMode(p.getUniqueId(), mode)));
         }
 
         Component map = room.arena().<Component>map(Component::text).orElseGet(() -> messages.get("room.menu.map-random"));
@@ -390,8 +412,15 @@ public final class RoomService {
     private void heads(RoomMenu menu, Inventory inv, RoomView room, Player viewer, List<UUID> members, int from, int to) {
         boolean hostMoves = room.rule() == RoomTeams.Rule.HOST && room.host().equals(viewer.getUniqueId());
         int slot = from;
+        int capacity = to - from + 1;
         for (UUID member : members) {
             if (slot > to) {
+                break;
+            }
+            if (slot == to && members.size() > capacity) {
+                // more members than slots: the last slot counts the rest
+                inv.setItem(slot, item(Material.PAPER, messages.get("room.menu.more",
+                        Placeholder.unparsed("count", String.valueOf(members.size() - capacity + 1))), List.of()));
                 break;
             }
             List<Component> lore = new ArrayList<>();

@@ -100,7 +100,7 @@ Admin commands need `minigames.admin` (ops have it). Positions are taken from wh
   queued for the next match. Results show for `match.results-seconds` (10), then everyone returns
   to the lobby. `/leave` leaves the queue or the match.
 - Private rooms (`/room` or the **Speel met vrienden** lobby item, slot 6): the host invites friends
-  (menu button or `/room invite <speler>`, clickable **[Meedoen]**, valid 60 s), picks mode, map and
+  (menu button or `/room invite <speler>`, clickable **[Meedoen]**, valid 60 s), picks the game (top row), its mode (second row), map and
   team rule (players pick / host assigns / random), and presses start from 2 players (1v1 is fine).
   A 5 s countdown follows; after the match everyone is back in the room. Room matches count for
   stats. A room holds an arena only from start to match end. Players in a room can't use the

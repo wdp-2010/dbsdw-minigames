@@ -23,4 +23,7 @@ public interface RoomHooks {
     List<ModeSpec> modes();
 
     ItemStack modeIcon(ModeSpec mode);
+
+    /** A game's icon as in the games menu, named after the game. */
+    ItemStack gameIcon(String gameId);
 }

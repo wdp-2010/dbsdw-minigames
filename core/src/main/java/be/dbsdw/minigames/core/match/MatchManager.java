@@ -334,6 +334,15 @@ public final class MatchManager implements MenuModel, RoomHooks, Listener, Match
     }
 
     @Override
+    public ItemStack gameIcon(String gameId) {
+        return registry.game(gameId).map(g -> {
+            ItemStack icon = g.iconItem();
+            icon.editMeta(meta -> meta.itemName(g.displayName()));
+            return icon;
+        }).orElseGet(() -> ItemStack.of(Material.PAPER));
+    }
+
+    @Override
     public ItemStack modeIcon(ModeSpec mode) {
         return registry.game(mode.gameId()).map(g -> g.modeIcon(mode)).orElseGet(() -> ItemStack.of(Material.PAPER));
     }
