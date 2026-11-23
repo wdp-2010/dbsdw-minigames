@@ -197,7 +197,11 @@ public final class RoomService {
         if (out != Outcome.OK) {
             error(host, out);
         } else if (room.isPresent()) {
-            log.info("[room] " + host.getName() + (room.get().counting() ? " cancelled the start" : " pressed start"));
+            boolean cancelled = room.get().counting();
+            log.info("[room] " + host.getName() + (cancelled ? " cancelled the start" : " pressed start"));
+            if (!cancelled && RoomBook.shortHanded(room.get().members().size(), room.get().mode())) {
+                tellAll(room.get(), messages.get("room.short-warning"));
+            }
         }
         refresh();
     }
@@ -374,9 +378,9 @@ public final class RoomService {
             if (!host) {
                 startLore.add(messages.get("room.menu.start-host-only"));
                 startIcon = Material.GRAY_CONCRETE;
-            } else if (room.members().size() < 2) {
-                startLore.add(messages.get("room.error.too-few"));
-                startIcon = Material.GRAY_CONCRETE;
+            } else if (RoomBook.shortHanded(room.members().size(), room.mode())) {
+                startLore.add(messages.get("room.menu.start-short"));
+                startIcon = Material.YELLOW_CONCRETE;
             }
         }
         inv.setItem(START_SLOT, item(startIcon, startName, startLore));

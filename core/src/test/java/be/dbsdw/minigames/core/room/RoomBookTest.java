@@ -182,10 +182,16 @@ class RoomBookTest {
     }
 
     @Test
-    void startNeedsTwo() {
+    void hostAloneCanStart() {
         room();
-        assertEquals(Outcome.TOO_FEW, book.start(p.get(0)));
-        assertFalse(pool.isBusy("a") || pool.isBusy("b"));
+        book.pick(p.get(0), OptionalInt.of(1));
+        assertTrue(RoomBook.shortHanded(1, M));
+        assertEquals(Outcome.OK, book.start(p.get(0)));
+        List<RoomEvent> events = ticks(RoomBook.COUNTDOWN_SECONDS * 20);
+        RoomEvent.Start start = (RoomEvent.Start) events.stream()
+                .filter(e -> e instanceof RoomEvent.Start).findFirst().orElseThrow();
+        assertEquals(List.of(List.of(), List.of(p.get(0))), start.teams());
+        assertFalse(RoomBook.shortHanded(2, M));
     }
 
     @Test

@@ -117,6 +117,8 @@ room:
   wait-match: "<gray>Je room is aan het spelen. Je doet mee bij het volgende spel."
   in-room: "<gray>Je zit in een room. Verlaat hem eerst met <white>/room leave</white>."
   cancelled: "<red>Het aftellen is gestopt."
+  # Shown when the host starts with fewer players than the mode is meant for (e.g. alone).
+  short-warning: "<#FFB52E>⚠ Te weinig spelers:</#FFB52E> <gray>niet elk team heeft iemand, dus het spel loopt misschien niet zoals bedoeld. Bots komen binnenkort!"
   usage: "<gray>Gebruik: <white>/room [invite|join|leave|kick|start] [speler]"
   no-player: "<red>Speler <white><player></white> is niet online."
   error:
@@ -127,7 +129,7 @@ room:
     not-member: "<red>Die speler zit niet in je room."
     full: "<red>De room is vol voor deze modus."
     team-full: "<red>Dat team is vol."
-    too-few: "<red>Je hebt minstens 2 spelers nodig."
+    too-few: "<red>Er zijn te weinig spelers."
     empty-team: "<red>Elk team heeft minstens 1 speler nodig."
     busy: "<red>Die map is bezet. Kies een andere of probeer zo opnieuw."
     no-arena: "<red>Alle maps zijn bezet. Probeer zo opnieuw."
@@ -160,6 +162,7 @@ room:
     start: "<#9CC05A><bold>▶ START"
     cancel: "<red><bold>✖ Annuleren"
     start-host-only: "<gray>Alleen de host kan starten"
+    start-short: "<#FFB52E>⚠ Te weinig spelers <gray>(bots komen binnenkort)"
     starting: "<#FFB52E>Start over <white><seconds></white>s"
     playing: "<#FFB52E>Jullie spel is bezig"
     invite-title: "<#D9C78F>Wie nodig je uit?"

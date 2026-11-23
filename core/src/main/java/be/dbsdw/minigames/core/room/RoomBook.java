@@ -15,8 +15,8 @@ import java.util.UUID;
 import java.util.random.RandomGenerator;
 
 /**
- * Private rooms: a host gathers invited players, picks mode, arena and team rule, and starts a match
- * from two players. A player is in at most one room. Call {@link #tick()} once per server tick.
+ * Private rooms: a host gathers invited players, picks mode, arena and team rule, and starts a match.
+ * A host alone may start too (a solo test match; bots will fill such rooms later). A player is in at most one room. Call {@link #tick()} once per server tick.
  */
 public final class RoomBook {
     public enum Outcome {
@@ -30,7 +30,7 @@ public final class RoomBook {
     public static final int COUNTDOWN_SECONDS = 5;
     public static final int INVITE_TICKS = 60 * 20;
     private static final int TICKS_PER_SECOND = 20;
-    private static final int MIN_MEMBERS = 2;
+    private static final int MIN_MEMBERS = 1;
 
     private final ArenaPool pool;
     private final RandomGenerator rnd;
@@ -237,6 +237,7 @@ public final class RoomBook {
             return room.arena.isPresent() ? Outcome.BUSY : Outcome.NO_ARENA;
         }
         room.reserved = reserved.get();
+        room.startedWith = room.members.size();
         room.ticksLeft = COUNTDOWN_SECONDS * TICKS_PER_SECOND;
         pending.add(new RoomEvent.CountdownTick(room.id, List.copyOf(room.members), COUNTDOWN_SECONDS));
         return Outcome.OK;
@@ -278,7 +279,9 @@ public final class RoomBook {
             if (room.reserved == null) {
                 continue;
             }
-            if (room.readiness() != Outcome.OK) {
+            // Leavers that make the room short-handed stop the countdown, so nobody gets a solo match unwarned.
+            boolean nowShort = shortHanded(room.members.size(), room.mode) && !shortHanded(room.startedWith, room.mode);
+            if (room.readiness() != Outcome.OK || nowShort) {
                 room.stopCountdown();
                 events.add(new RoomEvent.CountdownCancelled(room.id, List.copyOf(room.members)));
                 continue;
@@ -304,6 +307,11 @@ public final class RoomBook {
 
     public Optional<RoomView> room(int id) {
         return Optional.ofNullable(rooms.get(id)).map(Room::view);
+    }
+
+    /** Whether a room with this many members plays without a full set of opponents. */
+    public static boolean shortHanded(int members, ModeSpec mode) {
+        return members < Math.max(2, mode.teams());
     }
 
     public boolean inRoom(UUID player) {
@@ -332,6 +340,8 @@ public final class RoomBook {
         RoomTeams.Rule rule = RoomTeams.Rule.PICK;
         ArenaDefinition reserved;
         int ticksLeft;
+        /** Members when the countdown began. */
+        int startedWith;
         boolean playing;
 
         Room(int id, UUID host, ModeSpec mode) {
@@ -353,7 +363,8 @@ public final class RoomBook {
             if (members.size() < MIN_MEMBERS) {
                 return Outcome.TOO_FEW;
             }
-            if (rule == RoomTeams.Rule.RANDOM) {
+            // Too few members to fill every team: some stay empty (later filled by bots).
+            if (rule == RoomTeams.Rule.RANDOM || members.size() < mode.teams()) {
                 return Outcome.OK;
             }
             long unpicked = members.stream().filter(m -> !picks.containsKey(m)).count();

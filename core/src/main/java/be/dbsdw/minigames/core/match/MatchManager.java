@@ -224,7 +224,14 @@ public final class MatchManager implements MenuModel, RoomHooks, Listener {
                 .filter(id -> Bukkit.getPlayer(id) != null && !matchByPlayer.containsKey(id)).toList()).toList();
         Optional<GameType> game = registry.game(mode.gameId());
         World world = Bukkit.getWorld(arena.world());
-        if (online.stream().anyMatch(List::isEmpty) || game.isEmpty() || world == null) {
+        // A team may be empty when the room had fewer members than teams (solo start); a team that
+        // had members but lost them all before the start still cancels it.
+        boolean lostTeam = false;
+        for (int i = 0; i < teams.size(); i++) {
+            lostTeam |= !teams.get(i).isEmpty() && online.get(i).isEmpty();
+        }
+        boolean nobody = online.stream().allMatch(List::isEmpty);
+        if (lostTeam || nobody || game.isEmpty() || world == null) {
             if (world == null) {
                 plugin.getLogger().severe("[match] arena " + arena.name() + ": world " + arena.world() + " is not loaded");
             }
