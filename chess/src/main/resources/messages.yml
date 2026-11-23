@@ -1,6 +1,6 @@
 # Chess messages (MiniMessage format).
 # Raise "version" when texts change: servers with an older file get it backed up and replaced.
-version: 1
+version: 2
 
 game-name: "<#C8A26B><bold>Schaken"
 team:
@@ -26,6 +26,7 @@ core:
     forfeit-sub: "<team> <gray>kwam niet terug · <#9CC05A>jij wint!"
     forfeit-line: "<#C8A26B>»</#C8A26B> <team> <gray>kwam niet terug: de winst is voor jou."
 
+solo: "<#C8A26B>»</#C8A26B> <gray>Je bent alleen: je speelt <#F4EBD9>wit</#F4EBD9> én <#F4EBD9>zwart</#F4EBD9>. Een oefenpotje, het wordt niet bewaard en telt niet mee."
 you-are-white: "<#C8A26B>»</#C8A26B> <gray>Jij speelt met <#F4EBD9><bold>wit</bold><gray> en begint. Kijk naar een stuk en klik."
 you-are-black: "<#C8A26B>»</#C8A26B> <gray>Jij speelt met <#8B6A4A><bold>zwart</bold><gray>. Wit begint."
 resumed: "<#C8A26B>»</#C8A26B> <gray>Partij hervat na <white><moves></white> zetten."

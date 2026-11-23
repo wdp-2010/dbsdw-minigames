@@ -13,10 +13,13 @@ import java.util.random.RandomGenerator;
 public final class Roles {
     private Roles() {}
 
-    /** One seeker per {@code perSeeker} players, rounded; at least one seeker and one hider. */
+    /**
+     * One seeker per {@code perSeeker} players, rounded; at least one seeker and one hider. A player
+     * alone (a room started short-handed) hides: a practice round to try the blocks.
+     */
     public static int seekers(int players, int perSeeker) {
         if (players < 2) {
-            return players;
+            return 0;
         }
         int n = Math.round((float) players / Math.max(1, perSeeker));
         return Math.max(1, Math.min(players - 1, n));

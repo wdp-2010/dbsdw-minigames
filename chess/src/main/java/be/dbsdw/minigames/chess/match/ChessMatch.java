@@ -73,6 +73,11 @@ public final class ChessMatch implements MatchHandler {
     /** A result was given (mate, draw, resign, time, claim): the save goes. */
     private boolean decided;
     private boolean ended;
+    /**
+     * Started alone (a room may start short-handed): the one player plays both colours. A practice
+     * game: never saved, and no win, loss or draw is counted.
+     */
+    private boolean solo;
 
     public ChessMatch(MatchContext ctx, ChessGame game) {
         this.ctx = ctx;
@@ -84,13 +89,19 @@ public final class ChessMatch implements MatchHandler {
 
     @Override
     public void start() {
-        Player w = ctx.team(0).getFirst();
-        Player b = ctx.team(1).getFirst();
+        List<Player> team0 = ctx.team(0);
+        List<Player> team1 = ctx.team(1);
+        if (team0.isEmpty() && team1.isEmpty()) {
+            throw new IllegalStateException("chess match without players");
+        }
+        Player w = team0.isEmpty() ? team1.getFirst() : team0.getFirst();
+        Player b = team1.isEmpty() ? w : team1.getFirst();
+        solo = w.equals(b);
         white = w.getUniqueId();
         black = b.getUniqueId();
         whiteName = w.getName();
         blackName = b.getName();
-        SavedGame resume = game.takeResume(white, black);
+        SavedGame resume = solo ? null : game.takeResume(white, black);
         if (resume != null) {
             record = GameRecord.replay(resume.moves());
             clock = new ChessClock(resume.initialMillis(), resume.incrementMillis(), resume.whiteMillis(),
@@ -119,6 +130,9 @@ public final class ChessMatch implements MatchHandler {
         for (Player p : players()) {
             equip(p);
         }
+        if (solo) {
+            w.sendMessage(messages.get("solo"));
+        }
         if (resume != null) {
             tellBoth(messages.get("resumed", Placeholder.unparsed("moves", String.valueOf(record.moves().size()))));
         }
@@ -132,12 +146,14 @@ public final class ChessMatch implements MatchHandler {
     private void equip(Player p) {
         Hotbar.give(p, messages, phase == Phase.CLAIM);
         p.showBossBar(bar);
-        p.sendMessage(messages.get(p.getUniqueId().equals(white) ? "you-are-white" : "you-are-black"));
+        if (!solo) {
+            p.sendMessage(messages.get(p.getUniqueId().equals(white) ? "you-are-white" : "you-are-black"));
+        }
     }
 
     private List<Player> players() {
         List<Player> out = new ArrayList<>();
-        for (UUID id : new UUID[] {white, black}) {
+        for (UUID id : solo ? new UUID[] {white} : new UUID[] {white, black}) {
             Player p = Bukkit.getPlayer(id);
             if (p != null && ctx.teamOf(p).isPresent()) {
                 out.add(p);
@@ -258,7 +274,7 @@ public final class ChessMatch implements MatchHandler {
             return;
         }
         boolean isWhite = p.getUniqueId().equals(white);
-        if (isWhite != record.position().whiteToMove()) {
+        if (!solo && isWhite != record.position().whiteToMove()) {
             p.sendActionBar(messages.get("not-your-turn"));
             return;
         }
@@ -385,10 +401,10 @@ public final class ChessMatch implements MatchHandler {
             return;
         }
         UUID id = p.getUniqueId();
-        if (drawOffer != null && !drawOffer.equals(id)) {
+        if (solo || drawOffer != null && !drawOffer.equals(id)) {
             decided = true;
             game.store().delete(saved.id());
-            ctx.finish(MatchOutcome.draw(List.of(messages.get("result.agreed-draw"))));
+            result(MatchOutcome.draw(List.of(messages.get("result.agreed-draw"))));
             return;
         }
         if (id.equals(drawOffer)) {
@@ -406,7 +422,7 @@ public final class ChessMatch implements MatchHandler {
             return;
         }
         UUID id = p.getUniqueId();
-        if (pauseRequest != null && !pauseRequest.equals(id)) {
+        if (solo || pauseRequest != null && !pauseRequest.equals(id)) {
             pausedEnd(messages.get("result.paused-agreed"));
             return;
         }
@@ -459,6 +475,11 @@ public final class ChessMatch implements MatchHandler {
     @Override
     public void playerLeft(Player player, int team) {
         if (ended) {
+            return;
+        }
+        if (solo) {
+            // The only player is gone: nothing to wait for, a practice game is not kept.
+            pausedEnd(null);
             return;
         }
         save();
@@ -526,10 +547,10 @@ public final class ChessMatch implements MatchHandler {
             if (winner != null) {
                 ctx.addStat(winner, "checkmates", 1);
             }
-            ctx.finish(MatchOutcome.win(whiteWon ? 0 : 1, List.of(messages.get("result.checkmate",
+            result(MatchOutcome.win(whiteWon ? 0 : 1, List.of(messages.get("result.checkmate",
                     Placeholder.unparsed("moves", String.valueOf((moves + 1) / 2))))));
         } else {
-            ctx.finish(MatchOutcome.draw(List.of(messages.get("result." + status.name().toLowerCase().replace('_', '-')))));
+            result(MatchOutcome.draw(List.of(messages.get("result." + status.name().toLowerCase().replace('_', '-')))));
         }
     }
 
@@ -539,9 +560,9 @@ public final class ChessMatch implements MatchHandler {
         updateBar();
         String loser = whiteFlagged ? whiteName : blackName;
         if (record.position().cannotMate(!whiteFlagged)) {
-            ctx.finish(MatchOutcome.draw(List.of(messages.get("result.time-draw", Placeholder.unparsed("player", loser)))));
+            result(MatchOutcome.draw(List.of(messages.get("result.time-draw", Placeholder.unparsed("player", loser)))));
         } else {
-            ctx.finish(MatchOutcome.win(whiteFlagged ? 1 : 0, List.of(messages.get("result.time",
+            result(MatchOutcome.win(whiteFlagged ? 1 : 0, List.of(messages.get("result.time",
                     Placeholder.unparsed("player", loser)))));
         }
     }
@@ -549,8 +570,13 @@ public final class ChessMatch implements MatchHandler {
     private void resign(UUID who) {
         decided = true;
         game.store().delete(saved.id());
-        ctx.finish(MatchOutcome.win(1 - team(who), List.of(messages.get("result.resigned",
+        result(MatchOutcome.win(1 - team(who), List.of(messages.get("result.resigned",
                 Placeholder.unparsed("player", nameOf(who))))));
+    }
+
+    /** Ends the match with this result; a solo practice game counts nothing, so it ends without one. */
+    private void result(MatchOutcome outcome) {
+        ctx.finish(solo ? MatchOutcome.paused(outcome.lines()) : outcome);
     }
 
     /** Ends without a result; the game stays saved (if a move was made). */
@@ -560,13 +586,13 @@ public final class ChessMatch implements MatchHandler {
         if (line != null) {
             lines.add(line);
         }
-        lines.add(record.moves().isEmpty() ? messages.get("result.nothing-saved") : messages.get("result.saved"));
+        lines.add(record.moves().isEmpty() || solo ? messages.get("result.nothing-saved") : messages.get("result.saved"));
         ctx.finish(MatchOutcome.paused(lines));
     }
 
     /** Writes the game to disk; a game without moves is not worth keeping. */
     private void save() {
-        if (decided || record.moves().isEmpty()) {
+        if (solo || decided || record.moves().isEmpty()) {
             return;
         }
         saved = saved.withProgress(record.uciMoves(), clock.millis(true), clock.millis(false), System.currentTimeMillis());
@@ -576,6 +602,12 @@ public final class ChessMatch implements MatchHandler {
     @Override
     public void end() {
         if (ended) {
+            return;
+        }
+        if (record == null) {
+            // start() failed before the board was set up: nothing to save or remove.
+            ended = true;
+            game.untrack(this);
             return;
         }
         save();

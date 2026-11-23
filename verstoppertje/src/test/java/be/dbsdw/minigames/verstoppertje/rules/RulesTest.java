@@ -14,6 +14,7 @@ import org.junit.jupiter.api.Test;
 class RulesTest {
     @Test
     void oneSeekerPerFivePlayersButAlwaysOneOfEach() {
+        assertEquals(0, Roles.seekers(1, 5), "alone: practice hiding");
         assertEquals(1, Roles.seekers(2, 5));
         assertEquals(1, Roles.seekers(5, 5));
         assertEquals(1, Roles.seekers(7, 5));
