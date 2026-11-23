@@ -79,7 +79,8 @@ def main():
     with open(os.path.join(out, "parts.txt"), "w") as f:
         f.write(f"{len(parts)}\n")
     with open(os.path.join(out, f"{name}.yml"), "w") as f:
-        f.write(arena_yaml(m, m.ORIGIN))
+        # A map can write its own arena file (other modes, copies); otherwise it is a paintball arena.
+        f.write(m.arena_yaml(m.ORIGIN) if hasattr(m, "arena_yaml") else arena_yaml(m, m.ORIGIN))
     print(f"{len(cmds)} commands in {len(parts)} functions")
     if "--no-report" not in sys.argv:
         lines, _ = analyze.report(c, m.SPAWNS, m.FLAGS)

@@ -67,6 +67,15 @@ public final class MatchState {
         return withPlayers == 1 ? new LeaveResult.LastTeamStanding(left) : new LeaveResult.None();
     }
 
+    /** A player who left comes back into a team. False if not running, or already in a team. */
+    public boolean rejoin(UUID player, int team) {
+        if (phase != Phase.RUNNING || team < 0 || team >= teams.size() || teamOf(player).isPresent()) {
+            return false;
+        }
+        teams.get(team).add(player);
+        return true;
+    }
+
     /** RUNNING → ENDING. False if the match was already past RUNNING. */
     public boolean finish() {
         if (phase != Phase.RUNNING) {

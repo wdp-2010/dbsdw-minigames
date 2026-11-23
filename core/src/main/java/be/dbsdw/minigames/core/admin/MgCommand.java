@@ -38,7 +38,8 @@ public final class MgCommand implements BasicCommand {
     public static final String PERMISSION = "minigames.admin";
     private static final Pattern NAME = Pattern.compile("[a-z0-9_-]+");
     private static final List<String> ARENA_SUB =
-            List.of("create", "modes", "setspawn", "setflag", "addpowerup", "setbounds", "save", "list", "delete");
+            List.of("create", "modes", "setspawn", "setflag", "addpowerup", "setbounds", "copies", "save", "list",
+                    "delete");
 
     private final GameRegistryImpl games;
     private final ArenaPool pool;
@@ -190,6 +191,20 @@ public final class MgCommand implements BasicCommand {
                 Location l = admin.getLocation();
                 next = draft.withCorner(Integer.parseInt(args[2]), new Pos(l.getBlockX(), l.getBlockY(), l.getBlockZ(), 0, 0));
             }
+            case "copies" -> {
+                int count;
+                try {
+                    count = args.length == 3 ? Integer.parseInt(args[2]) : -1;
+                } catch (NumberFormatException e) {
+                    count = -1;
+                }
+                if (count < 0 || count > ArenaDefinition.MAX_COPIES) {
+                    error(admin, "Usage: /mg arena copies <0-" + ArenaDefinition.MAX_COPIES
+                            + ">  (0: play on the arena itself; more: a fresh copy per match, built east of it)");
+                    return;
+                }
+                next = draft.withCopies(count);
+            }
             case "save" -> {
                 save(admin, draft);
                 return;
@@ -204,7 +219,7 @@ public final class MgCommand implements BasicCommand {
     }
 
     private void save(Player admin, ArenaDefinition draft) {
-        ArenaValidator.Validation v = ArenaValidator.validate(draft, games::mode);
+        ArenaValidator.Validation v = ArenaValidator.validate(draft, games::mode, pool.copySpacing());
         v.warnings().forEach(w -> admin.sendMessage(Component.text(w, NamedTextColor.YELLOW)));
         if (!v.errors().isEmpty()) {
             v.errors().forEach(e -> error(admin, e));
@@ -230,8 +245,11 @@ public final class MgCommand implements BasicCommand {
             ok(sender, "No arenas.");
         }
         for (ArenaDefinition a : all) {
+            String use = a.isTemplate()
+                    ? pool.busyCount(a.name()) + "/" + a.copies() + " copies in use"
+                    : pool.isBusy(a.name()) ? "busy" : "free";
             ok(sender, a.name() + " (" + a.world() + ") " + String.join(",", a.modes().stream().sorted().toList())
-                    + " — " + (pool.isBusy(a.name()) ? "busy" : "free"));
+                    + " — " + use);
         }
     }
 

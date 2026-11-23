@@ -22,6 +22,16 @@ public interface MatchHandler {
      */
     void end();
 
+    /**
+     * Whether the match goes on when only one team still has players. By default the core ends it
+     * right away as a forfeit; a game that returns true decides itself (with {@link MatchContext#finish})
+     * and may take players back with {@link MatchContext#rejoin}. When nobody at all is left the core
+     * pauses the match if the game has not ended it in {@link #playerLeft}.
+     */
+    default boolean keepsRunningWhenAlone() {
+        return false;
+    }
+
     /** Shared result lines when the core ends the match itself (last team standing). */
     default List<Component> resultLines() {
         return List.of();

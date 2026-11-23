@@ -24,6 +24,11 @@ queue:
   # Shorter countdown once the queue is full.
   full-countdown-seconds: 10
 
+arenas:
+  # Template arenas (/mg arena copies <n>) get a fresh copy per match, built in a row east of the
+  # template this many blocks apart, so players on one copy do not see the others.
+  copy-spacing: 512
+
 match:
   # How long the results show before everyone returns to the lobby.
   results-seconds: 10

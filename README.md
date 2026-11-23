@@ -10,6 +10,7 @@ Runs on Paper 26.3 (Java 25).
 | `bridge/` | **DbsdwBridge** plugin (survival server, Paper and Folia): `/minigames`, the minigames NPC, ticket login on return via AuthMe |
 | `testgame/` | **MgTestGame**: test-only game (first team to 3 points) for the e2e checks. **Never deploy it.** |
 | `paintball/` | **Paintball** plugin: team deathmatch and capture the flag, built on MinigameCore |
+| `chess/` | **Chess** plugin: chess on a giant board, saved games you can continue, built on MinigameCore |
 | `resourcepack/` | The required resource pack (models, textures, sounds, HUD) |
 | `tools/` | Resource pack validation and build script; `tools/e2e/` throwaway test servers and bots; `tools/maps/` arena builder (see `docs/building-method.md`) |
 | `build-logic/` | Shared Gradle convention plugin (`dbsdw.paper-plugin`) for every plugin module |
@@ -23,7 +24,7 @@ Requires JDK 25.
 ./gradlew build
 ```
 
-Jars land in `core/build/libs/` and `paintball/build/libs/`.
+Jars land in `core/build/libs/`, `paintball/build/libs/` and `chess/build/libs/`.
 
 ## Resource pack
 
@@ -85,6 +86,12 @@ Admin commands need `minigames.admin` (ops have it). Positions are taken from wh
   powerups: []
   ```
 
+- Copies: `/mg arena copies <n>` (0–16) makes the arena a template. Nobody plays on the template
+  itself: each match gets a fresh copy of its blocks, built in a row east of it (one copy every
+  `arenas.copy-spacing` blocks, 512, far enough not to see each other) and removed when the match
+  ends, putting back what was there.
+  So up to `n` matches run on that map at once; `/mg arena list` shows how many copies are in use.
+  Keep the space east of a template empty. Entities are not copied.
 - Queue rules: one queue per player. When a mode has its start minimum queued and a fitting arena
   is free, the arena is reserved and a countdown runs (`queue.countdown-seconds`, 30; cut to
   `queue.full-countdown-seconds`, 10, once the queue is full). Players beyond the maximum stay
@@ -141,3 +148,27 @@ icons are plain text.
   allocation of the server and `pack.public-url` to `http://<public ip>:<port>`. MinigameCore
   serves it at `/<sha1>.zip` and sends it as required during login; declining or a failed download
   disconnects with a message. Without the file or URL, players join without a pack.
+
+## Chess (minigame server)
+
+Modes are time controls (`plugins/Chess/config.yml`): `chess:snel` (5+3), `chess:normaal` (15+10) and
+`chess:vrij` (no clock), 1 against 1. Each player stands on a raised stand behind their side; look at
+a piece and click (left or right). The piece lifts, the squares it can go to light up (green: move,
+red: capture) for that player only; click one to move. Hotbar: draw offer, pause (both must agree),
+resign (two clicks). Mate, stalemate, threefold repetition, 50 moves and too little material end the
+game by themselves.
+
+- **Saved games:** every move is saved to `plugins/Chess/games/<id>.yml`. A game that stops without a
+  result (paused together, a player gone, server restart) can be continued: `/schaak` (or the button in
+  the chess modes menu) lists your unfinished games; click one to invite your opponent
+  (**[Doorgaan]**). Shift-click twice deletes one, without a result.
+- **Leaving mid-game:** the board waits `away-grace-seconds` (120) with the clocks stopped; rejoining in
+  that time puts you straight back. After it, the player who stayed claims the win or keeps the game.
+- **Limits:** at most `unfinished.max-per-player` (5) unfinished games each; unplayed games are
+  deleted after `unfinished.expire-days` (14).
+- **Arena:** build `tools/maps/schaakwoud.py` (`python3 tools/maps/build.py schaakwoud`, then
+  `tools/maps/deploy.sh schaakwoud --arena`). It sits at x 3000, z 3000, far from the other maps; its
+  arena file is a template with `copies: 5` (copies up to x 5608). For your own
+  chess arena: `setflag 0` on the centre of a1 and `setflag 1` on the centre of h8 (standing on the
+  board), `setspawn 0` on white's stand (rank-1 side), `setspawn 1` on black's.
+- Pieces are pack models (`tools/pack_src/chess.py`, Staunton shapes in boxwood and walnut).
