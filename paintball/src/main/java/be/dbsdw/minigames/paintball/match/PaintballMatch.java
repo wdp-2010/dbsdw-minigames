@@ -8,6 +8,7 @@ import be.dbsdw.minigames.core.pack.PackItems;
 import be.dbsdw.minigames.paintball.Gun;
 import be.dbsdw.minigames.paintball.PackAssets;
 import be.dbsdw.minigames.paintball.PaintballGame;
+import be.dbsdw.minigames.paintball.bot.BotNav;
 import be.dbsdw.minigames.paintball.rules.Buffs;
 import be.dbsdw.minigames.paintball.rules.Clock;
 import be.dbsdw.minigames.paintball.rules.Combat;
@@ -46,6 +47,7 @@ import org.bukkit.attribute.Attribute;
 import org.bukkit.attribute.AttributeInstance;
 import org.bukkit.attribute.AttributeModifier;
 import org.bukkit.entity.Entity;
+import org.bukkit.entity.LivingEntity;
 import org.bukkit.entity.Player;
 import org.bukkit.entity.Snowball;
 import org.bukkit.event.entity.ProjectileHitEvent;
@@ -98,6 +100,12 @@ public final class PaintballMatch implements MatchHandler {
     /** Vanilla snowball gravity per tick. */
     private static final double BALL_GRAVITY = 0.03;
     private boolean over;
+    /** Bots by entity id, when a player started alone (see {@link PaintballGame#startAlone}). */
+    private final Map<UUID, PaintBot> bots = new LinkedHashMap<>();
+    /** Last tick's position of everyone, to tell bots how fast their targets move. */
+    private final Map<UUID, double[]> lastPos = new HashMap<>();
+    private static final List<String> BOT_NAMES = List.of("Kwast", "Spetter", "Klodder", "Vlek", "Spat",
+            "Druppel", "Verfje", "Pip", "Plons", "Sproet", "Kliek", "Smeer");
 
     public PaintballMatch(MatchContext ctx, PaintballGame game, Mode mode) {
         this.ctx = ctx;
@@ -125,6 +133,7 @@ public final class PaintballMatch implements MatchHandler {
                 hud.show(p, team);
             }
         }
+        spawnBots();
         combat = new Combat(teams, settings);
         combat.start(0);
         if (mode == Mode.CTF) {
@@ -172,11 +181,17 @@ public final class PaintballMatch implements MatchHandler {
             return;
         }
         for (UUID id : combat.respawnsDue(now)) {
+            PaintBot bot = bots.get(id);
+            if (bot != null) {
+                respawnBot(bot);
+                continue;
+            }
             Player p = Bukkit.getPlayer(id);
             if (p != null) {
                 respawn(p, now);
             }
         }
+        tickBots(now);
         if (mode == Mode.CTF) {
             tickFlags(now);
             if (over) {
@@ -239,6 +254,8 @@ public final class PaintballMatch implements MatchHandler {
             powerups.removeAll();
         }
         splats.removeAll();
+        bots.values().forEach(PaintBot::remove);
+        bots.clear();
     }
 
     /** The player pulled the trigger. */
@@ -269,6 +286,11 @@ public final class PaintballMatch implements MatchHandler {
             return;
         }
         long now = ctx.ticks();
+        PaintBot botVictim = event.getHitEntity() == null ? null : bots.get(event.getHitEntity().getUniqueId());
+        if (botVictim != null) {
+            onBotHit(event, ballId, shot, botVictim, now);
+            return;
+        }
         if (!(event.getHitEntity() instanceof Player victim)) {
             untrack(ballId);
             if (event.getHitBlock() != null) {
@@ -299,53 +321,97 @@ public final class PaintballMatch implements MatchHandler {
                 paintBurst(at.clone().add(0, 1, 0), shot.team(), 20, 1.4f);
                 goggles.splash(victim, shot.team(), now);
                 updateBar(victim, now);
-                if (shooter != null) {
-                    ctx.addStat(shooter, "hits", 1);
-                    matchHits.merge(shooter.getUniqueId(), 1, Integer::sum);
-                    PackItems.play(shooter, PackAssets.SOUND_HITMARKER, 0.9f, 1f);
-                    showMarker(shooter, messages.get("hud.marker"), now);
-                }
+                creditHit(shooter, now);
             }
             case OUT -> {
                 victim.playHurtAnimation(0);
-                int ended = streaks.out(victim.getUniqueId());
-                if (shooter != null) {
-                    ctx.addStat(shooter, "hits", 1);
-                    ctx.addStat(shooter, "eliminations", 1);
-                    matchHits.merge(shooter.getUniqueId(), 1, Integer::sum);
-                    PackItems.play(shooter, PackAssets.SOUND_ELIMINATE, 1f, 1f);
-                    int streak = streaks.eliminated(shooter.getUniqueId());
-                    if (Streaks.announce(streak)) {
-                        showMarker(shooter, messages.get("hud.streak",
-                                Placeholder.unparsed("count", Integer.toString(streak))), now);
-                        PackItems.play(shooter, PackAssets.SOUND_FLAG_CAPTURED, 0.7f, 1.3f);
-                        feed(messages.get(streak >= Streaks.UNSTOPPABLE ? "streak.unstoppable" : "streak.on-fire",
-                                Placeholder.component("player", coloured(shooter.getName(), shot.team())),
-                                Placeholder.unparsed("count", Integer.toString(streak))));
-                    } else {
-                        showMarker(shooter, messages.get("hud.eliminated",
-                                Placeholder.component("victim", Component.text(victim.getName()))), now);
-                    }
-                }
-                if (ended >= Streaks.ON_FIRE) {
-                    feed(messages.get("streak.ended",
-                            Placeholder.component("player", coloured(names.getOrDefault(shot.shooter(), "?"), shot.team())),
-                            Placeholder.component("victim", coloured(victim.getName(), team(victim))),
-                            Placeholder.unparsed("count", Integer.toString(ended))));
-                }
+                creditOut(shot, shooter, victim.getUniqueId(), victim.getName(), team(victim), now);
                 eliminate(victim, shot.team(), now, false);
-                feed(messages.get("feed.out",
-                        Placeholder.component("victim", coloured(victim.getName(), team(victim))),
-                        Placeholder.component("shooter", coloured(names.getOrDefault(shot.shooter(), "?"), shot.team()))));
-                if (mode == Mode.TDM) {
-                    OptionalInt winner = score.add(shot.team());
-                    hud.refresh(now, score, flagStatus());
-                    if (winner.isPresent()) {
-                        finish(MatchOutcome.win(winner.getAsInt(), resultLines()));
-                    }
-                }
+                afterOut(shot, victim.getName(), team(victim), now);
             }
             default -> {
+            }
+        }
+    }
+
+    /** A paintball hit a bot of this match. */
+    private void onBotHit(ProjectileHitEvent event, UUID ballId, Shot shot, PaintBot bot, long now) {
+        Combat.HitResult result = combat.hit(bot.id, shot.shooter(), shot.team(), now);
+        if (result == Combat.HitResult.PASS_THROUGH) {
+            event.setCancelled(true);
+            return;
+        }
+        untrack(ballId);
+        Player shooter = Bukkit.getPlayer(shot.shooter());
+        Location at = bot.location();
+        switch (result) {
+            case ABSORBED -> PackItems.play(at, PackAssets.SOUND_SHIELD_BLOCK, 0.8f, 1f);
+            case SHIELDED -> PackItems.play(at, PackAssets.SOUND_SHIELD_BREAK, 1f, 1f);
+            case HIT -> {
+                bot.body.playHurtAnimation(0);
+                PackItems.play(at, PackAssets.SOUND_HIT, 1f, 0.95f + ThreadLocalRandom.current().nextFloat() * 0.1f);
+                paintBurst(at.clone().add(0, 1, 0), shot.team(), 20, 1.4f);
+                creditHit(shooter, now);
+            }
+            case OUT -> {
+                bot.body.playHurtAnimation(0);
+                creditOut(shot, shooter, bot.id, bot.name, bot.team, now);
+                eliminateBot(bot, shot.team(), now);
+                afterOut(shot, bot.name, bot.team, now);
+            }
+            default -> {
+            }
+        }
+    }
+
+    private void creditHit(Player shooter, long now) {
+        if (shooter != null) {
+            ctx.addStat(shooter, "hits", 1);
+            matchHits.merge(shooter.getUniqueId(), 1, Integer::sum);
+            PackItems.play(shooter, PackAssets.SOUND_HITMARKER, 0.9f, 1f);
+            showMarker(shooter, messages.get("hud.marker"), now);
+        }
+    }
+
+    /** The shooter's reward and the streak lines for knocking a player or bot out. */
+    private void creditOut(Shot shot, Player shooter, UUID victimId, String victimName, int victimTeam, long now) {
+        int ended = streaks.out(victimId);
+        if (shooter != null) {
+            ctx.addStat(shooter, "hits", 1);
+            ctx.addStat(shooter, "eliminations", 1);
+            matchHits.merge(shooter.getUniqueId(), 1, Integer::sum);
+            PackItems.play(shooter, PackAssets.SOUND_ELIMINATE, 1f, 1f);
+            int streak = streaks.eliminated(shooter.getUniqueId());
+            if (Streaks.announce(streak)) {
+                showMarker(shooter, messages.get("hud.streak",
+                        Placeholder.unparsed("count", Integer.toString(streak))), now);
+                PackItems.play(shooter, PackAssets.SOUND_FLAG_CAPTURED, 0.7f, 1.3f);
+                feed(messages.get(streak >= Streaks.UNSTOPPABLE ? "streak.unstoppable" : "streak.on-fire",
+                        Placeholder.component("player", coloured(shooter.getName(), shot.team())),
+                        Placeholder.unparsed("count", Integer.toString(streak))));
+            } else {
+                showMarker(shooter, messages.get("hud.eliminated",
+                        Placeholder.component("victim", Component.text(victimName))), now);
+            }
+        }
+        if (ended >= Streaks.ON_FIRE) {
+            feed(messages.get("streak.ended",
+                    Placeholder.component("player", coloured(names.getOrDefault(shot.shooter(), "?"), shot.team())),
+                    Placeholder.component("victim", coloured(victimName, victimTeam)),
+                    Placeholder.unparsed("count", Integer.toString(ended))));
+        }
+    }
+
+    /** The kill feed line and, in team deathmatch, the point (which may end the match). */
+    private void afterOut(Shot shot, String victimName, int victimTeam, long now) {
+        feed(messages.get("feed.out",
+                Placeholder.component("victim", coloured(victimName, victimTeam)),
+                Placeholder.component("shooter", coloured(names.getOrDefault(shot.shooter(), "?"), shot.team()))));
+        if (mode == Mode.TDM) {
+            OptionalInt winner = score.add(shot.team());
+            hud.refresh(now, score, flagStatus());
+            if (winner.isPresent()) {
+                finish(MatchOutcome.win(winner.getAsInt(), resultLines()));
             }
         }
     }
@@ -493,7 +559,7 @@ public final class PaintballMatch implements MatchHandler {
         for (int f : flags.autoReturns(now)) {
             flagEvent("flag.returned-auto", f, null);
         }
-        for (Player p : online()) {
+        for (LivingEntity p : runners()) {
             UUID id = p.getUniqueId();
             if (combat.isOut(id)) {
                 continue;
@@ -504,9 +570,11 @@ public final class PaintballMatch implements MatchHandler {
             if (near(loc, flagHomes[team])) {
                 OptionalInt captured = flags.capture(id, team);
                 if (captured.isPresent()) {
-                    p.getInventory().setHelmet(null);
+                    p.getEquipment().setHelmet(null);
                     p.setGlowing(false);
-                    ctx.addStat(p, "captures", 1);
+                    if (p instanceof Player player) {
+                        ctx.addStat(player, "captures", 1);
+                    }
                     flagEvent("flag.captured", captured.getAsInt(), p);
                     OptionalInt winner = score.add(team);
                     hud.refresh(now, score, flagStatus());
@@ -522,12 +590,14 @@ public final class PaintballMatch implements MatchHandler {
                 case CARRIED -> false;
             };
             if (atEnemyFlag && flags.pickup(enemy, id, team)) {
-                p.getInventory().setHelmet(FlagView.flag(enemy));
+                p.getEquipment().setHelmet(FlagView.flag(enemy));
                 p.setGlowing(true);
                 flagEvent("flag.taken", enemy, p);
             }
             if (flags.state(team) == Flags.State.DROPPED && near(loc, flags.dropPos(team)) && flags.returnHome(team, team)) {
-                ctx.addStat(p, "returns", 1);
+                if (p instanceof Player player) {
+                    ctx.addStat(player, "returns", 1);
+                }
                 flagEvent("flag.returned", team, p);
             }
         }
@@ -536,11 +606,11 @@ public final class PaintballMatch implements MatchHandler {
         }
     }
 
-    private void dropFlag(Player carrier, long now) {
+    private void dropFlag(LivingEntity carrier, long now) {
         Location at = carrier.getLocation();
         OptionalInt dropped = flags.drop(carrier.getUniqueId(), at.getX(), at.getY(), at.getZ(), now);
         if (dropped.isPresent()) {
-            carrier.getInventory().setHelmet(null);
+            carrier.getEquipment().setHelmet(null);
             carrier.setGlowing(false);
             flagEvent("flag.dropped", dropped.getAsInt(), carrier);
             flagView.sync(flags);
@@ -548,10 +618,11 @@ public final class PaintballMatch implements MatchHandler {
     }
 
     /** Chat line, title for everyone, sound, HUD refresh. */
-    private void flagEvent(String key, int flag, Player who) {
+    private void flagEvent(String key, int flag, LivingEntity who) {
         Component line = messages.get(key,
                 Placeholder.component("flag", ctx.teamName(flag)),
-                Placeholder.component("player", who == null ? Component.empty() : coloured(who.getName(), team(who))));
+                Placeholder.component("player", who == null ? Component.empty()
+                        : coloured(names.getOrDefault(who.getUniqueId(), who.getName()), team(who))));
         String sound = switch (key) {
             case "flag.captured" -> PackAssets.SOUND_FLAG_CAPTURED;
             case "flag.taken" -> PackAssets.SOUND_FLAG_TAKEN;
@@ -743,7 +814,8 @@ public final class PaintballMatch implements MatchHandler {
 
     private void finish(MatchOutcome outcome) {
         if (!over) {
-            ctx.finish(outcome);
+            // Against bots nothing counts: no win, loss or stat.
+            ctx.finish(bots.isEmpty() ? outcome : outcome.asPractice());
         }
     }
 
@@ -793,7 +865,7 @@ public final class PaintballMatch implements MatchHandler {
         online().forEach(p -> p.sendMessage(line));
     }
 
-    private int team(Player p) {
+    private int team(Entity p) {
         return teams.getOrDefault(p.getUniqueId(), 0);
     }
 
@@ -848,12 +920,198 @@ public final class PaintballMatch implements MatchHandler {
         List<double[]> at = spawns.stream().map(l -> new double[] {l.getX(), l.getY(), l.getZ()}).toList();
         List<double[]> enemies = new ArrayList<>();
         for (Player e : ctx.team(1 - team)) {
-            if (!combat.isOut(e.getUniqueId())) {
+            if (combat == null || !combat.isOut(e.getUniqueId())) {
                 Location l = e.getLocation();
                 enemies.add(new double[] {l.getX(), l.getY(), l.getZ()});
             }
         }
+        for (PaintBot b : bots.values()) {
+            if (b.team != team && !b.isOut()) {
+                enemies.add(b.feet());
+            }
+        }
         return spawns.get(SpawnPicker.safest(at, enemies, ThreadLocalRandom.current()));
+    }
+
+    // --- bots ---
+
+    /** Spawns the bots a player chose before starting alone: teammates and the full enemy team. */
+    private void spawnBots() {
+        PaintballGame.BotSetup setup = null;
+        Player host = null;
+        for (Player p : online()) {
+            PaintballGame.BotSetup s = game.takeBots(p.getUniqueId());
+            if (s != null && setup == null) {
+                setup = s;
+                host = p;
+            }
+        }
+        if (setup == null) {
+            return;
+        }
+        BotNav nav = new BotNav(PowerupPlaces.walkable(ctx.arena()));
+        if (nav.isEmpty()) {
+            game.plugin().getLogger().warning("[paintball] no walkable floor for bots in " + ctx.arena().name());
+            return;
+        }
+        int hostTeam = teams.getOrDefault(host.getUniqueId(), setup.team());
+        List<String> pool = new ArrayList<>(BOT_NAMES);
+        java.util.Collections.shuffle(pool);
+        Component levelName = messages.get("bot.description",
+                Placeholder.component("level", messages.get("bot.level." + setup.level().id())));
+        int n = 0;
+        for (int team = 0; team < 2; team++) {
+            int count = team == hostTeam ? setup.perTeam() - 1 : setup.perTeam();
+            List<Location> spawns = ctx.arena().spawns(team);
+            for (int i = 0; i < count; i++) {
+                Location at = spawns.get((i + 1) % spawns.size()).clone();
+                String name = "Bot " + pool.get(n++ % pool.size());
+                PaintBot bot = PaintBot.spawn(at, name, team, i, setup.level(), nav, settings, messages, levelName,
+                        ThreadLocalRandom.current());
+                bots.put(bot.id, bot);
+                teams.put(bot.id, team);
+                names.put(bot.id, name);
+            }
+        }
+        game.plugin().getLogger().info("[paintball] " + host.getName() + " plays against " + bots.size()
+                + " bots (" + setup.level().id() + ", " + setup.perTeam() + " per team)");
+    }
+
+    private void tickBots(long now) {
+        if (bots.isEmpty()) {
+            return;
+        }
+        List<PaintBot.Enemy> everyone = new ArrayList<>();
+        for (Player p : online()) {
+            if (!combat.isOut(p.getUniqueId())) {
+                Location l = p.getLocation();
+                everyone.add(enemy(p.getUniqueId(), new double[] {l.getX(), l.getY(), l.getZ()}, p.getEyeHeight()));
+            }
+        }
+        for (PaintBot b : bots.values()) {
+            if (!b.isOut()) {
+                everyone.add(enemy(b.id, b.feet(), b.eye()[1] - b.feet()[1]));
+            }
+        }
+        PaintBot.Orders orders = new PaintBot.Orders() {
+            @Override
+            public Optional<Location> objective(PaintBot bot) {
+                return botObjective(bot);
+            }
+
+            @Override
+            public void fire(PaintBot bot, double[] direction, long tick) {
+                fireBot(bot, direction, tick);
+            }
+        };
+        for (PaintBot bot : List.copyOf(bots.values())) {
+            if (over) {
+                return;
+            }
+            List<PaintBot.Enemy> enemies = everyone.stream().filter(e -> teams.getOrDefault(e.id(), -1) != bot.team).toList();
+            bot.tick(now, enemies, orders);
+        }
+    }
+
+    private PaintBot.Enemy enemy(UUID id, double[] feet, double eyeHeight) {
+        double[] last = lastPos.put(id, feet);
+        double[] v = last == null ? new double[3] : new double[] {feet[0] - last[0], feet[1] - last[1], feet[2] - last[2]};
+        if (Math.abs(v[0]) > 1 || Math.abs(v[2]) > 1) {
+            v = new double[3]; // a teleport, not a walk
+        }
+        return new PaintBot.Enemy(id, feet, new double[] {feet[0], feet[1] + 1.1, feet[2]},
+                new double[] {feet[0], feet[1] + eyeHeight, feet[2]}, v);
+    }
+
+    /** Capture the flag: carry it home, chase the carrier of your flag, pick up a dropped one, attack or defend. */
+    private Optional<Location> botObjective(PaintBot bot) {
+        if (flags == null) {
+            return Optional.empty();
+        }
+        int team = bot.team;
+        int enemy = 1 - team;
+        if (flags.carriedBy(bot.id).isPresent()) {
+            return Optional.of(flagHomes[team]);
+        }
+        switch (flags.state(team)) {
+            case CARRIED -> {
+                Optional<LivingEntity> carrier = flags.carrier(team).flatMap(this::runner);
+                if (carrier.isPresent()) {
+                    return Optional.of(carrier.get().getLocation());
+                }
+            }
+            case DROPPED -> {
+                double[] d = flags.dropPos(team);
+                return Optional.of(new Location(ctx.arena().world(), d[0], d[1], d[2]));
+            }
+            case HOME -> {
+            }
+        }
+        if (bot.index % 2 == 1) {
+            return Optional.of(flagHomes[team]); // a defender stays around its own flag
+        }
+        return switch (flags.state(enemy)) {
+            case HOME -> Optional.of(flagHomes[enemy]);
+            case DROPPED -> {
+                double[] d = flags.dropPos(enemy);
+                yield Optional.of(new Location(ctx.arena().world(), d[0], d[1], d[2]));
+            }
+            case CARRIED -> Optional.of(flagHomes[team]); // a teammate has it: go home with them
+        };
+    }
+
+    private void fireBot(PaintBot bot, double[] d, long now) {
+        if (over || combat.isOut(bot.id)) {
+            return;
+        }
+        combat.shot(bot.id);
+        matchShots.merge(bot.id, 1, Integer::sum);
+        Snowball ball = bot.body.launchProjectile(Snowball.class, new Vector(d[0], d[1], d[2]).multiply(settings.speed()));
+        ball.setItem(Gun.ball(bot.team));
+        Gun.tagBall(ball);
+        balls.put(ball.getUniqueId(), new Shot(bot.id, bot.team, now));
+        game.balls().put(ball.getUniqueId(), this);
+        PackItems.play(bot.location(), PackAssets.SOUND_SHOT, 0.8f, 0.95f + ThreadLocalRandom.current().nextFloat() * 0.1f);
+    }
+
+    /** A bot is out: flag dropped, splash, hidden from everyone until its respawn. */
+    private void eliminateBot(PaintBot bot, int paintTeam, long now) {
+        if (flags != null) {
+            dropFlag(bot.body, now);
+        }
+        Location burst = bot.location().add(0, 1, 0);
+        burst.getWorld().spawnParticle(Particle.DUST, burst, 80, 0.35, 0.5, 0.35, 0,
+                new Particle.DustOptions(Color.fromRGB(PackAssets.teamRgb(paintTeam)), 2.2f));
+        PackItems.play(bot.location(), PackAssets.SOUND_OUT, 1f, 1f);
+        bot.knockOut();
+        for (Player other : Bukkit.getOnlinePlayers()) {
+            other.hideEntity(game.plugin(), bot.body);
+        }
+    }
+
+    private void respawnBot(PaintBot bot) {
+        bot.respawn(safestSpawn(bot.team));
+        lastPos.remove(bot.id);
+        for (Player other : Bukkit.getOnlinePlayers()) {
+            other.showEntity(game.plugin(), bot.body);
+        }
+    }
+
+    /** Players and bots still in the match, alive or not, for the flag rules. */
+    private List<LivingEntity> runners() {
+        List<LivingEntity> out = new ArrayList<>(online());
+        for (PaintBot b : bots.values()) {
+            out.add(b.body);
+        }
+        return out;
+    }
+
+    private Optional<LivingEntity> runner(UUID id) {
+        PaintBot bot = bots.get(id);
+        if (bot != null) {
+            return Optional.of(bot.body);
+        }
+        return Optional.ofNullable(Bukkit.getPlayer(id));
     }
 
     /** Online players still in this match. */

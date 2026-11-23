@@ -137,6 +137,14 @@ final class PaintballListener implements Listener {
 
     @EventHandler
     public void onClick(InventoryClickEvent event) {
+        if (event.getView().getTopInventory().getHolder(false) instanceof BotMenu menu) {
+            event.setCancelled(true);
+            if (event.getWhoClicked() instanceof Player player
+                    && event.getClickedInventory() == event.getView().getTopInventory()) {
+                menu.click(player, event.getSlot());
+            }
+            return;
+        }
         boolean gun = Gun.isGun(event.getCurrentItem()) || Gun.isGun(event.getCursor());
         if (!gun && event.getWhoClicked() instanceof Player player) {
             if (event.getClick() == ClickType.NUMBER_KEY) {
@@ -152,6 +160,10 @@ final class PaintballListener implements Listener {
 
     @EventHandler
     public void onDrag(InventoryDragEvent event) {
+        if (event.getView().getTopInventory().getHolder(false) instanceof BotMenu) {
+            event.setCancelled(true);
+            return;
+        }
         if (Gun.isGun(event.getOldCursor())) {
             event.setCancelled(true);
         }

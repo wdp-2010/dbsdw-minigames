@@ -1,7 +1,7 @@
 # Paintball player messages (MiniMessage format).
 # Raise "version" when texts change: servers with an older file get it backed up and replaced.
 # Colours: khaki #D9C78F (headings), field green #9CC05A (good news), amber #FFB52E (alerts, numbers).
-version: 5
+version: 6
 
 game:
   name: "<#D9C78F><bold>Paintball"
@@ -97,3 +97,27 @@ practice:
   title: "<#D9C78F><bold>OEFENTERREIN"
   hint: "<gray>Rechtsklik om te vuren · sluip om te richten · scroll om te zoomen"
   down: "<font:dbsdw:hud><white>\uE006</white></font> <#FFB52E><bold>DOELWIT NEER!"
+
+# Playing against bots (/solo, or start alone in a room).
+bot:
+  # Shown under a bot's name.
+  description: "<gray>Bot · <level>"
+  level:
+    makkelijk: "<#9CC05A>Makkelijk"
+    normaal: "<yellow>Normaal"
+    moeilijk: "<gold>Moeilijk"
+    meester: "<red>Meester"
+  menu:
+    title: "<#D9C78F>Paintball tegen bots"
+    level-lore:
+      makkelijk: "<gray>Mikt slordig en schiet traag"
+      normaal: "<gray>Mikt redelijk en schiet vooruit op wie loopt"
+      moeilijk: "<gray>Mikt goed en stapt opzij als je schiet"
+      meester: "<gray>Bijna altijd raak. Succes!"
+    size: "<white><n> tegen <n>"
+    size-lore-alone: "<gray>Jij alleen tegen 1 bot"
+    size-lore: "<gray>Jij + <allies> bots tegen <enemies> bots"
+    chosen: "<#9CC05A>✔ Gekozen"
+    click: "<gray>Klik om te kiezen"
+    start: "<#9CC05A><bold>Start"
+    start-lore: "<gray><level> <dark_gray>·</dark_gray> <white><n> tegen <n></white> <dark_gray>·</dark_gray> <gray>telt niet mee voor je stats"

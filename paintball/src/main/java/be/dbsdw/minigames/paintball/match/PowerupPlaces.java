@@ -20,13 +20,30 @@ final class PowerupPlaces {
     }
 
     static PowerupDirector director(ArenaView arena, double catchUp) {
-        World world = arena.world();
+        List<Cell> cells = walkable(arena);
+        if (cells.isEmpty()) {
+            // no floor found from the spawns (odd arena): fall back to the arena's power-up points
+            for (Location l : arena.powerups()) {
+                cells.add(new Cell(l.getBlockX(), l.getBlockY(), l.getBlockZ()));
+            }
+        }
+        return new PowerupDirector(cells, spawns(arena), catchUp, new Random());
+    }
+
+    private static List<Cell> spawns(ArenaView arena) {
         List<Cell> spawns = new ArrayList<>();
         for (int team = 0; team < 2; team++) {
             for (Location l : arena.spawns(team)) {
                 spawns.add(new Cell(l.getBlockX(), l.getBlockY(), l.getBlockZ()));
             }
         }
+        return spawns;
+    }
+
+    /** Every floor position a player can walk to from the team spawns (also the bots' paths). */
+    static List<Cell> walkable(ArenaView arena) {
+        World world = arena.world();
+        List<Cell> spawns = spawns(arena);
         BoundingBox b = arena.bounds();
         int[] min = {(int) Math.floor(b.getMinX()), (int) Math.floor(b.getMinY()), (int) Math.floor(b.getMinZ())};
         int[] max = {(int) Math.floor(b.getMaxX()), (int) Math.floor(b.getMaxY()), (int) Math.floor(b.getMaxZ())};
@@ -42,13 +59,6 @@ final class PowerupPlaces {
                 return block.isPassable() && !block.isLiquid();
             }
         };
-        List<Cell> cells = WalkableArea.flood(blocks, min, max, spawns, LIMIT);
-        if (cells.isEmpty()) {
-            // no floor found from the spawns (odd arena): fall back to the arena's power-up points
-            for (Location l : arena.powerups()) {
-                cells.add(new Cell(l.getBlockX(), l.getBlockY(), l.getBlockZ()));
-            }
-        }
-        return new PowerupDirector(cells, spawns, catchUp, new Random());
+        return WalkableArea.flood(blocks, min, max, spawns, LIMIT);
     }
 }

@@ -7,6 +7,7 @@ import be.dbsdw.minigames.core.api.MatchHandler;
 import be.dbsdw.minigames.core.api.ArenaFeature;
 import be.dbsdw.minigames.core.api.ModeSpec;
 import be.dbsdw.minigames.core.pack.PackItems;
+import be.dbsdw.minigames.paintball.bot.BotLevel;
 import be.dbsdw.minigames.paintball.match.PaintballMatch;
 import be.dbsdw.minigames.paintball.rules.Settings;
 import java.util.HashMap;
@@ -14,8 +15,11 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.ThreadLocalRandom;
+import java.util.function.IntConsumer;
 import net.kyori.adventure.text.Component;
 import org.bukkit.Material;
+import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.plugin.Plugin;
 
@@ -31,6 +35,11 @@ public final class PaintballGame implements GameType {
     private final ModeSpec ctf;
     private final Map<UUID, PaintballMatch> players = new HashMap<>();
     private final Map<UUID, PaintballMatch> balls = new HashMap<>();
+    private final Map<UUID, BotSetup> botSetups = new HashMap<>();
+    private final Map<UUID, BotMenu.Choice> botChoices = new HashMap<>();
+
+    /** Bots for the next match of a player who started alone: their level, team size and the player's team. */
+    public record BotSetup(BotLevel level, int perTeam, int team) {}
 
     PaintballGame(Plugin plugin, Settings settings, Messages messages, String tdmDisplayName, String ctfDisplayName) {
         this.plugin = plugin;
@@ -81,6 +90,36 @@ public final class PaintballGame implements GameType {
     @Override
     public Component statName(String stat) {
         return messages.get("stat." + stat);
+    }
+
+    /** Paintball alone means against bots: listed in {@code /solo}. */
+    @Override
+    public boolean supportsSolo() {
+        return true;
+    }
+
+    /** A room's host pressed start alone: pick the bots, then the room starts with the host on a random team. */
+    @Override
+    public boolean startAlone(Player host, ModeSpec mode, IntConsumer startOnTeam) {
+        BotMenu.open(host, this, mode, choice -> {
+            int team = ThreadLocalRandom.current().nextInt(2);
+            botSetups.put(host.getUniqueId(), new BotSetup(choice.level(), choice.perTeam(), team));
+            startOnTeam.accept(team);
+        });
+        return true;
+    }
+
+    /** The bots a player chose for their next match, once; null when they did not. */
+    public BotSetup takeBots(UUID player) {
+        return botSetups.remove(player);
+    }
+
+    public BotMenu.Choice botChoice(UUID player) {
+        return botChoices.getOrDefault(player, new BotMenu.Choice(BotLevel.NORMAAL, 1));
+    }
+
+    public void rememberBotChoice(UUID player, BotMenu.Choice choice) {
+        botChoices.put(player, choice);
     }
 
     @Override
