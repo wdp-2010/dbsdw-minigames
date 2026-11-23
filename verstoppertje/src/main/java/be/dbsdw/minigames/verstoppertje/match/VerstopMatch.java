@@ -4,6 +4,7 @@ import be.dbsdw.minigames.core.Messages;
 import be.dbsdw.minigames.core.api.MatchContext;
 import be.dbsdw.minigames.core.api.MatchHandler;
 import be.dbsdw.minigames.core.api.MatchOutcome;
+import be.dbsdw.minigames.verstoppertje.rules.BlockRules;
 import be.dbsdw.minigames.verstoppertje.rules.Phase;
 import be.dbsdw.minigames.verstoppertje.rules.Roles;
 import be.dbsdw.minigames.verstoppertje.rules.Settings;
@@ -22,17 +23,18 @@ import net.kyori.adventure.text.minimessage.tag.resolver.Placeholder;
 import net.kyori.adventure.title.Title;
 import org.bukkit.Bukkit;
 import org.bukkit.FluidCollisionMode;
+import org.bukkit.GameMode;
 import org.bukkit.Location;
 import org.bukkit.Material;
-import org.bukkit.NamespacedKey;
 import org.bukkit.Particle;
 import org.bukkit.Sound;
 import org.bukkit.block.Block;
+import org.bukkit.block.BlockFace;
+import org.bukkit.block.BlockState;
 import org.bukkit.block.data.BlockData;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
-import org.bukkit.persistence.PersistentDataType;
 import org.bukkit.plugin.Plugin;
 import org.bukkit.potion.PotionEffect;
 import org.bukkit.potion.PotionEffectType;
@@ -42,6 +44,8 @@ import org.bukkit.util.Vector;
 /**
  * One Verstoppertje match. Team 0 hides, team 1 seeks; a hider who is hit joins the seekers. The
  * seekers win when nobody is left hiding, the hiders when one of them is still hidden at the end.
+ * Everyone plays in creative without flying and may place and break a limited number of blocks; the
+ * arena is put back when the match ends. A hider is the block they hold.
  */
 public final class VerstopMatch implements MatchHandler {
     public static final int HIDERS = 0;
@@ -54,7 +58,6 @@ public final class VerstopMatch implements MatchHandler {
     private final Messages messages;
     private final Logger log;
     private final RandomGenerator rnd;
-    private final NamespacedKey itemKey;
     private final Set<VerstopMatch> active;
     private final Map<UUID, Disguise> hidden = new LinkedHashMap<>();
     private final Map<UUID, Location> waiting = new HashMap<>();
@@ -62,10 +65,14 @@ public final class VerstopMatch implements MatchHandler {
     private final Map<UUID, String> finder = new HashMap<>();
     private final Map<UUID, Long> foundAt = new HashMap<>();
     private final Map<UUID, String> names = new LinkedHashMap<>();
+    private final Map<UUID, Integer> placed = new HashMap<>();
+    private final Map<UUID, Integer> broken = new HashMap<>();
+    /** Every block a player changed (or that may change with it), with what it was at the start. */
+    private final Map<Block, BlockData> original = new LinkedHashMap<>();
     private boolean released;
 
     public VerstopMatch(Plugin plugin, MatchContext ctx, Settings settings, List<Material> disguises, Messages messages,
-                        Logger log, RandomGenerator rnd, NamespacedKey itemKey, Set<VerstopMatch> active) {
+                        Logger log, RandomGenerator rnd, Set<VerstopMatch> active) {
         this.plugin = plugin;
         this.active = active;
         this.ctx = ctx;
@@ -74,7 +81,6 @@ public final class VerstopMatch implements MatchHandler {
         this.messages = messages;
         this.log = log;
         this.rnd = rnd;
-        this.itemKey = itemKey;
     }
 
     // ------------------------------------------------------------------ lifecycle
@@ -89,9 +95,11 @@ public final class VerstopMatch implements MatchHandler {
         for (Player p : everyone()) {
             names.put(p.getUniqueId(), p.getName());
             ctx.moveToTeam(p, chosen.contains(p.getUniqueId()) ? SEEKERS : HIDERS);
-            // Seekers may stand on fake blocks the server does not know about; without this the
-            // server would kick them for flying. Flight itself is stopped in the listener.
+            p.setGameMode(GameMode.CREATIVE);
+            // Creative allows flight, and players may stand on fake blocks the server does not know
+            // about (it would kick them for flying without it). Flying itself is stopped in the listener.
             p.setAllowFlight(true);
+            p.setFlying(false);
         }
         List<Location> hideSpawns = ctx.arena().spawns(HIDERS);
         List<Location> seekSpawns = ctx.arena().spawns(SEEKERS);
@@ -99,9 +107,10 @@ public final class VerstopMatch implements MatchHandler {
         for (int i = 0; i < hiderList.size(); i++) {
             Player h = hiderList.get(i);
             h.teleport(hideSpawns.get(i % hideSpawns.size()));
-            Material first = disguises.get(rnd.nextInt(disguises.size()));
-            hidden.put(h.getUniqueId(), new Disguise(plugin, h, first.createBlockData()));
+            int slot = rnd.nextInt(Math.min(9, disguises.size()));
             hiderItems(h);
+            h.getInventory().setHeldItemSlot(slot);
+            hidden.put(h.getUniqueId(), new Disguise(plugin, h, disguises.get(slot).createBlockData()));
             h.showTitle(Title.title(messages.get("hide.title"), messages.get("hide.subtitle",
                     Placeholder.unparsed("seconds", String.valueOf(settings.hideTicks() / 20)))));
         }
@@ -110,6 +119,7 @@ public final class VerstopMatch implements MatchHandler {
             Player s = seekerList.get(i);
             Location at = seekSpawns.get(i % seekSpawns.size());
             s.teleport(at);
+            s.getInventory().clear();
             waiting.put(s.getUniqueId(), at);
             s.addPotionEffect(new PotionEffect(PotionEffectType.BLINDNESS, (int) settings.hideTicks() + 40, 0, false, false));
             s.showTitle(Title.title(messages.get("wait.title"), messages.get("wait.subtitle",
@@ -189,6 +199,11 @@ public final class VerstopMatch implements MatchHandler {
     }
 
     private void update(Disguise d, long now, List<Player> all) {
+        held(d, all);
+        if (d.solid() && !Disguise.canSolidify(d.solidBlock())) {
+            // Someone broke the block under it, or built into its spot.
+            d.loosen(all);
+        }
         Location l = d.hider.getLocation();
         Block feet = l.getBlock();
         boolean moved = d.still.update(Stillness.key(feet.getX(), feet.getY(), feet.getZ()), now);
@@ -291,44 +306,116 @@ public final class VerstopMatch implements MatchHandler {
 
     // ------------------------------------------------------------------ disguise items
 
-    /** A hider right-clicks with a block from their hotbar: they become that block. */
-    public boolean pick(Player hider, ItemStack item) {
-        Disguise d = hidden.get(hider.getUniqueId());
-        if (d == null || item == null || !item.hasItemMeta()) {
-            return false;
+    /** A hider is the block in their hand: switching hotbar slots (or taking one from the menu) changes it. */
+    private void held(Disguise d, List<Player> all) {
+        Material m = d.hider.getInventory().getItemInMainHand().getType();
+        if (m == d.data().getMaterial() || !allowed(m)) {
+            return;
         }
-        String name = item.getItemMeta().getPersistentDataContainer().get(itemKey, PersistentDataType.STRING);
-        Material m = name == null ? null : Material.matchMaterial(name);
-        if (m == null || !disguises.contains(m)) {
-            return false;
-        }
-        BlockData data = m.createBlockData();
-        if (!data.equals(d.data())) {
-            d.change(data, everyone());
-            hider.sendActionBar(messages.get("item.picked", Placeholder.component("block", Component.translatable(m.translationKey()))));
-            hider.playSound(hider, Sound.UI_BUTTON_CLICK, 0.6f, 1.4f);
-        }
-        return true;
+        d.change(m.createBlockData(), all);
+        d.hider.sendActionBar(messages.get("item.picked", Placeholder.component("block", Component.translatable(m.translationKey()))));
+        d.hider.playSound(d.hider, Sound.UI_BUTTON_CLICK, 0.6f, 1.4f);
+    }
+
+    /** Whether players may place this block and hide as it. */
+    public static boolean allowed(Material m) {
+        return m != null && BlockRules.allowed(m.name(), m.isBlock(), m.isSolid(), m.hasGravity());
     }
 
     private void hiderItems(Player h) {
         h.getInventory().clear();
         for (int i = 0; i < Math.min(9, disguises.size()); i++) {
-            Material m = disguises.get(i);
-            ItemStack item = ItemStack.of(m);
-            item.editMeta(meta -> {
-                meta.customName(messages.get("item.disguise", Placeholder.component("block", Component.translatable(m.translationKey()))));
-                meta.getPersistentDataContainer().set(itemKey, PersistentDataType.STRING, m.getKey().toString());
-            });
-            h.getInventory().setItem(i, item);
+            h.getInventory().setItem(i, ItemStack.of(disguises.get(i)));
         }
+    }
+
+    // ------------------------------------------------------------------ building
+
+    /**
+     * A player places a block (the world already shows it). False when they may not: the event is then
+     * cancelled. {@code replaced} are the states it replaced (two for a door).
+     */
+    public boolean place(Player p, Block block, List<BlockState> replaced) {
+        if (!canBuild(p, block) || !allowed(block.getType())) {
+            return false;
+        }
+        int used = placed.getOrDefault(p.getUniqueId(), 0);
+        if (used >= settings.placeLimit()) {
+            p.sendActionBar(messages.get("build.place-full"));
+            return false;
+        }
+        for (BlockState st : replaced) {
+            original.putIfAbsent(st.getBlock(), st.getBlockData());
+        }
+        for (BlockState st : replaced) {
+            remember(st.getBlock(), false);
+        }
+        placed.put(p.getUniqueId(), used + 1);
+        p.sendActionBar(messages.get("build.placed", Placeholder.unparsed("left",
+                String.valueOf(BlockRules.left(settings.placeLimit(), used + 1)))));
+        return true;
+    }
+
+    /** A player breaks a block (it is still there). False when they may not. */
+    public boolean dig(Player p, Block block) {
+        if (!canBuild(p, block)) {
+            return false;
+        }
+        int used = broken.getOrDefault(p.getUniqueId(), 0);
+        if (used >= settings.breakLimit()) {
+            p.sendActionBar(messages.get("build.break-full"));
+            return false;
+        }
+        remember(block, true);
+        broken.put(p.getUniqueId(), used + 1);
+        p.sendActionBar(messages.get("build.broken", Placeholder.unparsed("left",
+                String.valueOf(BlockRules.left(settings.breakLimit(), used + 1)))));
+        return true;
+    }
+
+    private boolean canBuild(Player p, Block block) {
+        return !frozen(p) && inArena(block);
+    }
+
+    /** Inside this match's arena. */
+    public boolean inArena(Block b) {
+        return b.getWorld().equals(ctx.arena().world()) && ctx.arena().bounds().contains(b.getX() + 0.5, b.getY() + 0.5, b.getZ() + 0.5);
+    }
+
+    /** Saves the block (when {@code self}) and its neighbours, which may drop or change with it, as they are now. */
+    private void remember(Block b, boolean self) {
+        if (self) {
+            original.putIfAbsent(b, b.getBlockData());
+        }
+        for (BlockFace f : new BlockFace[] {BlockFace.UP, BlockFace.DOWN, BlockFace.NORTH, BlockFace.SOUTH, BlockFace.EAST, BlockFace.WEST}) {
+            Block n = b.getRelative(f);
+            original.putIfAbsent(n, n.getBlockData());
+        }
+        Block up2 = b.getRelative(0, 2, 0);
+        original.putIfAbsent(up2, up2.getBlockData());
+    }
+
+    /** Puts every changed block back, last change first. */
+    private void restore() {
+        List<Map.Entry<Block, BlockData>> list = new ArrayList<>(original.entrySet());
+        for (int i = list.size() - 1; i >= 0; i--) {
+            Block b = list.get(i).getKey();
+            if (!b.getBlockData().equals(list.get(i).getValue())) {
+                b.setBlockData(list.get(i).getValue(), false);
+            }
+        }
+        if (!list.isEmpty()) {
+            log.info("[verstoppertje] " + ctx.arena().name() + ": restored " + list.size() + " blocks");
+        }
+        original.clear();
     }
 
     private void seekerSetup(Player s) {
         s.removePotionEffect(PotionEffectType.BLINDNESS);
-        ItemStack stick = ItemStack.of(Material.STICK);
-        stick.editMeta(meta -> meta.customName(messages.get("item.seeker")));
-        s.getInventory().setItem(0, stick);
+        // A sword: in creative it cannot break blocks, so hitting a hider never breaks the arena.
+        ItemStack sword = ItemStack.of(Material.WOODEN_SWORD);
+        sword.editMeta(meta -> meta.customName(messages.get("item.seeker")));
+        s.getInventory().setItem(0, sword);
         s.getInventory().setHeldItemSlot(0);
     }
 
@@ -367,8 +454,9 @@ public final class VerstopMatch implements MatchHandler {
             o.showPlayer(plugin, p);
             p.showPlayer(plugin, o);
         }
-        p.setAllowFlight(false);
         p.setFlying(false);
+        p.setAllowFlight(false);
+        p.setGameMode(GameMode.ADVENTURE);
     }
 
     @Override
@@ -386,8 +474,9 @@ public final class VerstopMatch implements MatchHandler {
     public void end() {
         active.remove(this);
         for (Player p : everyone()) {
-            p.setAllowFlight(false);
             p.setFlying(false);
+            p.setAllowFlight(false);
+            p.setGameMode(GameMode.ADVENTURE);
         }
         List<Player> all = everyone();
         for (Disguise d : hidden.values()) {
@@ -402,6 +491,7 @@ public final class VerstopMatch implements MatchHandler {
             }
         }
         waiting.clear();
+        restore();
     }
 
     @Override

@@ -14,7 +14,6 @@ import java.util.concurrent.CopyOnWriteArraySet;
 import java.util.random.RandomGenerator;
 import net.kyori.adventure.text.Component;
 import org.bukkit.Material;
-import org.bukkit.NamespacedKey;
 import org.bukkit.entity.Player;
 import org.bukkit.plugin.Plugin;
 
@@ -26,7 +25,6 @@ final class VerstopGame implements GameType {
     private final Settings settings;
     private final List<Material> disguises;
     private final Messages messages;
-    private final NamespacedKey itemKey;
     private final ModeSpec mode;
     private final Set<VerstopMatch> active = new CopyOnWriteArraySet<>();
     private final RandomGenerator rnd = RandomGenerator.getDefault();
@@ -36,12 +34,16 @@ final class VerstopGame implements GameType {
         this.settings = settings;
         this.disguises = List.copyOf(disguises);
         this.messages = messages;
-        this.itemKey = new NamespacedKey(plugin, "disguise");
         this.mode = new ModeSpec(ID, "klassiek", messages.raw("mode.klassiek"), 2, 1, settings.maxPerTeam(), Set.of());
     }
 
     Optional<VerstopMatch> matchOf(Player player) {
         return active.stream().filter(m -> m.has(player)).findFirst();
+    }
+
+    /** Whether the block is inside the arena of a running match. */
+    boolean inAnyArena(org.bukkit.block.Block block) {
+        return active.stream().anyMatch(m -> m.inArena(block));
     }
 
     @Override
@@ -82,6 +84,6 @@ final class VerstopGame implements GameType {
 
     @Override
     public MatchHandler newMatch(MatchContext context) {
-        return new VerstopMatch(plugin, context, settings, disguises, messages, plugin.getLogger(), rnd, itemKey, active);
+        return new VerstopMatch(plugin, context, settings, disguises, messages, plugin.getLogger(), rnd, active);
     }
 }

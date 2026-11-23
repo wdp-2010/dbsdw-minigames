@@ -68,9 +68,32 @@ class RulesTest {
 
     @Test
     void settingsRejectNonsense() {
-        assertThrows(IllegalArgumentException.class, () -> new Settings(0, 5, 600, 4800, 60, 600, 3.5));
-        assertThrows(IllegalArgumentException.class, () -> new Settings(12, 5, 600, 0, 60, 600, 3.5));
-        assertThrows(IllegalArgumentException.class, () -> new Settings(12, 5, 600, 4800, 60, 600, 9));
-        assertFalse(new Settings(12, 5, 600, 4800, 60, 0, 3.5).hints());
+        assertThrows(IllegalArgumentException.class, () -> new Settings(0, 5, 600, 4800, 60, 600, 3.5, 30, 30));
+        assertThrows(IllegalArgumentException.class, () -> new Settings(12, 5, 600, 0, 60, 600, 3.5, 30, 30));
+        assertThrows(IllegalArgumentException.class, () -> new Settings(12, 5, 600, 4800, 60, 600, 9, 30, 30));
+        assertFalse(new Settings(12, 5, 600, 4800, 60, 0, 3.5, 30, 30).hints());
+    }
+
+    @Test
+    void plainBlocksAllowedMachinesAndRenderedBlocksNot() {
+        assertTrue(BlockRules.allowed("OAK_PLANKS", true, true, false));
+        assertTrue(BlockRules.allowed("BARREL", true, true, false));
+        assertTrue(BlockRules.allowed("HAY_BLOCK", true, true, false));
+        assertFalse(BlockRules.allowed("SAND", true, true, true), "falls");
+        assertFalse(BlockRules.allowed("TORCH", true, false, false), "not solid");
+        assertFalse(BlockRules.allowed("DIAMOND_SWORD", false, false, false), "not a block");
+        assertFalse(BlockRules.allowed("TNT", true, true, false));
+        assertFalse(BlockRules.allowed("CHEST", true, true, false), "a display draws no chest");
+        assertFalse(BlockRules.allowed("OAK_SIGN", true, true, false));
+        assertFalse(BlockRules.allowed("RED_BED", true, true, false));
+        assertFalse(BlockRules.allowed("CHAIN_COMMAND_BLOCK", true, true, false));
+        assertFalse(BlockRules.allowed("CAVE_AIR", true, false, false));
+    }
+
+    @Test
+    void limitNeverBelowZero() {
+        assertEquals(30, BlockRules.left(30, 0));
+        assertEquals(1, BlockRules.left(30, 29));
+        assertEquals(0, BlockRules.left(30, 31));
     }
 }

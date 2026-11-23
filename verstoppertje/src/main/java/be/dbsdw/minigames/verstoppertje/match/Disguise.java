@@ -4,6 +4,7 @@ import be.dbsdw.minigames.verstoppertje.rules.RayBox;
 import be.dbsdw.minigames.verstoppertje.rules.Stillness;
 import java.util.Collection;
 import org.bukkit.Location;
+import org.bukkit.Material;
 import org.bukkit.World;
 import org.bukkit.block.Block;
 import org.bukkit.block.data.BlockData;
@@ -17,11 +18,14 @@ import org.bukkit.util.Vector;
  * A hider's block: a block display that follows them, plus an interaction box seekers can hit. Once
  * the hider stands still long enough it is solid: lined up with the grid, and every other player in
  * the match gets a (fake, client-side) real block there, so it looks and feels like any other block.
+ * While solid the display is emptied: drawn on the same spot as the fake block, the two fought over
+ * every face (flickering, "cooked" textures).
  */
 final class Disguise {
     static final String TAG = "dbsdw_verstoppertje";
     /** The hit box sticks out a little past the fake block, so a click lands on the box first. */
     private static final float SOLID_BOX = 1.04f;
+    private static final BlockData EMPTY = Material.AIR.createBlockData();
 
     final Player hider;
     final Stillness still = new Stillness();
@@ -61,6 +65,11 @@ final class Disguise {
         return solid != null;
     }
 
+    /** The block the hider stands in as a solid block, or null. */
+    Block solidBlock() {
+        return solid;
+    }
+
     boolean owns(org.bukkit.entity.Entity e) {
         return e.equals(box) || e.equals(display);
     }
@@ -83,6 +92,7 @@ final class Disguise {
 
     void solidify(Block feet, Collection<Player> others) {
         solid = feet;
+        display.setBlock(EMPTY);
         display.teleport(feet.getLocation());
         box.teleport(feet.getLocation().add(0.5, -0.02, 0.5));
         box.setInteractionWidth(SOLID_BOX);
@@ -104,6 +114,7 @@ final class Disguise {
         Block was = solid;
         solid = null;
         others.forEach(p -> p.sendBlockChange(was.getLocation(), was.getBlockData()));
+        display.setBlock(data);
         box.setInteractionWidth(1f);
         box.setInteractionHeight(1f);
         follow();
@@ -118,7 +129,9 @@ final class Disguise {
 
     void change(BlockData next, Collection<Player> others) {
         data = next;
-        display.setBlock(next);
+        if (solid == null) {
+            display.setBlock(next);
+        }
         sendFake(others);
     }
 

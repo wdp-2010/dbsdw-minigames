@@ -34,7 +34,8 @@ public final class VerstoppertjePlugin extends JavaPlugin {
             }
             settings = new Settings(c.getInt("match.max-per-team"), c.getInt("match.players-per-seeker"),
                     seconds(c, "match.hide-seconds"), Math.round(c.getDouble("match.seek-minutes") * 60 * 20),
-                    seconds(c, "match.solid-seconds"), seconds(c, "match.hint-seconds"), c.getDouble("match.reach"));
+                    seconds(c, "match.solid-seconds"), seconds(c, "match.hint-seconds"), c.getDouble("match.reach"),
+                    c.getInt("match.place-limit"), c.getInt("match.break-limit"));
         } catch (IllegalArgumentException e) {
             getLogger().severe("[verstoppertje] config.yml: " + e.getMessage() + " - Verstoppertje is disabled");
             getServer().getPluginManager().disablePlugin(this);

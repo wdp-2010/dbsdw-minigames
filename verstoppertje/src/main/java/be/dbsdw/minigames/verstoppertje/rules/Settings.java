@@ -2,7 +2,7 @@ package be.dbsdw.minigames.verstoppertje.rules;
 
 /** Verstoppertje's config.yml. Times in ticks. */
 public record Settings(int maxPerTeam, int playersPerSeeker, long hideTicks, long seekTicks, long solidTicks,
-                       long hintTicks, double reach) {
+                       long hintTicks, double reach, int placeLimit, int breakLimit) {
     public Settings {
         if (maxPerTeam < 1 || playersPerSeeker < 1) {
             throw new IllegalArgumentException("max-per-team and players-per-seeker must be 1 or more");
@@ -12,6 +12,9 @@ public record Settings(int maxPerTeam, int playersPerSeeker, long hideTicks, lon
         }
         if (reach <= 0 || reach > 6) {
             throw new IllegalArgumentException("reach must be between 0 and 6");
+        }
+        if (placeLimit < 0 || breakLimit < 0) {
+            throw new IllegalArgumentException("place-limit and break-limit must be 0 or more");
         }
     }
 

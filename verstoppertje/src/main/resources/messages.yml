@@ -1,7 +1,7 @@
 # Verstoppertje player messages (MiniMessage format).
 # Raise "version" when texts change: servers with an older file get it backed up and replaced.
 # Colours: khaki #D9C78F (headings), field green #9CC05A (good news), amber #FFB52E (alerts, numbers).
-version: 1
+version: 2
 
 game:
   name: "<#D9C78F><bold>Verstoppertje"
@@ -18,14 +18,13 @@ stat:
   hidden: "Nooit gevonden"
 
 item:
-  disguise: "<#D9C78F><bold>Word <block></bold> <gray>· rechtsklik"
   picked: "<gray>Je bent nu <white><block></white>."
-  seeker: "<#FFB52E><bold>Zoekstok</bold> <gray>· sla op verdachte blokken"
+  seeker: "<#FFB52E><bold>Zoekzwaard</bold> <gray>· sla op verdachte blokken"
 
 hide:
   title: "<#9CC05A><bold>Verstop je!"
-  subtitle: "<gray>Je bent een blok · <white><seconds></white>s tot de zoekers komen"
-  bar: "<gray>Zoekers komen over <white><seconds></white>s <dark_gray>·</dark_gray> <gray>sta <white>3s</white> stil om een echt blok te worden"
+  subtitle: "<gray>Je bent het blok in je hand · <white><seconds></white>s tot de zoekers komen"
+  bar: "<gray>Zoekers komen over <white><seconds></white>s <dark_gray>·</dark_gray> <gray>sta <white>3s</white> stil om een echt blok te worden <dark_gray>·</dark_gray> <gray>wissel van blok in je hotbar"
 
 wait:
   title: "<#FFB52E><bold>Jij zoekt!"
@@ -38,6 +37,12 @@ seek:
 coming:
   title: "<red><bold>Ze komen eraan!"
   subtitle: "<gray>Blijf stil staan..."
+
+build:
+  placed: "<gray>Blok geplaatst <dark_gray>·</dark_gray> <gray>nog <white><left></white> te plaatsen"
+  broken: "<gray>Blok gebroken <dark_gray>·</dark_gray> <gray>nog <white><left></white> te breken"
+  place-full: "<#FFB52E>Je mag geen blokken meer plaatsen."
+  break-full: "<#FFB52E>Je mag geen blokken meer breken."
 
 solid:
   on: "<#9CC05A>Je staat vast als blok. <gray>Bewegen maakt je weer los."

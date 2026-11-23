@@ -13,6 +13,10 @@ match:
   hint-seconds: 30
   # How far a seeker reaches when hitting a block.
   reach: 3.5
+  # Everyone plays in creative (no flying) and may place and break this many blocks per match.
+  # The arena is put back as it was when the match ends.
+  place-limit: 30
+  break-limit: 30
 
-# Blocks a hider can turn into. The arena should have plenty of each of them.
+# The hotbar a hider starts with. A hider is the block in their hand; the creative menu has more.
 disguises: [barrel, hay_block, spruce_log, oak_log, crafting_table, composter, moss_block, pumpkin]
