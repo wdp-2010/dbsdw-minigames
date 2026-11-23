@@ -14,6 +14,7 @@ import be.dbsdw.minigames.core.stats.StatsStore;
 import be.dbsdw.minigames.core.queue.QueueBook;
 import be.dbsdw.minigames.core.queue.QueueTimings;
 import be.dbsdw.minigames.core.room.RoomCommand;
+import be.dbsdw.minigames.core.solo.SoloCommand;
 import java.io.IOException;
 import java.util.List;
 import java.util.random.RandomGenerator;
@@ -107,6 +108,7 @@ public final class MinigameCorePlugin extends JavaPlugin {
                 getLogger()), this);
         plugins.registerEvents(manager.menuListener(), this);
         plugins.registerEvents(manager.rooms().listener(), this);
+        plugins.registerEvents(manager.solo(), this);
         plugins.registerEvents(npc, this);
         plugins.registerEvents(manager, this);
 
@@ -119,6 +121,7 @@ public final class MinigameCorePlugin extends JavaPlugin {
             event.registrar().register("leave", "Verlaat de wachtrij of het spel", new LeaveCommand(manager::leave));
             event.registrar().register("mg", "Minigames beheer", mg);
             event.registrar().register("room", "Speel met je vrienden", new RoomCommand(manager.rooms(), messages));
+            event.registrar().register("solo", "Speel alleen tegen een bot", new SoloCommand(manager.solo()::open));
             event.registrar().register("stats", "Bekijk statistieken", statsCommands.statsCommand());
             event.registrar().register("top", "Bekijk de ranglijst", statsCommands.topCommand());
         });

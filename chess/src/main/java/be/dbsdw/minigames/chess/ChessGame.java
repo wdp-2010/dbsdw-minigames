@@ -105,6 +105,12 @@ public final class ChessGame implements GameType {
         return "chess";
     }
 
+    /** Listed in {@code /solo}: played alone against the chess bot (see {@link #startAlone}). */
+    @Override
+    public boolean supportsSolo() {
+        return true;
+    }
+
     @Override
     public Component displayName() {
         return messages.get("game-name");

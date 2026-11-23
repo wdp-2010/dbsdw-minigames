@@ -1,7 +1,7 @@
 # Player messages (MiniMessage format).
 # Raise "version" when texts change: servers with an older file get it backed up and replaced.
 # Colours: khaki #D9C78F (headings), field green #9CC05A (good news), amber #FFB52E (alerts, numbers).
-version: 7
+version: 8
 
 no-ticket: "<red>Je kunt hier alleen binnenkomen via survival.<newline><gray>Typ daar <white>/minigames</white>."
 unavailable: "<red>De minigames zijn even dicht. Probeer het straks opnieuw."
@@ -174,3 +174,12 @@ room:
     invite-title: "<#D9C78F>Wie nodig je uit?"
     invite-empty: "<gray>Niemand om uit te nodigen"
     back: "<gray>« Terug"
+
+# /solo: play a game alone against a bot.
+solo:
+  title: "<#D9C78F>Solo spelen"
+  none: "<red>Er is nu geen spel dat je alleen kunt spelen."
+  game-click: "<gray>Klik om tegen een bot te spelen"
+  game-selected: "<#9CC05A>✔ Gekozen spel <dark_gray>· <gray>kies de modus eronder"
+  mode-click: "<gray>Klik om te beginnen"
+  leave-room: "<red>Je zit in een room met anderen. Verlaat die eerst met <white>/room leave</white>."

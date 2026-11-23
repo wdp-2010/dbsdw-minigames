@@ -21,6 +21,7 @@ import be.dbsdw.minigames.core.queue.QueueEvent;
 import be.dbsdw.minigames.core.room.RoomBook;
 import be.dbsdw.minigames.core.room.RoomHooks;
 import be.dbsdw.minigames.core.room.RoomService;
+import be.dbsdw.minigames.core.solo.SoloMenu;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -71,6 +72,7 @@ public final class MatchManager implements MenuModel, RoomHooks, Listener, Match
     private final Map<UUID, RunningMatch> matchByPlayer = new HashMap<>();
     private final StatsStore stats;
     private final RoomService rooms;
+    private final SoloMenu solo;
     /** Room id of each running room match. */
     private final Map<RunningMatch, Integer> roomOfMatch = new HashMap<>();
     /** Countdown second last shown in each queued player's action bar. */
@@ -93,6 +95,7 @@ public final class MatchManager implements MenuModel, RoomHooks, Listener, Match
         this.copier = new ArenaCopier(plugin);
         this.menus = new MenuListener(plugin, this, messages);
         this.rooms = new RoomService(plugin, new RoomBook(pool, rnd), pool, messages, this);
+        this.solo = new SoloMenu(plugin, messages, this::soloModes, this::gameIcon, this::modeIcon, rooms::startSolo);
         registry.onRegister(game -> game.modes().forEach(queues::addMode));
     }
 
@@ -102,6 +105,16 @@ public final class MatchManager implements MenuModel, RoomHooks, Listener, Match
 
     public RoomService rooms() {
         return rooms;
+    }
+
+    /** The {@code /solo} menu; also its click listener. */
+    public SoloMenu solo() {
+        return solo;
+    }
+
+    /** The modes of the games that can be played alone against a bot, for {@code /solo}. */
+    private List<ModeSpec> soloModes() {
+        return registry.games().stream().filter(GameType::supportsSolo).flatMap(g -> g.modes().stream()).toList();
     }
 
     public void tick() {

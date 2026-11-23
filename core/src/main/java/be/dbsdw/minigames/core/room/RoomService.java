@@ -102,6 +102,37 @@ public final class RoomService {
         openRoom(player);
     }
 
+    /**
+     * {@code /solo}: a private room with this mode for the player alone, started at once, so the game
+     * takes over (see {@link RoomHooks#startAlone}, e.g. chess asks for the bot's level). A room the
+     * player is already alone in is reused; a room with others in it is refused.
+     */
+    public void startSolo(Player player, ModeSpec mode) {
+        UUID id = player.getUniqueId();
+        if (hooks.inMatch(id)) {
+            return;
+        }
+        Optional<RoomView> room = book.roomOf(id);
+        if (room.isPresent() && (room.get().members().size() > 1 || room.get().counting() || room.get().playing())) {
+            player.sendMessage(messages.get("solo.leave-room"));
+            return;
+        }
+        Outcome out;
+        if (room.isEmpty()) {
+            hooks.leaveQueue(id);
+            out = book.create(id, mode);
+        } else {
+            out = book.setMode(id, mode);
+        }
+        if (out != Outcome.OK) {
+            error(player, out);
+            refresh();
+            return;
+        }
+        log.info("[room] " + player.getName() + " plays " + mode.key() + " solo");
+        start(player);
+    }
+
     public void invite(Player host, Player target) {
         Outcome out = book.invite(host.getUniqueId(), target.getUniqueId());
         if (out != Outcome.OK) {

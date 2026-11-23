@@ -60,6 +60,14 @@ public interface GameType {
         return null;
     }
 
+    /**
+     * Whether {@code /solo} lists this game: it can be played alone, against a bot, through
+     * {@link #startAlone}. False by default.
+     */
+    default boolean supportsSolo() {
+        return false;
+    }
+
     /** An extra button in this game's modes menu for this player, or empty. */
     default Optional<MenuEntry> menuEntry(Player viewer) {
         return Optional.empty();
