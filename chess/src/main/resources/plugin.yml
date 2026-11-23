@@ -1,0 +1,6 @@
+name: Chess
+version: '${version}'
+main: be.dbsdw.minigames.chess.ChessPlugin
+api-version: '26.3'
+depend: [MinigameCore]
+description: DBSDW chess on a giant board, with saved games you can continue later.

@@ -93,4 +93,25 @@ class MatchStateTest {
         assertEquals(MatchState.Phase.DONE, s.phase());
         assertFalse(s.finish());
     }
+
+    @Test
+    void aPlayerWhoLeftCanRejoinWhileRunning() {
+        MatchState s = new MatchState(List.of(List.of(a), List.of(b)), 200);
+        assertEquals(new MatchState.LeaveResult.LastTeamStanding(1), s.leave(a));
+        assertTrue(s.rejoin(a, 0));
+        assertEquals(OptionalInt.of(0), s.teamOf(a));
+        assertFalse(s.rejoin(a, 1), "already in a team");
+        assertFalse(s.rejoin(c, 5), "no such team");
+        s.finish();
+        s.leave(b);
+        assertFalse(s.rejoin(b, 1), "not running any more");
+    }
+
+    @Test
+    void pausedOutcomeHasNoWinner() {
+        be.dbsdw.minigames.core.api.MatchOutcome p = be.dbsdw.minigames.core.api.MatchOutcome.paused(List.of());
+        assertTrue(p.paused());
+        assertTrue(p.winner().isEmpty());
+        assertFalse(be.dbsdw.minigames.core.api.MatchOutcome.draw(List.of()).paused());
+    }
 }

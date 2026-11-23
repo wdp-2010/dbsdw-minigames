@@ -108,7 +108,8 @@ def main():
             f.write("\n".join(m.config_notes()) + "\n")
     else:
         with open(os.path.join(out, f"{name}.yml"), "w") as f:
-            f.write(arena_yaml(m, m.ORIGIN))
+            # A map can write its own arena file (other modes, copies); otherwise it is a paintball arena.
+            f.write(m.arena_yaml(m.ORIGIN) if hasattr(m, "arena_yaml") else arena_yaml(m, m.ORIGIN))
     print(f"{len(cmds)} commands in {len(parts)} functions")
     if lobby and "--no-report" not in sys.argv:
         lines = lobby_report(m)

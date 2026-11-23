@@ -1,0 +1,120 @@
+# Chess messages (MiniMessage format).
+# Raise "version" when texts change: servers with an older file get it backed up and replaced.
+version: 1
+
+game-name: "<#C8A26B><bold>Schaken"
+team:
+  white: "<#F4EBD9><bold>Wit"
+  black: "<#8B6A4A><bold>Zwart"
+stat:
+  checkmates: "Schaakmat gezet"
+  captures: "Stukken geslagen"
+piece:
+  queen: "<#F4EBD9>Dame"
+  rook: "<#F4EBD9>Toren"
+  bishop: "<#F4EBD9>Loper"
+  knight: "<#F4EBD9>Paard"
+
+# MinigameCore's match texts, in chess words. Same placeholders as in MinigameCore's messages.yml.
+core:
+  match:
+    start: "<#C8A26B><bold>Schaak!"
+    start-team: "<gray>Jij speelt met <team>"
+    won-sub: "<#9CC05A>Goed gespeeld!"
+    lost-sub: "<gray>Volgende keer beter."
+    draw-sub: "<gray>Niemand wint deze keer."
+    forfeit-sub: "<team> <gray>kwam niet terug · <#9CC05A>jij wint!"
+    forfeit-line: "<#C8A26B>»</#C8A26B> <team> <gray>kwam niet terug: de winst is voor jou."
+
+you-are-white: "<#C8A26B>»</#C8A26B> <gray>Jij speelt met <#F4EBD9><bold>wit</bold><gray> en begint. Kijk naar een stuk en klik."
+you-are-black: "<#C8A26B>»</#C8A26B> <gray>Jij speelt met <#8B6A4A><bold>zwart</bold><gray>. Wit begint."
+resumed: "<#C8A26B>»</#C8A26B> <gray>Partij hervat na <white><moves></white> zetten."
+not-your-turn: "<gray>Je tegenstander is aan zet."
+no-moves: "<#FF8A5C>Dat stuk kan nu nergens heen."
+check: "<#FF5C5C><bold>Schaak!"
+resign:
+  confirm: "<#FF8A5C>Klik nog eens om op te geven."
+draw:
+  offered: "<#C8A26B>»</#C8A26B> <gray>Je bood remise aan."
+  offer: "<#C8A26B>»</#C8A26B> <white><player></white> <gray>biedt remise aan. <click:run_command:'/schaak remise'><hover:show_text:'Remise aannemen'><#9CC05A><bold>[Remise aannemen]</bold></hover></click> <gray>(of speel gewoon verder)"
+  already: "<gray>Je bood al remise aan."
+pause:
+  asked: "<#C8A26B>»</#C8A26B> <gray>Je vroeg om te pauzeren (30 s)."
+  request: "<#C8A26B>»</#C8A26B> <white><player></white> <gray>wil pauzeren en later verder spelen. <click:run_command:'/schaak pauze'><hover:show_text:'Akkoord: bewaren en stoppen'><#9CC05A><bold>[Akkoord]</bold></hover></click>"
+away:
+  left: "<#C8A26B>»</#C8A26B> <white><player></white> <gray>is weg. De klokken staan stil; <player> heeft <white><seconds> s</white> om terug te komen."
+  back: "<#C8A26B>»</#C8A26B> <white><player></white> <gray>is terug. Verder spelen!"
+  choose: "<#C8A26B>»</#C8A26B> <gray>Je tegenstander kwam niet terug. <click:run_command:'/schaak claim'><hover:show_text:'Telt als winst voor jou'><#9CC05A><bold>[Winst claimen]</bold></hover></click> <click:run_command:'/schaak bewaar'><hover:show_text:'Geen uitslag, later verder spelen'><#7FB2FF><bold>[Bewaren]</bold></hover></click>"
+  no-moves: "<gray>Wacht op je tegenstander."
+bar:
+  clock-white: "<#F4EBD9><bold>▶ <white> <white_time></bold>  <dark_gray>|</dark_gray>  <#8B6A4A><black> <black_time>"
+  clock-black: "<#F4EBD9><white> <white_time>  <dark_gray>|</dark_gray>  <#B98E63><bold><black> <black_time> ◀"
+  free-white: "<#F4EBD9><bold>▶ <white></bold> <gray>aan zet · zet <move>"
+  free-black: "<#B98E63><bold><black> ◀</bold> <gray>aan zet · zet <move>"
+  away: "<#FF8A5C><player> is weg · nog <time> om terug te komen"
+  claim: "<#FF8A5C><player> kwam niet terug · claim de winst of bewaar de partij"
+item:
+  select: "<#C8A26B><bold>Stuk kiezen"
+  select-lore: "<gray>Kijk naar een stuk of vakje en klik"
+  draw: "<#F4EBD9>Remise aanbieden"
+  draw-lore: "<gray>Rechtsklik: biedt remise aan, of neemt die aan"
+  pause: "<#7FB2FF>Pauzeren"
+  pause-lore: "<gray>Rechtsklik: vraag om later verder te spelen"
+  resign: "<#FF8A5C>Opgeven"
+  resign-lore: "<gray>Rechtsklik twee keer om op te geven"
+  claim: "<#9CC05A><bold>Winst claimen"
+  claim-lore: "<gray>Je tegenstander kwam niet terug"
+  keep: "<#7FB2FF><bold>Bewaren"
+  keep-lore: "<gray>Geen uitslag, later verder spelen"
+result:
+  checkmate: "<#C8A26B>»</#C8A26B> <gray>Schaakmat in <white><moves></white> zetten."
+  stalemate: "<#C8A26B>»</#C8A26B> <gray>Pat: geen zetten meer, maar geen schaak."
+  threefold-repetition: "<#C8A26B>»</#C8A26B> <gray>Remise: dezelfde stelling kwam drie keer voor."
+  fifty-moves: "<#C8A26B>»</#C8A26B> <gray>Remise: 50 zetten zonder slaan of pionzet."
+  insufficient-material: "<#C8A26B>»</#C8A26B> <gray>Remise: niemand kan nog mat zetten."
+  agreed-draw: "<#C8A26B>»</#C8A26B> <gray>Remise, samen afgesproken."
+  time: "<#C8A26B>»</#C8A26B> <white><player></white> <gray>stond door de tijd."
+  time-draw: "<#C8A26B>»</#C8A26B> <white><player></white> <gray>stond door de tijd, maar de ander kan geen mat meer zetten: remise."
+  resigned: "<#C8A26B>»</#C8A26B> <white><player></white> <gray>gaf op."
+  claimed: "<#C8A26B>»</#C8A26B> <white><player></white> <gray>kwam niet terug."
+  kept: "<#C8A26B>»</#C8A26B> <white><player></white> <gray>kwam niet terug; de partij is bewaard."
+  paused-agreed: "<#C8A26B>»</#C8A26B> <gray>Samen gepauzeerd."
+  saved: "<#C8A26B>»</#C8A26B> <gray>Verder spelen? Open <click:run_command:'/schaak'><#7FB2FF>/schaak</#7FB2FF></click> en klik op de partij."
+  nothing-saved: "<#C8A26B>»</#C8A26B> <gray>Er was nog geen zet gedaan, dus niets bewaard."
+limit: "<#FF8A5C>Je hebt al <max> onafgemaakte partijen. Speel er eerst één uit of verwijder er één: <click:run_command:'/schaak'><#7FB2FF>/schaak</#7FB2FF></click>"
+join-reminder: "<#C8A26B>»</#C8A26B> <gray>Je hebt <white><count></white> onafgemaakte schaakpartij(en). <click:run_command:'/schaak'><hover:show_text:'Open je partijen'><#7FB2FF><bold>[Bekijken]</bold></hover></click>"
+resume:
+  gone: "<#FF8A5C>Die partij bestaat niet meer."
+  you-busy: "<#FF8A5C>Je zit al in een spel of in een kamer."
+  offline: "<#FF8A5C><player> is niet online. Probeer het later opnieuw."
+  busy: "<#FF8A5C><player> is nu bezig met een spel."
+  sent: "<#C8A26B>»</#C8A26B> <gray>Uitnodiging gestuurd naar <white><player></white> (60 s)."
+  invite: "<#C8A26B>»</#C8A26B> <white><player></white> <gray>wil jullie partij verder spelen (<moves> zetten). <click:run_command:'/schaak doorgaan <id>'><hover:show_text:'Verder spelen'><#9CC05A><bold>[Doorgaan]</bold></hover></click>"
+  failed-player-busy: "<#FF8A5C>Verder spelen lukt niet: een van jullie is bezig of offline."
+  failed-no-arena: "<#FF8A5C>Alle schaakborden zijn bezet. Probeer het zo opnieuw."
+  failed-unknown-mode: "<#FF8A5C>Schaken is nu niet beschikbaar."
+menu:
+  entry: "<#C8A26B><bold>Onafgemaakte partijen <gray>(<count>)"
+  entry-lore: "<gray>Klik om verder te spelen"
+  entry-none: "<gray>Nog geen; een partij die stopt zonder uitslag komt hier"
+  promotion:
+    title: "Promotie: kies een stuk"
+  games:
+    title: "Onafgemaakte partijen"
+    none: "<gray>Geen onafgemaakte partijen"
+    item: "<#C8A26B><bold>Tegen <player>"
+    you-white: "<gray>Jij speelt <#F4EBD9>wit"
+    you-black: "<gray>Jij speelt <#B98E63>zwart"
+    moves: "<gray><moves> zetten gespeeld"
+    your-turn: "<#9CC05A>Jij bent aan zet"
+    their-turn: "<gray>Je tegenstander is aan zet"
+    clock: "<gray>Klok: wit <white><white></white> · zwart <white><black></white>"
+    when: "<gray>Laatst gespeeld: <when>"
+    click: "<#9CC05A>Klik: verder spelen (nodigt je tegenstander uit)"
+    shift-click: "<#FF8A5C>Shift-klik twee keer: verwijderen, zonder uitslag"
+  delete-confirm: "<#FF8A5C>Shift-klik nog eens om de partij te verwijderen."
+  delete-running: "<#FF8A5C>Die partij wordt nu gespeeld."
+  deleted: "<#C8A26B>»</#C8A26B> <gray>Partij tegen <player> verwijderd."
+command:
+  usage: "<gray>/schaak <dark_gray>·</dark_gray> /schaak doorgaan <id>"
+  no-game: "<#FF8A5C>Je speelt nu geen schaakpartij."

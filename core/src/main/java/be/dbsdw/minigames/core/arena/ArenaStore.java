@@ -74,6 +74,9 @@ public final class ArenaStore {
                 yaml.set("spawns." + team, arena.spawns().get(team).stream().map(ArenaStore::pos).toList()));
         arena.flags().keySet().stream().sorted().forEach(team -> yaml.set("flags." + team, pos(arena.flags().get(team))));
         yaml.set("powerups", arena.powerups().stream().map(ArenaStore::pos).toList());
+        if (arena.copies() > 0) {
+            yaml.set("copies", arena.copies());
+        }
         Files.createDirectories(dir);
         Path temp = dir.resolve(arena.name() + SUFFIX + ".tmp");
         Files.writeString(temp, yaml.saveToString(), StandardCharsets.UTF_8);
@@ -106,7 +109,7 @@ public final class ArenaStore {
         }
         List<Pos> powerups = yaml.getMapList("powerups").stream().map(ArenaStore::pos).toList();
         return new ArenaDefinition(name, world, new HashSet<>(yaml.getStringList("modes")), spawns, flags, powerups,
-                optionalPos(yaml, "corner1"), optionalPos(yaml, "corner2"));
+                optionalPos(yaml, "corner1"), optionalPos(yaml, "corner2"), yaml.getInt("copies", 0));
     }
 
     private static Pos optionalPos(YamlConfiguration yaml, String path) {

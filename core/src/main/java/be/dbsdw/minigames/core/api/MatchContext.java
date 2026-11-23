@@ -37,6 +37,13 @@ public interface MatchContext {
      */
     void addStat(Player player, String stat, long amount);
 
+    /**
+     * Takes a player who left back into the match, in the given team: they count as in the match again
+     * (leave, quit, stats) and are no longer in a queue. The game teleports and equips them. False when
+     * the match is not running, the player is offline or already in a match.
+     */
+    boolean rejoin(Player player, int team);
+
     /** Ends the match with this outcome; ignored after the first call. */
     void finish(MatchOutcome outcome);
 }

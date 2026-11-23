@@ -21,6 +21,10 @@ public final class ArenaValidator {
     private ArenaValidator() {}
 
     public static Validation validate(ArenaDefinition a, Function<String, Optional<ModeSpec>> modes) {
+        return validate(a, modes, ArenaCopies.DEFAULT_SPACING);
+    }
+
+    public static Validation validate(ArenaDefinition a, Function<String, Optional<ModeSpec>> modes, int copySpacing) {
         List<String> errors = new ArrayList<>();
         List<String> warnings = new ArrayList<>();
         String n = "arena " + a.name() + ": ";
@@ -46,6 +50,12 @@ public final class ArenaValidator {
                     errors.add(n + "power-up point at " + p + " is outside the bounds");
                 }
             }
+        }
+        if (a.isTemplate() && a.hasBounds()) {
+            int step = ArenaCopies.step(a, copySpacing);
+            int x = Math.max(a.corner1().blockX(), a.corner2().blockX());
+            warnings.add(n + a.copies() + " copies, one per match, built east of the arena every " + step
+                    + " blocks (up to x = " + (x + a.copies() * step) + "): keep that space empty");
         }
         for (String key : a.modes().stream().sorted().toList()) {
             Optional<ModeSpec> mode = modes.apply(key);

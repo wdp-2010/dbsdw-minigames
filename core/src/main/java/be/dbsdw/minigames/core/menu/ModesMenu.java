@@ -23,12 +23,15 @@ import org.bukkit.inventory.meta.ItemMeta;
 public final class ModesMenu implements InventoryHolder {
     private static final int SIZE = 27;
     private static final int FIRST_SLOT = 11;
+    /** The game's own extra button (GameType#menuEntry), bottom middle. */
+    private static final int ENTRY_SLOT = 22;
 
     private final GameType game;
     private final MenuModel model;
     private final Messages messages;
     private final Inventory inventory;
     private final Map<Integer, String> modeBySlot = new HashMap<>();
+    private GameType.MenuEntry entry;
 
     private ModesMenu(GameType game, MenuModel model, Messages messages) {
         this.game = game;
@@ -76,6 +79,13 @@ public final class ModesMenu implements InventoryHolder {
             modeBySlot.put(slot, mode.key());
             slot += 2;
         }
+        entry = game.menuEntry(viewer).orElse(null);
+        inventory.setItem(ENTRY_SLOT, entry == null ? null : entry.icon());
+    }
+
+    /** The game's extra button, if this slot holds it. */
+    Optional<GameType.MenuEntry> entryAt(int slot) {
+        return slot == ENTRY_SLOT ? Optional.ofNullable(entry) : Optional.empty();
     }
 
     Optional<String> modeAt(int slot) {

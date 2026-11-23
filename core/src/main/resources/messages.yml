@@ -1,7 +1,7 @@
 # Player messages (MiniMessage format).
 # Raise "version" when texts change: servers with an older file get it backed up and replaced.
 # Colours: khaki #D9C78F (headings), field green #9CC05A (good news), amber #FFB52E (alerts, numbers).
-version: 4
+version: 6
 
 no-ticket: "<red>Je kunt hier alleen binnenkomen via survival.<newline><gray>Typ daar <white>/minigames</white>."
 unavailable: "<red>De minigames zijn even dicht. Probeer het straks opnieuw."
@@ -66,6 +66,9 @@ match:
   forfeit-sub: "<team> <gray>gaf op · <#9CC05A>missie geslaagd!"
   forfeit-line: "<#FFB52E>»</#FFB52E> <team> <gray>gaf op: niemand van hen is nog in het spel."
   error: "<red>Er ging iets mis met dit spel. Je bent terug in de lobby."
+  # The game stopped without a result, to be continued later (e.g. a saved chess game).
+  paused: "<#FFB52E><bold>Gepauzeerd"
+  paused-sub: "<gray>Geen uitslag · je speelt later verder."
 
 # Resource pack
 pack:

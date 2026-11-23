@@ -44,6 +44,10 @@ public final class MenuListener implements Listener {
                 model.toggle(player, key);
                 refreshOpen();
             });
+            modes.entryAt(event.getSlot()).ifPresent(entry -> Bukkit.getScheduler().runTask(plugin, () -> {
+                player.closeInventory();
+                entry.onClick().accept(player);
+            }));
         }
     }
 

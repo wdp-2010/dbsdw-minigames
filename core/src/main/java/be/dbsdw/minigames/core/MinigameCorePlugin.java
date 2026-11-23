@@ -2,6 +2,7 @@ package be.dbsdw.minigames.core;
 
 import be.dbsdw.minigames.core.admin.MgCommand;
 import be.dbsdw.minigames.core.arena.ArenaDefinition;
+import be.dbsdw.minigames.core.arena.ArenaCopies;
 import be.dbsdw.minigames.core.arena.ArenaPool;
 import be.dbsdw.minigames.core.arena.ArenaStore;
 import be.dbsdw.minigames.core.match.MatchManager;
@@ -18,6 +19,7 @@ import java.util.List;
 import java.util.random.RandomGenerator;
 import org.bukkit.plugin.PluginManager;
 import be.dbsdw.minigames.core.api.GameRegistry;
+import be.dbsdw.minigames.core.api.MatchStarter;
 import be.dbsdw.minigames.core.lobby.LeaveCommand;
 import be.dbsdw.minigames.core.lobby.LobbyListener;
 import be.dbsdw.minigames.core.lobby.LobbyService;
@@ -81,7 +83,8 @@ public final class MinigameCorePlugin extends JavaPlugin {
             arenas = List.of();
         }
         getLogger().info("[arena] loaded " + arenas.size() + " arena(s)");
-        ArenaPool pool = new ArenaPool(arenas);
+        ArenaPool pool = new ArenaPool(arenas,
+                Math.max(16, getConfig().getInt("arenas.copy-spacing", ArenaCopies.DEFAULT_SPACING)));
         RandomGenerator rnd = new SecureRandom();
         QueueBook queues = new QueueBook(pool, new QueueTimings(getConfig().getInt("queue.countdown-seconds"),
                 getConfig().getInt("queue.full-countdown-seconds")), rnd);
@@ -92,6 +95,7 @@ public final class MinigameCorePlugin extends JavaPlugin {
         MatchManager manager = new MatchManager(this, games, pool, queues, lobby, messages,
                 getConfig().getInt("match.results-seconds") * 20, rnd, stats);
         matches = manager;
+        getServer().getServicesManager().register(MatchStarter.class, manager, this, ServicePriority.Normal);
         GameNpc npc = new GameNpc(games::game, manager::openModes);
         StatsCommands statsCommands = new StatsCommands(this, stats, games, messages);
         Leaderboards boards = new Leaderboards(this, stats, games, messages);

@@ -1,0 +1,42 @@
+# Chess settings. Invalid values disable the plugin with one log line naming the key.
+
+# One mode per time control (queue entry). minutes: 0 = no clock. The clock starts once both
+# players have made their first move. Mode ids: a-z, 0-9, _ or -; saved games remember their id.
+modes:
+  snel:
+    name: "<#FFB52E>Snelschaak <gray>(5+3)"
+    minutes: 5
+    increment-seconds: 3
+  normaal:
+    name: "<#9CC05A>Normaal <gray>(15+10)"
+    minutes: 15
+    increment-seconds: 10
+  vrij:
+    name: "<#7FB2FF>Zonder klok"
+    minutes: 0
+    increment-seconds: 0
+
+# A player who leaves mid-game can come back this long; then the other one claims the win or keeps
+# the game for later.
+away-grace-seconds: 120
+
+unfinished:
+  # Players with this many unfinished games must continue or delete one before starting a new one.
+  max-per-player: 5
+  # Unfinished games not played for this long are deleted, without a result.
+  expire-days: 14
+
+# How long an invite to continue a saved game stays open.
+invite-seconds: 60
+
+pieces:
+  # Piece size as a share of one square.
+  scale: 0.7
+  # How long a piece glides to its new square (1-59 ticks).
+  move-ticks: 8
+
+# How far a player can point at the board, in blocks.
+reach: 64
+
+# Log every board click (player, eye, look direction, square) to the console.
+debug: false
