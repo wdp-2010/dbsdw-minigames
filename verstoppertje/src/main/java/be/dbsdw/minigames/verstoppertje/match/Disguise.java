@@ -2,9 +2,10 @@ package be.dbsdw.minigames.verstoppertje.match;
 
 import be.dbsdw.minigames.verstoppertje.rules.RayBox;
 import be.dbsdw.minigames.verstoppertje.rules.Stillness;
+import java.util.ArrayList;
 import java.util.Collection;
+import java.util.List;
 import org.bukkit.Location;
-import org.bukkit.Material;
 import org.bukkit.World;
 import org.bukkit.block.Block;
 import org.bukkit.block.data.BlockData;
@@ -18,16 +19,19 @@ import org.bukkit.util.Vector;
  * A hider's block: a block display that follows them, plus an interaction box seekers can hit. Once
  * the hider stands still long enough it is solid: lined up with the grid, and every other player in
  * the match gets a (fake, client-side) real block there, so it looks and feels like any other block.
- * While solid the display is emptied: drawn on the same spot as the fake block, the two fought over
- * every face (flickering, "cooked" textures).
+ * While solid the display is hidden from everyone but the hider: drawn on the same spot as the fake
+ * block, the two fought over every face (flickering, "cooked" textures). The hider does not get the
+ * fake block (it would push them out of their spot), so they keep seeing themselves as the display.
  */
 final class Disguise {
     static final String TAG = "dbsdw_verstoppertje";
     /** The hit box sticks out a little past the fake block, so a click lands on the box first. */
     private static final float SOLID_BOX = 1.04f;
-    private static final BlockData EMPTY = Material.AIR.createBlockData();
 
     final Player hider;
+    private final Plugin plugin;
+    /** Players the display is hidden from while solid. */
+    private final List<Player> hiddenFrom = new ArrayList<>();
     final Stillness still = new Stillness();
     private BlockData data;
     private final BlockDisplay display;
@@ -36,6 +40,7 @@ final class Disguise {
 
     Disguise(Plugin plugin, Player hider, BlockData data) {
         this.hider = hider;
+        this.plugin = plugin;
         this.data = data;
         Location l = hider.getLocation();
         World w = l.getWorld();
@@ -52,8 +57,8 @@ final class Disguise {
             i.setPersistent(false);
             i.addScoreboardTag(TAG);
         });
-        // The hider does not see their own block (it would wrap around their legs) or hit their own box.
-        hider.hideEntity(plugin, display);
+        // The hider sees their own block (third person shows it; their body is invisible) but cannot
+        // hit their own box.
         hider.hideEntity(plugin, box);
     }
 
@@ -92,7 +97,12 @@ final class Disguise {
 
     void solidify(Block feet, Collection<Player> others) {
         solid = feet;
-        display.setBlock(EMPTY);
+        for (Player o : others) {
+            if (!o.equals(hider)) {
+                o.hideEntity(plugin, display);
+                hiddenFrom.add(o);
+            }
+        }
         display.teleport(feet.getLocation());
         box.teleport(feet.getLocation().add(0.5, -0.02, 0.5));
         box.setInteractionWidth(SOLID_BOX);
@@ -114,7 +124,8 @@ final class Disguise {
         Block was = solid;
         solid = null;
         others.forEach(p -> p.sendBlockChange(was.getLocation(), was.getBlockData()));
-        display.setBlock(data);
+        hiddenFrom.forEach(p -> p.showEntity(plugin, display));
+        hiddenFrom.clear();
         box.setInteractionWidth(1f);
         box.setInteractionHeight(1f);
         follow();
@@ -122,6 +133,9 @@ final class Disguise {
 
     /** A player who leaves the match gets the real block back. */
     void forget(Player p) {
+        if (hiddenFrom.remove(p)) {
+            p.showEntity(plugin, display);
+        }
         if (solid != null) {
             p.sendBlockChange(solid.getLocation(), solid.getBlockData());
         }
@@ -129,9 +143,7 @@ final class Disguise {
 
     void change(BlockData next, Collection<Player> others) {
         data = next;
-        if (solid == null) {
-            display.setBlock(next);
-        }
+        display.setBlock(next);
         sendFake(others);
     }
 

@@ -117,6 +117,8 @@ public final class VerstopMatch implements MatchHandler {
             h.teleport(hideSpawns.get(i % hideSpawns.size()));
             int slot = rnd.nextInt(Math.min(9, disguises.size()));
             fill(h, 0);
+            // No body in third person: the hider sees only their block, like everyone else.
+            h.addPotionEffect(new PotionEffect(PotionEffectType.INVISIBILITY, PotionEffect.INFINITE_DURATION, 0, false, false, false));
             h.getInventory().setHeldItemSlot(slot);
             hidden.put(h.getUniqueId(), new Disguise(plugin, h, disguises.get(slot).createBlockData()));
             h.showTitle(Title.title(messages.get("hide.title"), messages.get("hide.subtitle",
@@ -133,14 +135,7 @@ public final class VerstopMatch implements MatchHandler {
             s.showTitle(Title.title(messages.get("wait.title"), messages.get("wait.subtitle",
                     Placeholder.unparsed("seconds", String.valueOf(settings.hideTicks() / 20)))));
         }
-        // Hiders are invisible to everyone else: only their block shows.
-        for (Disguise d : hidden.values()) {
-            for (Player o : everyone()) {
-                if (!o.equals(d.hider)) {
-                    o.hidePlayer(plugin, d.hider);
-                }
-            }
-        }
+        hideHiders();
         log.info("[verstoppertje] " + ctx.arena().name() + ": " + hiderList.size() + " hiders, " + seekerList.size() + " seekers");
     }
 
@@ -163,6 +158,7 @@ public final class VerstopMatch implements MatchHandler {
         }
         if (now % 40 == 0) {
             hidden.values().forEach(d -> d.sendFake(all));
+            hideHiders();
         }
         if (phase == Phase.SEEK && settings.hints() && now > settings.hideTicks()
                 && (now - settings.hideTicks()) % settings.hintTicks() == 0) {
@@ -229,6 +225,20 @@ public final class VerstopMatch implements MatchHandler {
             d.hider.playSound(d.hider, Sound.BLOCK_WOOD_PLACE, 0.6f, 1.2f);
         } else {
             d.follow();
+        }
+    }
+
+    /**
+     * Hiders are hidden from every player on the server (body, nametag, tab list), not only from the
+     * match: players in the lobby or watching would see them otherwise. Again every 2 s for newcomers.
+     */
+    private void hideHiders() {
+        for (Disguise d : hidden.values()) {
+            for (Player o : Bukkit.getOnlinePlayers()) {
+                if (!o.equals(d.hider) && o.canSee(d.hider)) {
+                    o.hidePlayer(plugin, d.hider);
+                }
+            }
         }
     }
 
@@ -317,6 +327,7 @@ public final class VerstopMatch implements MatchHandler {
         foundAt.put(h.getUniqueId(), ctx.ticks() - settings.hideTicks());
         ctx.addStat(seeker, "found", 1);
         ctx.moveToTeam(h, SEEKERS);
+        h.removePotionEffect(PotionEffectType.INVISIBILITY);
         h.getInventory().clear();
         seekerSetup(h);
         h.showTitle(Title.title(messages.get("found.title"), messages.get("found.subtitle",
@@ -506,6 +517,7 @@ public final class VerstopMatch implements MatchHandler {
             o.showPlayer(plugin, p);
             p.showPlayer(plugin, o);
         }
+        p.removePotionEffect(PotionEffectType.INVISIBILITY);
         p.setFlying(false);
         p.setAllowFlight(false);
         p.setGameMode(GameMode.ADVENTURE);
@@ -526,6 +538,7 @@ public final class VerstopMatch implements MatchHandler {
     public void end() {
         active.remove(this);
         for (Player p : everyone()) {
+            p.removePotionEffect(PotionEffectType.INVISIBILITY);
             p.setFlying(false);
             p.setAllowFlight(false);
             p.setGameMode(GameMode.ADVENTURE);
