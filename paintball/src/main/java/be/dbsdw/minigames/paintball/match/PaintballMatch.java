@@ -227,6 +227,11 @@ public final class PaintballMatch implements MatchHandler {
         buffs.clear(id);
         cleanup(player);
         game.players().remove(id);
+        // Bots never play on alone: the last real player leaving ends the match (counting nothing).
+        if (!bots.isEmpty() && online().isEmpty()) {
+            game.plugin().getLogger().info("[paintball] last player left a bot match; ending it");
+            finish(MatchOutcome.draw(resultLines()));
+        }
     }
 
     @Override
