@@ -1,0 +1,9 @@
+floor 1 (y 14, mangrove): 720 blocks
+floor 2 (y 21, jungle): 720 blocks
+floor 3 (y 28, oak): 720 blocks
+floor 4 (y 35, birch): 740 blocks
+floor woods outside the floors: 0 (must be 0)
+team 0 spawns on the top floor: yes
+team 1 spawns on the top floor: yes
+barrier ring holds with all floors gone: yes (widest reach 15.4, floor radius 15.5)
+VALVLOER OK

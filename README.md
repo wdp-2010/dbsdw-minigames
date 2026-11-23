@@ -10,6 +10,8 @@ Runs on Paper 26.3 (Java 25).
 | `bridge/` | **DbsdwBridge** plugin (survival server, Paper and Folia): `/minigames`, the minigames NPC, ticket login on return via AuthMe |
 | `testgame/` | **MgTestGame**: test-only game (first team to 3 points) for the e2e checks. **Never deploy it.** |
 | `paintball/` | **Paintball** plugin: team deathmatch and capture the flag, built on MinigameCore |
+| `valvloer/` | **Valvloer** plugin: the floor drops away under your feet, last team standing wins (arena Zaagtoren) |
+| `verstoppertje/` | **Verstoppertje** plugin: hide and seek, hiders disguise as blocks (arena Houtkamp) |
 | `resourcepack/` | The required resource pack (models, textures, sounds, HUD) |
 | `tools/` | Resource pack validation and build script; `tools/e2e/` throwaway test servers and bots; `tools/maps/` arena builder (see `docs/building-method.md`) |
 | `build-logic/` | Shared Gradle convention plugin (`dbsdw.paper-plugin`) for every plugin module |
@@ -127,6 +129,33 @@ Texts are in `plugins/Paintball/messages.yml` (Dutch, MiniMessage).
 Until the resource pack the gun is a carrot on a stick, paintballs show as red/blue dye, flags are
 banners, power-ups are vanilla items, splats are thin concrete squares, sounds are vanilla and HUD
 icons are plain text.
+
+## Valvloer (minigame server)
+
+One mode, `valvloer:teams`, Red vs Blue, 1-8 per team. Everyone starts on the top of four stacked
+floors. After a few seconds' grace, every floor block someone stands on drops away 8 ticks later;
+whoever falls below the lowest floor is out and watches as a spectator. The last team with someone
+on the floor wins; at the time limit (5 min) the team with more players left wins. Standing on
+anything that is not floor for 3 s counts as falling.
+
+The floor is every block of `floor.blocks` (config.yml) inside the arena bounds, so an arena may
+use those blocks only for its floors. They are saved to `plugins/Valvloer/restore/<arena>.txt` when
+a match starts and put back when it ends; after a crash the next start restores them. The arena
+is built in code: `tools/maps/zaagtoren.py`.
+
+## Verstoppertje (minigame server)
+
+One mode, `verstoppertje:klassiek`, 2-24 players. One player in five seeks (at least one; in a
+room, players who picked the second team seek first). Hiders start at the team 0 spawns as a
+block (hotbar: right-click a block to become it); they are invisible, only their block shows.
+Standing still for 3 s makes it a solid block lined up with the grid. Seekers wait blind at the
+team 1 spawns for 30 s, then hit suspicious blocks with their stick: a hit hider is found and
+seeks along. Every 30 s every hider squeaks. Seekers win when everyone is found, hiders when one
+of them is still hidden after 4 minutes. Settings and the disguise blocks: `plugins/Verstoppertje/config.yml`.
+The arena is built in code: `tools/maps/houtkamp.py`.
+
+Core API additions for these games: `GameType.teamName(mode, team)` (a game's own team names) and
+`MatchContext.moveToTeam(player, team)` (a found hider joins the seekers).
 
 ## Stats, leaderboards, resource pack (MinigameCore)
 

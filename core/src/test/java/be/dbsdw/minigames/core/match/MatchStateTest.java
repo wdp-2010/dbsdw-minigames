@@ -47,6 +47,20 @@ class MatchStateTest {
     }
 
     @Test
+    void moveChangesTeamWithoutEndingTheMatch() {
+        MatchState s = new MatchState(List.of(List.of(a), List.of(b, c)), 200);
+        assertTrue(s.move(a, 1));
+        assertEquals(OptionalInt.of(1), s.teamOf(a));
+        assertEquals(List.of(), s.members(0));
+        assertEquals(MatchState.Phase.RUNNING, s.phase());
+        assertFalse(s.move(a, 1), "already in that team");
+        assertFalse(s.move(d, 0), "not in the match");
+        assertFalse(s.move(a, 2), "no such team");
+        s.finish();
+        assertFalse(s.move(b, 0), "not running");
+    }
+
+    @Test
     void finishOnlyOnce() {
         MatchState s = new MatchState(List.of(List.of(a), List.of(b)), 200);
         assertTrue(s.finish());

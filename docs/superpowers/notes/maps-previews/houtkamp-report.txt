@@ -1,0 +1,14 @@
+walkable floor: 5968 blocks
+team 0 spawns on walkable floor: yes
+team 1 spawns on walkable floor: yes
+seekers can walk to the hiders: yes
+floor at the edge: 0 (must be 0)
+  barrel: 17 
+  hay_block: 35 
+  spruce_log: 744 
+  oak_log: 264 
+  crafting_table: 13 
+  composter: 13 
+  moss_block: 87 
+  pumpkin: 41 
+VERSTOPPERTJE OK

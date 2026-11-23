@@ -1,0 +1,17 @@
+# Valvloer: the floor drops away under your feet. Last team with someone on the floor wins.
+match:
+  max-per-team: 8
+  # No floor drops for the first seconds, so everyone can find their feet.
+  grace-seconds: 4
+  # At the time limit the team with the most players still on the floor wins; equal is a draw.
+  time-limit-minutes: 5
+
+floor:
+  # Blocks that drop away. Only the arena's floor layers may use them: every one of these blocks
+  # inside the arena bounds is saved at the start and put back at the end.
+  blocks: [birch_planks, stripped_birch_wood, oak_planks, stripped_oak_wood,
+           jungle_planks, stripped_jungle_wood, mangrove_planks, stripped_mangrove_wood]
+  # A block goes this many ticks after someone first steps on it (20 ticks = 1 second).
+  drop-delay-ticks: 8
+  # Standing on anything that is not floor (a beam, a ledge) for this long counts as falling.
+  camp-seconds: 3

@@ -1,0 +1,6 @@
+name: Valvloer
+version: '${version}'
+main: be.dbsdw.minigames.valvloer.ValvloerPlugin
+api-version: '26.3'
+depend: [MinigameCore]
+description: DBSDW Valvloer (the floor drops away under your feet; last team standing wins).

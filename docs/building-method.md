@@ -96,12 +96,27 @@ at most 3.
   `team_wall_banner`); the rotation turns it into `red_` on team 0's half and `blue_` on team
   1's. Keep it to banners and small accents, never floors.
 
+- **Carpets need a block under them.** Duinbasis's street shades were carpets on air; a block
+  update popped one shade off in-game. Every carpet now sits on a top slab, as the camo nets do.
+- **Wax the copper.** Plain lightning rods oxidise to green within hours; use `waxed_lightning_rod`.
+- **Edits made in-game go into the code.** Diff the world against the canvas (`anvil.read_box` on a
+  copied region file), keep the intended edits in an `owner_edits(c)` step before the rotation so
+  team 1 gets them too, and restore everything else by redeploying. Duinbasis has one (2026-11-22).
+
 ## Using it
 
 ```sh
 python3 tools/maps/build.py woudfront          # build, check, previews in tools/maps/out/woudfront/
 tools/maps/deploy.sh woudfront --arena         # test server 5 only; the arena loads at the next start
 ```
+
+The lobby is built the same way: `python3 tools/maps/build.py basiskamp`, then
+`tools/maps/deploy.sh basiskamp`. A module with `LOBBY = True` skips the arena file and the
+gameplay report; instead `build.py` writes `entities.mcfunction` (signs as text displays, the game
+NPC as a Mannequin with the `dbsdw:game_npc` tag, removal of stray animals), `lobby.txt` (the
+world positions the plugins' configs need) and a lobby report (every point of interest reachable
+on foot from the spawn, no floor at the edge of the build). `deploy.sh` runs the entities function
+after the fills.
 
 A new map is a module in `tools/maps/` with `WORLD`, `ORIGIN`, `CANVAS`, `SPAWNS`, `FLAGS`,
 `YAW`, `POWERUPS`, optional `CLOSEUPS`, and a `build()` function. Keep maps apart in the world:
@@ -125,7 +140,63 @@ village street with roof terraces, protruding roof beams and awnings; a plaza wi
 market stalls and palms; a dry wadi with a wrecked truck and a footbridge; mesa outcrops and
 banded cliffs at the edges; tank traps and sandbag nests in the open ground.
 
+Third pass (2026-11-22, evening): the owner's in-game edits were ported into `owner_edits()`
+(a supply cache dug into the south cliff off the wadi footbridge: tunnel, chests, barrels, a short
+rail track, a sandstone roof; sugar cane at both oases; an opened doorway in a timber screen; a
+removed roof slab; one floor tile), so both teams have them. A strip torn out of the dune south of
+the centre and a loose sand pile were restored, the street shades rebuilt on slabs, and the
+copper waxed. After the redeploy a fresh world snapshot equals the code (0 differences) and the
+map is exactly 180° symmetric. Backup of the world before: node1
+`/root/server5-duinbasis-backup-20261122/`.
+
 Both: 6 spawns per team behind cover, flag on a podium inside the base, TDM and CTF.
+
+**Zaagtoren** (Valvloer, 2026-11-23, 72 × 72 at x 500..571, z -50..21, ground at y -55). An
+old sawmill's drying tower in a forest clearing: four round plank floors (radius 15.5) stacked
+seven blocks apart at world y -49, -42, -35 and -28, inside a ring of eight 2 × 2 dark oak columns
+on stone footings, with a spruce rim beam at every floor, knee braces with hanging lanterns, a
+narrow eave on top and a hoist beam across it with a chained bundle of logs as the landmark. A
+mill pond lies under the tower; log piles, a saw bench and lamp posts in the yard; forest all
+round. The floors are the only blocks in mangrove (bottom), jungle, oak and birch (top) planks
+and stripped wood, the woods the Valvloer plugin drops and restores (`floor.blocks`); each floor
+has its own pattern (rings, diagonal boards, checker, a sixteen-spoke compass) and the lower
+three have five 2 × 2 holes that never line up. An invisible barrier ring above each rim keeps
+players on the floors. The map's own `report()` checks that the floor woods appear nowhere else,
+that the spawns (6 per team on the top floor, west and east) stand on floor, and, by flooding the
+space with every floor block removed, that nobody can get past the barrier ring before dropping
+below the lowest floor (which is out).
+
+**Houtkamp** (Verstoppertje, 2026-11-23, 84 × 84 at x 500..583, z 40..123, ground at y -55). A
+lumber camp full of the blocks hiders turn into: an open sawmill hall (workbenches, stonecutters
+on a saw line, log racks, barrels, composters), a log yard of stacks, stumps and a timber cart,
+a creek between two ponds with a footbridge and a dock, a fenced pumpkin garden, a stable corner
+with a hay lean-to and paddock, two cabins and the forester's hut (where the seekers wait), a
+camp fire square in the middle (where the hiders start), and forest with moss mounds and stumps,
+barriers at the edge. Not rotated: hide and seek is not two equal sides. Its `report()` checks
+that the seekers can walk to the hiders, that no floor reaches the edge, and that each disguise
+block (barrel, hay, spruce and oak log, crafting table, composter, moss, pumpkin) stands next to
+walkable floor at least 10 times.
+
+`build.py` takes a map's own `MODES` and `report()` when it has them (otherwise paintball and the
+paintball checks), and writes `flags: {}` for maps without flags.
+
+## The lobby
+
+**Basiskamp** (2026-11-22, 112 × 112, x -56..55, z -56..55, ground at y -59, spawn 0.5 -58 0.5
+facing north). A woodland army camp in Woudfront's style: a parade ground with a ring emblem
+around the spawn; the practice range to the north (log palisade lanes, firing shed, earth berm;
+the Paintball practice zone x -8..8, z -9..-39, y -59..-51); two leaderboard plinths at
+(-10.5, -56, -8.5) and (11.5, -56, -8.5); the paintball HQ to the west (palisade compound,
+command hall, watchtower, flag podium) with the Paintball NPC at (-17.5, -58, 0.5) facing east;
+the friends' camp (private rooms) to the east with a campfire circle, tents and a cabin; to the
+south two sand tables, relief models of Woudfront and Duinbasis built from the arena code itself
+(1:6 across, 1:3 up, team spawns in concrete, flags as banners), then a creek with a bridge and
+the closed camp gate between two watchtowers; barracks (NW), a supply depot with a water tower
+(NE), a motor pool (SE) and forest on rising hills all round, with barriers at the edge.
+
+Moving the ground from -63 to -59 moved the lobby spawn, the leaderboards and the practice
+zone and dummies up by 4; the values are in `out/basiskamp/lobby.txt` and in the repo's Paintball
+`config.yml`. Backup of the old lobby on node1: `/root/server5-lobby-backup-20261122/`.
 
 ## Sources
 

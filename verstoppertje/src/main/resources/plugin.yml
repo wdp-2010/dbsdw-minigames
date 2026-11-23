@@ -1,0 +1,6 @@
+name: Verstoppertje
+version: '${version}'
+main: be.dbsdw.minigames.verstoppertje.VerstoppertjePlugin
+api-version: '26.3'
+depend: [MinigameCore]
+description: DBSDW Verstoppertje (hiders disguise as blocks, seekers hunt them down).

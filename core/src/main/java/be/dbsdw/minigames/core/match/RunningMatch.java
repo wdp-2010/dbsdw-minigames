@@ -258,7 +258,22 @@ final class RunningMatch implements MatchContext {
 
     @Override
     public Component teamName(int team) {
-        return messages.get("team." + team);
+        Component own = null;
+        try {
+            own = game.teamName(mode, team);
+        } catch (RuntimeException e) {
+            log.log(Level.WARNING, "[match] team name of " + game.id() + " failed", e);
+        }
+        return own != null ? own : messages.get("team." + team);
+    }
+
+    @Override
+    public boolean moveToTeam(Player player, int team) {
+        boolean moved = state.move(player.getUniqueId(), team);
+        if (moved) {
+            log.info("[match] " + player.getName() + " moved to team " + team + " in " + mode.key());
+        }
+        return moved;
     }
 
     @Override

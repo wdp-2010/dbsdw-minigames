@@ -67,6 +67,17 @@ public final class MatchState {
         return withPlayers == 1 ? new LeaveResult.LastTeamStanding(left) : new LeaveResult.None();
     }
 
+    /** Moves a player to another team. False if not running, not in the match, or already in that team. */
+    public boolean move(UUID player, int team) {
+        OptionalInt from = teamOf(player);
+        if (phase != Phase.RUNNING || team < 0 || team >= teams.size() || from.isEmpty() || from.getAsInt() == team) {
+            return false;
+        }
+        teams.get(from.getAsInt()).remove(player);
+        teams.get(team).add(player);
+        return true;
+    }
+
     /** RUNNING → ENDING. False if the match was already past RUNNING. */
     public boolean finish() {
         if (phase != Phase.RUNNING) {

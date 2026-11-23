@@ -1,0 +1,63 @@
+# Verstoppertje player messages (MiniMessage format).
+# Raise "version" when texts change: servers with an older file get it backed up and replaced.
+# Colours: khaki #D9C78F (headings), field green #9CC05A (good news), amber #FFB52E (alerts, numbers).
+version: 1
+
+game:
+  name: "<#D9C78F><bold>Verstoppertje"
+
+mode:
+  klassiek: "<#D9C78F>Verstoppertje"
+
+team:
+  hiders: "<#9CC05A>Verstoppers</#9CC05A>"
+  seekers: "<#FFB52E>Zoekers</#FFB52E>"
+
+stat:
+  found: "Verstoppers gevonden"
+  hidden: "Nooit gevonden"
+
+item:
+  disguise: "<#D9C78F><bold>Word <block></bold> <gray>· rechtsklik"
+  picked: "<gray>Je bent nu <white><block></white>."
+  seeker: "<#FFB52E><bold>Zoekstok</bold> <gray>· sla op verdachte blokken"
+
+hide:
+  title: "<#9CC05A><bold>Verstop je!"
+  subtitle: "<gray>Je bent een blok · <white><seconds></white>s tot de zoekers komen"
+  bar: "<gray>Zoekers komen over <white><seconds></white>s <dark_gray>·</dark_gray> <gray>sta <white>3s</white> stil om een echt blok te worden"
+
+wait:
+  title: "<#FFB52E><bold>Jij zoekt!"
+  subtitle: "<gray>Ogen dicht... nog <white><seconds></white>s"
+
+seek:
+  title: "<#FFB52E><bold>Zoeken!"
+  subtitle: "<gray>Sla op blokken die er niet thuishoren"
+
+coming:
+  title: "<red><bold>Ze komen eraan!"
+  subtitle: "<gray>Blijf stil staan..."
+
+solid:
+  on: "<#9CC05A>Je staat vast als blok. <gray>Bewegen maakt je weer los."
+  loose: "<#FFB52E>Je bent los: ze kunnen je zien bewegen!"
+
+hint: "<#FFB52E>Piep!</#FFB52E> <gray>Alle verstoppers maakten een geluidje."
+
+hud:
+  bar: "<#9CC05A>Verstoppers <white><bold><hiders></bold></white> <dark_gray>·</dark_gray> <gray>tijd <white><time>"
+
+found:
+  title: "<red><bold>Gevonden!"
+  subtitle: "<white><seeker></white> <gray>vond je · nu zoek jij mee"
+  broadcast: "<#FFB52E>»</#FFB52E> <white><seeker></white> <gray>vond <white><hider></white>. Nog <white><left></white> verstopt."
+
+result:
+  hidden: "<#FFB52E>»</#FFB52E> <gray>Nooit gevonden: <white><players>"
+  all-found: "<#FFB52E>»</#FFB52E> <gray>Iedereen is gevonden!"
+
+personal:
+  hidden: "<#9CC05A>Niemand vond jou!"
+  found: "<gray>Gevonden door <white><seeker></white> na <white><time></white> <dark_gray>·</dark_gray> <gray>daarna vond je er <white><count></white>"
+  seeker: "<gray>Jij vond <white><count></white> verstoppers."

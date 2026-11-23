@@ -20,6 +20,14 @@ public interface MatchContext {
 
     Component teamName(int team);
 
+    /**
+     * Moves a player of this match to another team, e.g. a hider who was found joins the seekers.
+     * Stats and the result count the new team. The core does not end the match when a team runs
+     * empty this way: the game decides. False when the match is not running, the player is not in it
+     * or already in that team.
+     */
+    boolean moveToTeam(Player player, int team);
+
     /** Ticks since the match started. */
     long ticks();
 

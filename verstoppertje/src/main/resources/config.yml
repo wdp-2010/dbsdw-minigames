@@ -1,0 +1,18 @@
+# Verstoppertje: hiders turn into blocks, seekers hunt them. Found hiders join the seekers.
+match:
+  max-per-team: 12
+  # One seeker per this many players (at least one, and at least one hider).
+  players-per-seeker: 5
+  # Seekers wait blinded at their spawn while the hiders hide.
+  hide-seconds: 30
+  # Hiders win when one of them is still hidden at the end.
+  seek-minutes: 4
+  # Standing still on one block this long turns a hider into a solid block, lined up with the grid.
+  solid-seconds: 3
+  # Every this many seconds every hider makes a small sound, so seekers get a hint.
+  hint-seconds: 30
+  # How far a seeker reaches when hitting a block.
+  reach: 3.5
+
+# Blocks a hider can turn into. The arena should have plenty of each of them.
+disguises: [barrel, hay_block, spruce_log, oak_log, crafting_table, composter, moss_block, pumpkin]

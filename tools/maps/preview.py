@@ -45,7 +45,7 @@ COLORS = {
     "lantern": (200, 150, 70), "glass": (200, 220, 230), "glass_pane": (200, 220, 230),
     "scaffolding": (170, 135, 75), "anvil": (68, 68, 68), "polished_basalt": (88, 88, 92),
     "smooth_stone": (159, 159, 159), "bamboo_block": (127, 140, 50), "dead_bush": (107, 79, 40),
-    "lightning_rod": (180, 100, 70), "cut_copper": (191, 106, 80), "weathered_cut_copper": (109, 145, 107),
+    "lightning_rod": (180, 100, 70), "waxed_lightning_rod": (180, 100, 70), "cut_copper": (191, 106, 80), "weathered_cut_copper": (109, 145, 107),
     "exposed_cut_copper": (154, 121, 101), "oxidized_cut_copper": (82, 162, 132),
     "bone_block": (229, 225, 207), "pale_oak_planks": (227, 217, 216), "target": (226, 170, 157),
     "bricks": (150, 97, 83), "red_banner": (176, 46, 38), "blue_banner": (60, 68, 170),
@@ -53,6 +53,13 @@ COLORS = {
     "tall_dry_grass": (190, 160, 90), "sugar_cane": (120, 170, 80), "lily_pad": (40, 110, 40),
     "white_carpet": (233, 236, 236), "yellow_carpet": (248, 197, 39), "coal_block": (20, 20, 22),
     "blackstone": (42, 36, 41), "polished_blackstone": (53, 48, 56), "flower_pot": (120, 70, 50), "spruce_fence": (114, 84, 48), "mossy_cobblestone_wall": (110, 118, 94), "decorated_pot": (140, 80, 60), "cauldron": (70, 70, 70),
+    "mangrove_planks": (117, 54, 48), "stripped_mangrove_wood": (120, 46, 44),
+    "stripped_jungle_wood": (171, 132, 84), "stripped_oak_wood": (177, 144, 86),
+    "stripped_birch_wood": (196, 176, 118), "stripped_dark_oak_wood": (72, 56, 36),
+    "stonecutter": (123, 118, 111), "crafting_table": (130, 95, 60), "pumpkin": (198, 118, 24),
+    "carved_pumpkin": (198, 118, 24), "bookshelf": (117, 94, 60), "smoker": (90, 85, 80),
+    "chest": (160, 110, 40), "oak_fence": (162, 130, 78), "campfire": (90, 60, 40),
+    "farmland": (110, 75, 45), "poppy": (200, 40, 30), "oxeye_daisy": (230, 230, 210),
 }
 
 FALLBACK = [

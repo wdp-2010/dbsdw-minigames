@@ -37,6 +37,11 @@ public interface GameType {
         return Component.text(stat);
     }
 
+    /** A team's name in this game's matches (e.g. White and Black), or null for the core's team names. */
+    default Component teamName(ModeSpec mode, int team) {
+        return null;
+    }
+
     /** A new handler for one match; called when the match starts. */
     MatchHandler newMatch(MatchContext context);
 }

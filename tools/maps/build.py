@@ -32,16 +32,38 @@ def arena_yaml(m, origin):
     def pos(p, yaw):
         return f"{{x: {ox + p[0]}, y: {oy + p[1]}.0, z: {oz + p[2]}, yaw: {yaw}, pitch: 0.0}}"
 
-    out = [f"world: {m.WORLD}", "modes: [paintball:tdm, paintball:ctf]",
+    modes = getattr(m, "MODES", ["paintball:tdm", "paintball:ctf"])
+    out = [f"world: {m.WORLD}", "modes: [" + ", ".join(modes) + "]",
            f"corner1: {{x: {ox}, y: {oy - 1}, z: {oz}}}",
            f"corner2: {{x: {ox + c.sx - 1}, y: {oy + c.sy - 1}, z: {oz + c.sz - 1}}}", "spawns:"]
     for t, lst in m.SPAWNS.items():
         out.append(f'  "{t}": [' + ", ".join(pos(p, m.YAW[t]) for p in lst) + "]")
-    out.append("flags:")
-    for t, p in m.FLAGS.items():
+    flags = getattr(m, "FLAGS", {})
+    out.append("flags:" if flags else "flags: {}")
+    for t, p in flags.items():
         out.append(f'  "{t}": ' + pos(p, m.YAW[t]))
-    out.append("powerups: [" + ", ".join(pos(p, 0.0) for p in m.POWERUPS) + "]")
+    out.append("powerups: [" + ", ".join(pos(p, 0.0) for p in getattr(m, "POWERUPS", [])) + "]")
     return "\n".join(out) + "\n"
+
+
+def lobby_report(m):
+    """Lobby checks: every point of interest reachable on foot from the spawn, and nobody can
+    walk to the edge of the build (the barrier wall holds)."""
+    c = m.CANVAS
+    sx, sy, sz = m.SPAWN[:3]
+    floor = analyze.walkable(c, [(int(sx), int(sy), int(sz))])
+    cols = {(x, z) for x, _, z in floor}
+    lines = [f"walkable floor from the spawn: {len(floor)} blocks"]
+    ok = True
+    for label, (x, y, z) in m.POINTS.items():
+        hit = any((x + dx, z + dz) in cols for dx in (-1, 0, 1) for dz in (-1, 0, 1))
+        ok &= hit
+        lines.append(f"  {label}: {'reachable' if hit else 'NOT REACHABLE'}")
+    edge = [p for p in floor if p[0] in (0, c.sx - 1) or p[2] in (0, c.sz - 1)]
+    lines.append(f"floor at the edge of the build: {len(edge)} (must be 0)")
+    ok &= not edge
+    lines.append("LOBBY OK" if ok else "LOBBY CHECKS FAILED")
+    return lines
 
 
 def main():
@@ -78,18 +100,35 @@ def main():
         f.write(f"forceload remove {ox} {oz} {ox + c.sx - 1} {oz + c.sz - 1}\n")
     with open(os.path.join(out, "parts.txt"), "w") as f:
         f.write(f"{len(parts)}\n")
-    with open(os.path.join(out, f"{name}.yml"), "w") as f:
-        f.write(arena_yaml(m, m.ORIGIN))
+    lobby = getattr(m, "LOBBY", False)
+    if lobby:
+        with open(os.path.join(fdir, "entities.mcfunction"), "w") as f:
+            f.write("\n".join(m.entity_cmds()) + "\n")
+        with open(os.path.join(out, "lobby.txt"), "w") as f:
+            f.write("\n".join(m.config_notes()) + "\n")
+    else:
+        with open(os.path.join(out, f"{name}.yml"), "w") as f:
+            f.write(arena_yaml(m, m.ORIGIN))
     print(f"{len(cmds)} commands in {len(parts)} functions")
-    if "--no-report" not in sys.argv:
-        lines, _ = analyze.report(c, m.SPAWNS, m.FLAGS)
+    if lobby and "--no-report" not in sys.argv:
+        lines = lobby_report(m)
+        with open(os.path.join(out, "report.txt"), "w") as f:
+            f.write("\n".join(lines) + "\n")
+        print("\n".join(lines))
+    elif "--no-report" not in sys.argv:
+        # A map with other modes (not paintball) brings its own checks.
+        lines = m.report() if hasattr(m, "report") else analyze.report(c, m.SPAWNS, m.FLAGS)[0]
         with open(os.path.join(out, "report.txt"), "w") as f:
             f.write("\n".join(lines) + "\n")
         print("\n".join(lines))
     if "--no-preview" not in sys.argv:
         preview.iso(c, os.path.join(out, "iso.png"))
-        marks = [(p[0], p[2], (230, 40, 40) if t == 0 else (40, 80, 230)) for t, l in m.SPAWNS.items() for p in l]
-        marks += [(p[0], p[2], (255, 255, 255)) for p in m.FLAGS.values()]
+        if lobby:
+            marks = [(m.SPAWN[0], m.SPAWN[2], (255, 255, 255))]
+            marks += [(p[0], p[2], (230, 40, 40)) for p in m.POINTS.values()]
+        else:
+            marks = [(p[0], p[2], (230, 40, 40) if t == 0 else (40, 80, 230)) for t, l in m.SPAWNS.items() for p in l]
+            marks += [(p[0], p[2], (255, 255, 255)) for p in getattr(m, "FLAGS", {}).values()]
         preview.topdown(c, os.path.join(out, "top.png"), marks=marks)
         for label, box in getattr(m, "CLOSEUPS", {}).items():
             preview.iso(c, os.path.join(out, f"iso_{label}.png"), scale=2, box=box)

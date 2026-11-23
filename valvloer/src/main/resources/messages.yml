@@ -1,0 +1,42 @@
+# Valvloer player messages (MiniMessage format).
+# Raise "version" when texts change: servers with an older file get it backed up and replaced.
+# Colours: khaki #D9C78F (headings), field green #9CC05A (good news), amber #FFB52E (alerts, numbers).
+version: 1
+
+game:
+  name: "<#D9C78F><bold>Valvloer"
+
+mode:
+  teams: "<#D9C78F>Valvloer"
+
+stat:
+  survived: "Laatst op de vloer"
+  drops: "Blokken laten vallen"
+
+grace:
+  title: "<#FFB52E><bold>Blijf bewegen!"
+  subtitle: "<gray>Waar je staat, valt de vloer weg"
+  bar: "<gray>De vloer begint te vallen over <white><seconds></white>s"
+
+go:
+  title: "<#9CC05A><bold>LOS!"
+  subtitle: "<gray>Laatste team op de vloer wint"
+
+hud:
+  bar: "<team0> <white><bold><a></bold></white> <dark_gray>·</dark_gray> <team1> <white><bold><b></bold></white> <dark_gray>·</dark_gray> <gray>tijd <white><time>"
+
+camp:
+  warn: "<#FFB52E>Van de balk af! <gray>Wie op de rand blijft staan, valt."
+
+out:
+  title: "<red><bold>Gevallen!"
+  subtitle: "<gray>Je werd <white><place>e</white> van <white><total></white> · kijk mee"
+  broadcast: "<#FFB52E>»</#FFB52E> <white><player></white> <gray>viel door de vloer. Nog <white><left></white> over."
+
+result:
+  standing: "<#FFB52E>»</#FFB52E> <gray>Nog op de vloer: <white><players>"
+  time: "<#FFB52E>»</#FFB52E> <gray>De tijd is op: het team met de meeste spelers op de vloer wint."
+
+personal:
+  standing: "<#9CC05A>Jij stond nog op de vloer! <gray>(<white><drops></white> blokken laten vallen)"
+  out: "<gray>Jij werd <white><place>e</white> van <white><total></white> <gray>(<white><drops></white> blokken laten vallen)"
