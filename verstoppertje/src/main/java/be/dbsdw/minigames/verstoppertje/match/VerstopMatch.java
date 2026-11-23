@@ -203,6 +203,8 @@ public final class VerstopMatch implements MatchHandler {
     }
 
     private void update(Disguise d, long now, List<Player> all) {
+        // No landing dust (the server sends it to everyone, it would give the hider away) and no fall damage.
+        d.hider.setFallDistance(0);
         held(d, all);
         if (d.solid() && !Disguise.canSolidify(d.solidBlock())) {
             // Someone broke the block under it, or built into its spot.
