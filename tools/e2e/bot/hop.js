@@ -14,12 +14,19 @@
 //                                match), open the games menu and join the mode in that slot of the modes menu
 //               [--fight 35]     during a match, keep aiming at the nearest enemy player within 35 blocks
 //                                (scoreboard teams tell friend from foe) and fire short bursts, with a little
-//                                aim error and a random pause, like a so-so human; it does not walk
+//                                aim error and a random pause, like a so-so human
+//               [--walk]         during a match, walk: close in on the nearest enemy, circle and back off,
+//                                otherwise walk a path to the nearest known enemy or the way its spawn faces.
+//                                Reads the chunks (world.js) to path around walls, step up, jump ledges and
+//                                fall; --fight then also needs a clear line of sight before it fires
+//               The process exits once the bot is disconnected for good (kick, end, refused), so a
+//               container restart policy brings it back.
 //               [--do use:0 --do click:10 --do cmd:/leave --do wait:2 --do interact:mannequin --do drop:0 ...]
 //                   steps run in order (1 s apart) after the first join that has no --command left;
 //                   use = select hotbar slot + right-click, click = left-click a slot of the open window,
 //                   drop = select hotbar slot + drop key, quit = disconnect now,
 //                   aim:<player> = look at that player's feet-to-feet line, fire:<n> = n right-clicks 200 ms apart,
+//                   move:<dx>:<dz>:<ticks> = walk that far each tick (50 ms) for that many ticks,
 //                   look:<yaw>:<pitch> = turn to that view, sneak:on|off = hold or release sneak, slot:<n> = select a hotbar slot (one wheel notch
 //                   when it is next to the current one).
 //                   --stay counts from the end of the steps (and applies to every earlier join too).
@@ -59,6 +66,7 @@ function parseArgs(argv) {
     else if (a === '--do') opts.steps.push(next());
     else if (a === '--requeue') opts.requeue = Number(next());
     else if (a === '--fight') opts.fight = Number(next());
+    else if (a === '--walk') opts.walk = true;
     else throw new Error(`unknown argument ${a}`);
   }
   if (!opts.host || !opts.port || !opts.name) throw new Error('--host, --port and --name are required');
@@ -186,7 +194,9 @@ function connect(host, port, transferIntent) {
   let loaded = false;
   client.on('position', (p) => {
     client.write('teleport_confirm', { teleportId: p.teleportId });
-    lastPos = p;
+    teleportFrom = { x: lastPos.x, z: lastPos.z };
+    Object.assign(lastPos, { x: p.x, y: p.y, z: p.z, yaw: p.yaw, pitch: p.pitch }); // --walk holds this object
+    teleportedAt = Date.now();
     emit('position', { x: Number(p.x.toFixed(2)), y: Number(p.y.toFixed(2)), z: Number(p.z.toFixed(2)) });
     client.write('position_look', { x: p.x, y: p.y, z: p.z, yaw: p.yaw, pitch: p.pitch, flags: { onGround: true } });
     if (!loaded) {
@@ -241,6 +251,8 @@ function connect(host, port, transferIntent) {
   let openWindow = 0;
   let sequence = 0;
   let lastPos = { x: 0, y: 0, z: 0, yaw: 0, pitch: 0 };
+  let teleportedAt = 0; // last server teleport (--walk resets its fall speed)
+  let teleportFrom = { x: 0, z: 0 }; // where the bot was just before it
   let heldTimer;
   let inLobby = false;
   let inMatch = false;
@@ -255,36 +267,170 @@ function connect(host, port, transferIntent) {
       for (const [name, team] of teamOf) if (team === p.team) teamOf.delete(name);
     }
   });
+  // Timers of this connection only; a transfer or disconnect stops them, so an old connection
+  // never writes to a closed socket.
+  const timers = [];
+  client.on('end', () => timers.forEach(clearInterval));
+  const live = () => client.state === 'play' && !client.ended;
+  // Acknowledge chunk batches like a client, or the server stops sending chunks after the first
+  // batches, and players in chunks it has not sent are never shown (no --fight target in an arena).
+  client.on('chunk_batch_finished', () => client.write('chunk_batch_received', { chunksPerTick: 20 }));
+  const walkWorld = opts.walk ? require('./world')(VERSION) : null;
+  if (walkWorld) {
+    client.on('map_chunk', (p) => { try { walkWorld.loadChunk(p); } catch (e) { emit('chunk_error', { message: e.message }); } });
+    client.on('unload_chunk', walkWorld.unloadChunk);
+    client.on('block_change', walkWorld.blockChange);
+    client.on('multi_block_change', walkWorld.multiBlockChange);
+  }
+  // A real client ends every tick with tick_end; 26.3 kicks a player whose second processed move
+  // packet arrives without one in between ("Invalid move player packet received").
+  timers.push(setInterval(() => { if (loaded && live()) client.write('tick_end', {}); }, 50));
+
+  // Nearest enemy player within maxD (scoreboard teams tell friend from foe).
+  const nearestEnemy = (maxD) => {
+    const md = require('minecraft-data')(VERSION);
+    const mine = teamOf.get(opts.name);
+    let best = null; let bestD = maxD;
+    for (const e of entities.values()) {
+      if (!md.entities[e.type] || md.entities[e.type].name !== 'player') continue;
+      const name = playerNames.get(e.objectUUID);
+      if (!name || name === opts.name || (mine && teamOf.get(name) === mine)) continue;
+      const d = Math.hypot(e.x - lastPos.x, e.y - lastPos.y, e.z - lastPos.z);
+      if (d < bestD) { best = e; bestD = d; }
+    }
+    return best ? { e: best, d: bestD } : null;
+  };
+  // Aim error of the current burst, so a walking bot keeps tracking with the same so-so aim.
+  const aimErr = { yaw: 0, pitch: 0 };
+  const gauss = () => (Math.random() + Math.random() + Math.random() - 1.5) * 1.4;
+  // Turn to the chest from eye height, a bit higher with distance for the paintball's drop.
+  const aimAt = (t) => {
+    const dx = t.e.x - lastPos.x; const dz = t.e.z - lastPos.z;
+    const dy = t.e.y + 1.1 + t.d * 0.025 - (lastPos.y + 1.62);
+    lastPos.yaw = -Math.atan2(dx, dz) * 180 / Math.PI + aimErr.yaw;
+    lastPos.pitch = -Math.atan2(dy, Math.hypot(dx, dz)) * 180 / Math.PI + aimErr.pitch;
+  };
   if (opts.fight) {
     let nextBurst = 0;
-    const gauss = () => (Math.random() + Math.random() + Math.random() - 1.5) * 1.4;
-    setInterval(() => {
-      if (!inMatch || Date.now() < nextBurst) return;
-      const md = require('minecraft-data')(VERSION);
-      const mine = teamOf.get(opts.name);
-      let best = null; let bestD = opts.fight;
-      for (const e of entities.values()) {
-        if (!md.entities[e.type] || md.entities[e.type].name !== 'player') continue;
-        const name = playerNames.get(e.objectUUID);
-        if (!name || name === opts.name || (mine && teamOf.get(name) === mine)) continue;
-        const d = Math.hypot(e.x - lastPos.x, e.y - lastPos.y, e.z - lastPos.z);
-        if (d < bestD) { best = e; bestD = d; }
-      }
-      if (!best) return;
-      // aim at the chest from eye height, a bit higher with distance for the paintball's drop
-      const dx = best.x - lastPos.x; const dz = best.z - lastPos.z;
-      const dy = best.y + 1.1 + bestD * 0.025 - (lastPos.y + 1.62);
-      lastPos.yaw = -Math.atan2(dx, dz) * 180 / Math.PI + gauss();
-      lastPos.pitch = -Math.atan2(dy, Math.hypot(dx, dz)) * 180 / Math.PI + gauss() * 0.6;
+    timers.push(setInterval(() => {
+      if (!inMatch || !live() || Date.now() < nextBurst) return;
+      const target = nearestEnemy(opts.fight);
+      if (!target) return;
+      if (walkWorld && !walkWorld.sees({ x: lastPos.x, y: lastPos.y + walkWorld.EYE, z: lastPos.z },
+        { x: target.e.x, y: target.e.y + 1.2, z: target.e.z })) return;
+      aimErr.yaw = gauss();
+      aimErr.pitch = gauss() * 0.6;
+      aimAt(target);
       client.write('look', { yaw: lastPos.yaw, pitch: lastPos.pitch, flags: { onGround: true } });
       const shots = 2 + Math.floor(Math.random() * 3);
       for (let k = 0; k < shots; k++) {
-        setTimeout(() => client.write('use_item', { hand: 0, sequence: ++sequence,
+        setTimeout(() => live() && client.write('use_item', { hand: 0, sequence: ++sequence,
           rotation: { x: lastPos.yaw, y: lastPos.pitch } }), 150 + k * 260);
       }
-      emit('fight', { at: playerNames.get(best.objectUUID), distance: Number(bestD.toFixed(1)), shots });
+      emit('fight', { at: playerNames.get(target.e.objectUUID), distance: Number(target.d.toFixed(1)), shots });
       nextBurst = Date.now() + 1200 + Math.random() * 1300;
-    }, 200);
+    }, 200));
+  }
+  // --walk: during a match, move like a player. world.js keeps the blocks the server sends, so the
+  // bot walks around walls (A* over block columns), steps up slabs, jumps ledges and falls like a
+  // client. With an enemy in sight and close it fights: circles, closes in, backs off. Otherwise it
+  // walks a path to the nearest known enemy, or toward the other side of the arena (the way its
+  // spawn faces) when it knows of none.
+  if (walkWorld) {
+    const SPEED = 0.2; // blocks per tick, a bit under vanilla walking (0.216)
+    const body = walkWorld.body(lastPos);
+    const eye = () => ({ x: lastPos.x, y: lastPos.y + walkWorld.EYE, z: lastPos.z });
+    let spawn = { ...lastPos };
+    let goal = 0; // yaw the last spawn faced
+    let path = [];
+    let pathAt = 0;
+    let strafe = 1;
+    let strafeAt = 0;
+    let pauseUntil = 0;
+    let wanderUntil = 0;
+    let wander = 0;
+    let lastTeleport = 0;
+    let stuck = 0;
+    let fighting = false;
+    let setback = null;
+    timers.push(setInterval(() => {
+      if (!inMatch || !live()) return;
+      const t = nearestEnemy(Infinity);
+      emit('walk', { x: Number(lastPos.x.toFixed(1)), y: Number(lastPos.y.toFixed(2)), z: Number(lastPos.z.toFixed(1)),
+        path: path.length, fighting, target: t ? { name: playerNames.get(t.e.objectUUID), d: Number(t.d.toFixed(1)) } : null });
+    }, 5000));
+    timers.push(setInterval(() => {
+      if (!inMatch || !live()) return;
+      const now = Date.now();
+      if (teleportedAt > lastTeleport) {
+        // Put back on the same spot again shortly after: the server will not let the bot go where it
+        // was heading. Avoid the next path column for a while and sidestep.
+        const same = setback && Math.hypot(setback.x - lastPos.x, setback.z - lastPos.z) < 0.5 && now - setback.at < 4000;
+        setback = { x: lastPos.x, z: lastPos.z, at: now, n: same ? setback.n + 1 : 0 };
+        if (same) {
+          emit('setback', { x: Number(lastPos.x.toFixed(2)), y: Number(lastPos.y.toFixed(4)), z: Number(lastPos.z.toFixed(2)), n: setback.n,
+            next: path[0], blocks: process.env.WALK_DEBUG ? walkWorld.describe(lastPos.x, lastPos.y, lastPos.z) : undefined });
+          for (const w of path.slice(0, 2)) walkWorld.avoidColumn(w.x, w.z, 20000);
+          wander = lastPos.yaw + 90 + Math.random() * 180;
+          wanderUntil = now + 1000 + Math.random() * 800;
+        }
+        lastTeleport = teleportedAt;
+        body.reset();
+        // a match start or respawn (a long jump, not a setback): its facing is the way to go
+        if (Math.hypot(lastPos.x - teleportFrom.x, lastPos.z - teleportFrom.z) > 4) { spawn = { ...lastPos }; goal = lastPos.yaw; }
+        path = [];
+        pathAt = 0;
+        pauseUntil = now + 300;
+      }
+      if (now < pauseUntil || !walkWorld.loaded(lastPos.x, lastPos.z)) return;
+      const target = nearestEnemy(Infinity);
+      fighting = Boolean(target && target.d < 22 && walkWorld.sees(eye(), { x: target.e.x, y: target.e.y + 1.2, z: target.e.z }));
+      let move = null;
+      if (stuck > 8) { // stuck against something the path did not foresee: sidestep a while
+        stuck = 0;
+        path = [];
+        wander = lastPos.yaw + (Math.random() < 0.5 ? 90 : -90) + (Math.random() - 0.5) * 60;
+        wanderUntil = now + 800 + Math.random() * 800;
+      }
+      if (now < wanderUntil) {
+        move = wander;
+      } else if (fighting) {
+        if (now > strafeAt) {
+          strafeAt = now + 800 + Math.random() * 2000;
+          strafe = Math.random() < 0.5 ? -1 : 1;
+          if (Math.random() < 0.15) { pauseUntil = now + 300 + Math.random() * 700; return; }
+        }
+        // close in from far, back off when very close, circle in between
+        const toward = -Math.atan2(target.e.x - lastPos.x, target.e.z - lastPos.z) * 180 / Math.PI;
+        if (target.d > 14) move = toward + strafe * 25;
+        else if (target.d < 6) move = toward + 180 + strafe * 35;
+        else move = toward + strafe * 90;
+        path = [];
+      } else {
+        if (now > pathAt || !path.length) {
+          const g = goal * Math.PI / 180;
+          const dest = target ? target.e : { x: spawn.x - Math.sin(g) * 60, y: spawn.y, z: spawn.z + Math.cos(g) * 60 };
+          path = walkWorld.findPath(lastPos, dest) || [];
+          pathAt = now + 1000;
+        }
+        while (path.length && Math.hypot(path[0].x - lastPos.x, path[0].z - lastPos.z) < 0.45) path.shift();
+        if (path.length) move = -Math.atan2(path[0].x - lastPos.x, path[0].z - lastPos.z) * 180 / Math.PI;
+        else { wander = goal + (Math.random() - 0.5) * 160; wanderUntil = now + 1500; move = wander; }
+      }
+      if (target && (fighting || target.d < 35)) aimAt(target);
+      else { lastPos.yaw = move; lastPos.pitch = 0; }
+      const r = move * Math.PI / 180;
+      const result = body.step(-Math.sin(r) * SPEED, Math.cos(r) * SPEED);
+      stuck = result === 'blocked' ? stuck + 1 : 0;
+      if (![lastPos.x, lastPos.y, lastPos.z, lastPos.yaw, lastPos.pitch].every(Number.isFinite)) {
+        emit('bad_move', { pos: lastPos }); // the server kicks for a non-finite value
+        pauseUntil = now + 1000;
+        return;
+      }
+      client.write('position_look', { x: lastPos.x, y: lastPos.y, z: lastPos.z, yaw: lastPos.yaw,
+        pitch: lastPos.pitch, flags: { onGround: body.state.onGround } });
+      if (process.env.WALK_DEBUG && now - lastTeleport < 1500) emit('sent', { x: lastPos.x, y: lastPos.y, z: lastPos.z, g: body.state.onGround, result, move: Math.round(move) });
+    }, 50));
   }
   const reportHeld = () => {
     clearTimeout(heldTimer);
@@ -384,6 +530,16 @@ function connect(host, port, transferIntent) {
       client.write('look', { yaw, pitch, flags: { onGround: true } });
     } else if (kind === 'sneak') {
       client.write('player_input', { inputs: { shift: arg === 'on' } });
+    } else if (kind === 'move') {
+      const [dx, dz, ticks] = arg.split(':').map(Number);
+      for (let k = 0; k < (ticks || 1); k++) {
+        setTimeout(() => {
+          lastPos.x += dx; lastPos.z += dz;
+          client.write('position_look', { x: lastPos.x, y: lastPos.y, z: lastPos.z, yaw: lastPos.yaw,
+            pitch: lastPos.pitch, flags: { onGround: true } });
+        }, k * 50);
+      }
+      return (ticks || 1) * 50 + 1000;
     } else if (kind === 'slot') {
       client.write('held_item_slot', { slotId: Number(arg) });
     } else if (kind === 'quit') {
@@ -430,7 +586,15 @@ function connect(host, port, transferIntent) {
       setTimeout(() => runSteps(0), 2000);
       return;
     } else if (opts.requeue !== undefined) {
-      return; // stays online; the lobby items trigger the queue
+      // stays online; the lobby items trigger the queue. Landed somewhere else (sent back to
+      // survival by a minigames restart)? Hop back to the minigames server.
+      setTimeout(() => {
+        if (live() && !inLobby && !inMatch) {
+          client.write('chat_command', { command: 'minigames' });
+          emit('command_sent', { command: '/minigames', reason: 'not in the minigames lobby' });
+        }
+      }, 20000);
+      return;
     }
     stayTimer = setTimeout(() => client.end('done'), opts.stay * 1000);
   });
@@ -441,16 +605,33 @@ function connect(host, port, transferIntent) {
     const target = hostMap.get(p.host) || { host: p.host, port: p.port };
     emit('transferred', { to: `${p.host}:${p.port}`, via: `${target.host}:${target.port}` });
     client.end('transfer');
-    if (++hops > opts.maxHops) { emit('ended', { reason: 'max hops' }); return; }
+    if (++hops > opts.maxHops) { emit('ended', { reason: 'max hops' }); quit(0); return; }
     setTimeout(() => connect(target.host, target.port, true), 300);
   });
   const kicked = (p) => emit('kicked', { reason: plain(typeof p.reason === 'string' ? safeJson(p.reason) : p.reason) });
   client.on('kick_disconnect', kicked);
   client.on('disconnect', kicked);
-  client.on('error', (e) => emit('error', { message: e.message }));
-  client.on('end', (reason) => { if (!transferring) emit('ended', { reason: String(reason || '') }); });
+  client.on('error', (e) => {
+    emit('error', { message: e.message });
+    // a refused or dropped connection may never fire 'end'
+    if (!transferring && /ECONNREFUSED|ECONNRESET|ETIMEDOUT|EPIPE|EHOSTUNREACH/.test(e.message)) quit(1);
+  });
+  // Once the bot is off the server for good, end the process: the --fight interval and other
+  // timers would keep a dead bot running, and a container's restart policy only acts on an exit.
+  client.on('end', (reason) => {
+    if (transferring) return;
+    emit('ended', { reason: String(reason || '') });
+    quit(0);
+  });
 }
 
 function safeJson(s) { try { return JSON.parse(s); } catch { return s; } }
+
+let quitting = false;
+function quit(code) {
+  if (quitting) return;
+  quitting = true;
+  setTimeout(() => process.exit(code), 500); // let the last event lines flush
+}
 
 connect(opts.host, opts.port, opts.transferIntent);

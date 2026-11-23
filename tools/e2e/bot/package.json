@@ -3,6 +3,7 @@
   "private": true,
   "description": "Headless test client for the DBSDW e2e travel checks",
   "dependencies": {
-    "minecraft-protocol": "1.68.0"
+    "minecraft-protocol": "1.68.0",
+    "prismarine-chunk": "1.41.0"
   }
 }

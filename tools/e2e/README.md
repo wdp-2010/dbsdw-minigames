@@ -39,6 +39,17 @@ Bot dependencies: `cd bot && npm install --ignore-scripts` (inside `node:22-book
   `--do interact:mannequin`, `--do drop:0`, `--do quit`,
   `--do aim:<player>` (look at that player), `--do fire:<n>` (n right-clicks 200 ms apart, like
   holding the button). Extra events: `actionbar`, `entity_spawn` (snowballs), `visible`, `aimed`.
+- Playing bots: `--requeue 11` keeps a bot online and back in a mode's queue after every match,
+  `--fight 35` aims and fires at the nearest enemy, `--walk` makes it move like a player
+  (`world.js` reads the chunks: A* path to the nearest known enemy or the way its spawn faces,
+  collision, step-up, jumps, gravity; it then also fires only with a clear line of sight).
+  When the server keeps putting it back on the same spot (`setback` event), it avoids that block
+  for 20 s. Set `WALK_DEBUG=1` to log the blocks around a setback and the moves sent after it.
+- The bot acts like a 26.3 client where the server needs it: it sends `tick_end` every 50 ms
+  (without it the second real move packet gets "Invalid move player packet received") and
+  acknowledges chunk batches (without it the server stops sending chunks, and players in chunks it
+  has not sent are never shown). The process exits once the bot is disconnected for good, so a
+  container restart policy brings a long-running bot back.
 - A match countdown is 30 s unless the queue is full; time bot steps after `Start!`.
   `--stay` also ends earlier legs of the trip, so keep it at 3 or more (the `--command` goes out
   1.5 s after a join).

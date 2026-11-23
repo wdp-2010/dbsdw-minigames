@@ -120,8 +120,8 @@ after the fills.
 
 A new map is a module in `tools/maps/` with `WORLD`, `ORIGIN`, `CANVAS`, `SPAWNS`, `FLAGS`,
 `YAW`, `POWERUPS`, optional `CLOSEUPS`, and a `build()` function. Keep maps apart in the world:
-Woudfront is x 300..449, z -50..49; Duinbasis x 300..449, z 100..199 (the lobby is at 0,0 and
-`proef` at x 99..162).
+Woudfront is x 300..449, z -50..49; Duinbasis x 300..449, z 100..199; Schaakwoud x 300..347,
+z 300..347; Moerasdorp x 300..449, z 400..499 (the lobby is at 0,0 and `proef` at x 99..162).
 
 ## The maps
 
@@ -149,7 +149,32 @@ copper waxed. After the redeploy a fresh world snapshot equals the code (0 diffe
 map is exactly 180° symmetric. Backup of the world before: node1
 `/root/server5-duinbasis-backup-20261122/`.
 
-Both: 6 spawns per team behind cover, flag on a podium inside the base, TDM and CTF.
+**Moerasdorp** (marsh, 2026-11-23, 150 × 100 at x 300..449, z 400..499, water surface at y -55,
+low land at y -54). Asked for as a third paintball arena next to Duinbasis, with "mooie palen".
+A fishing village on stilts: each team's raised deck stands on a grid of piles over its island
+(longhouse, watchtower, flag podium, a mud-brick breastwork with team banners along the front,
+stairs down on three sides, a boat shed under the deck); boardwalks on piles run through the
+marsh past two stilt houses (timber frame, mud daub, shutters, porch with railings) to a covered
+fish hall that stands over the channel in the middle, with half walls, counters, jetties with
+boats and a lantern turret on its ridge as the landmark. North lane: open reed marsh with a
+fishing hut on tall stilts, peat stacks, upturned boats and a half-sunk wreck (long range).
+South lane: mangrove forest with prop roots and a collapsed stilt house (close range). The
+channel is crossed by the hall and by a footbridge in each outer lane; elsewhere players wade
+(1 deep) or swim. Willows with hanging (pale) moss, sugar cane, lily pads and firefly bushes.
+
+The piles follow how real stilt houses are built (diagonal and knee bracing, a girder on top of
+each pile row, piles protected where they meet the water): every pile is a log running from below
+the mud through the deck, dark oak where it is wet and spruce above, on a mossy stone pad on land
+and with mangrove roots at its foot in the water; a girder ring under each deck with knee braces
+(upside-down stairs leaning on the pile); on tall houses a wale halfway down the long sides and
+two-stair diagonal braces in a chevron on the short sides. Where a pile reaches the deck edge it
+comes through as a railing post; fences only run between posts, and a railing that stops at a
+stair opening ends in a log post with a lantern, never in a bare fence (owner: a fence used as
+a pole gets a full block on top). Report: walkable floor 10 970, no spawn sees an enemy spawn,
+cover 73 %, far sightlines 6 %. Deployed to server 5 on 2026-11-23 (80 random blocks checked in
+the world, all present); backup of the region before: node1 `/root/server5-moerasdorp-backup-20261123/`.
+
+All three: 6 spawns per team behind cover, flag on a podium inside the base, TDM and CTF.
 
 **Zaagtoren** (Valvloer, 2026-11-23, 72 × 72 at x 500..571, z -50..21, ground at y -55). An
 old sawmill's drying tower in a forest clearing: four round plank floors (radius 15.5) stacked

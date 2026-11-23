@@ -147,3 +147,26 @@ server side, so it never fires. In first person the client shifts a loaded cross
 -0.641864, turn 10 degrees about y); the gun model's first-person display undoes exactly that, so
 the gun sits where it was tuned. The lobby NPC holds the same crossbow gun. Owner checked it in
 the client: fine.
+
+## 2026-11-23: PaintBot walks
+
+- PaintBot (`/opt/dbsdw-bot` on node1, container `dbsdw-bot`, restart unless-stopped) had been
+  kicked from survival for AFK on 22 Nov at 21:41 and stayed offline: the node process kept running
+  after the kick, so Docker never restarted it. `hop.js` now exits once the bot is disconnected for
+  good, and with `--requeue` it sends `/minigames` again when it lands somewhere other than the
+  minigames lobby.
+- The container now runs `--requeue 11 --fight 35 --walk`: in a match the bot walks a path
+  (A* on the chunks it receives) to the nearest enemy, circles, closes in and backs off in a fight,
+  and fires only with a clear line of sight. Checked on duinbasis and woudfront with `PaintBot2`;
+  blowiek3008 played along in one test match (hits both ways).
+- Two protocol gaps found on the way: 26.3 kicks a client that sends a second real move packet
+  without `tick_end` in between, and without chunk batch acknowledgements the server stops sending
+  chunks, so far-away players were never visible to `--fight`.
+- One spot on woudfront (the dirt path west of the team-1 spawn, x 434 z 13) puts the bot back on
+  every step; the cause is unknown. The bot now avoids a block it is put back from twice and walks
+  around it.
+- Recreate: `docker run -d --name dbsdw-bot --restart unless-stopped --network dbsdw-bot --memory 256m
+  --memory-swap 512m -u 1000:1000 -w /bot -v /opt/dbsdw-bot/bot:/bot -v /opt/dbsdw-bot/pw:/pw:ro
+  node:22-bookworm-slim sh -c 'exec node hop.js --host dbsdw-bot-viaproxy --port 25565 --name PaintBot
+  --password "$(cat /pw)" --command /minigames --requeue 11 --fight 35 --walk'`. The previous
+  `hop.js` is kept as `hop.js.bak-2311`.

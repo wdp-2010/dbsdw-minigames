@@ -24,7 +24,7 @@ from woudfront import poly_dist, rect_dist
 WORLD = "world"
 SX, SY, SZ = 150, 40, 100
 G = 8                      # water surface (top water block) in local y; low land is G + 1
-ORIGIN = (300, -63, 250)   # south of Duinbasis (which ends at z 199)
+ORIGIN = (300, -63, 400)   # south of Duinbasis (z 100..199) and Schaakwoud (z 300..347)
 HALF = SX // 2
 SEED = 63
 
@@ -37,17 +37,17 @@ HQ = (6, 44, 12, 55)            # longhouse on the deck
 HALL = (64, 41, 85, 58)         # fish hall over the channel (the east part is the rotation)
 HD = G + 2                      # hall floor
 HOUSES = [  # walls x1, z1, x2, z2, deck, door side
-    (38, 33, 45, 39, G + 5, "south"),
-    (39, 60, 46, 66, G + 5, "north"),
+    (38, 31, 45, 37, G + 6, "south"),
+    (39, 63, 46, 69, G + 6, "north"),
 ]
-FISH = (44, 6, 49, 10, G + 6, "south")     # fishing hut in the north marsh
-RUIN = (44, 73, 50, 78, G + 4)              # collapsed stilt house in the mangroves
+FISH = (44, 6, 49, 10, G + 7, "south")     # fishing hut in the north marsh
+RUIN = (44, 74, 50, 79, G + 5)              # collapsed stilt house in the mangroves
 BRIDGES = ((13, 15), (84, 86))              # z ranges of the outer footbridges (x 63..74)
 JETTIES = ((67, 34, 70, 40), (67, 59, 70, 65))
 PATHS = [
-    [(28, 41), (33, 45), (41, 47), (52, 46.5), (63, 45)],            # centre north
-    [(28, 58), (33, 54), (42, 52.5), (52, 53.5), (63, 54)],          # centre south
-    [(13, 30), (16, 25), (26, 20), (37, 19), (47, 19), (57, 16.5), (64, 14), (74, 14)],
+    [(28, 41), (33, 45.5), (42, 47), (52, 46.5), (63, 45)],          # centre north
+    [(28, 58), (33, 55), (42, 53), (52, 53.5), (63, 54)],            # centre south
+    [(13, 30), (16, 25), (26, 21), (37, 21), (47, 21.5), (57, 17), (64, 14), (74, 14)],
     [(13, 69), (16, 75), (25, 81), (36, 85.5), (50, 85.5), (64, 85), (74, 85)],
     [(52, 46), (53, 37), (55, 27), (57, 17)],                        # links between lanes
     [(52, 53.5), (53, 63), (55, 73), (57, 85)],
@@ -59,7 +59,7 @@ SPAWNS[1] = [(SX - p[0], p[1], SZ - p[2]) for p in SPAWNS[0]]
 FLAGS = {0: (20.5, DD + 2, 49.5)}
 FLAGS[1] = (SX - FLAGS[0][0], FLAGS[0][1], SZ - FLAGS[0][2])
 YAW = {0: -90.0, 1: 90.0}
-POWERUPS = [(47.5, G + 2, 19.5), (60.5, HD + 1, 47.5), (102.5, G + 2, 80.5), (89.5, HD + 1, 52.5)]
+POWERUPS = [(47.5, G + 2, 21.5), (60.5, HD + 1, 47.5), (102.5, G + 2, 78.5), (89.5, HD + 1, 52.5)]
 CLOSEUPS = {"base": (0, 26, 34, 74), "hall": (56, 30, 94, 70), "houses": (28, 28, 60, 72),
             "north": (34, 0, 80, 26), "mangrove": (30, 66, 76, 99)}
 
@@ -280,12 +280,39 @@ def platform(c: Canvas, x1, z1, x2, z2, D, step=4, interior=False, rail=True, ga
                     for z in range(z1, z2 + 1):
                         if (x, z) not in piles and c.get(x, yw, z) in ("air", "water"):
                             put(c, x, yw, z, "stripped_spruce_log[axis=z]")
+    # diagonal braces (two stairs climbing from one pile to the next) on the short sides
+    if wale and D - G >= 6:
+        yb = G + 2
+        if x2 - x1 >= z2 - z1:
+            for x in (x1, x2):
+                for i, (za, zb) in enumerate(zip(zs, zs[1:])):
+                    if zb - za != 3:
+                        continue
+                    up = i % 2 == 0
+                    for k, zz in enumerate((za + 1, za + 2)):
+                        yy = yb + (k if up else 1 - k)
+                        if c.get(x, yy, zz) in ("air", "water"):
+                            put(c, x, yy, zz, f"spruce_stairs[facing={'south' if up else 'north'},half=bottom,shape=straight]")
+        else:
+            for z in (z1, z2):
+                for i, (xa, xb) in enumerate(zip(xs, xs[1:])):
+                    if xb - xa != 3:
+                        continue
+                    up = i % 2 == 0
+                    for k, xx in enumerate((xa + 1, xa + 2)):
+                        yy = yb + (k if up else 1 - k)
+                        if c.get(xx, yy, z) in ("air", "water"):
+                            put(c, xx, yy, z, f"spruce_stairs[facing={'east' if up else 'west'},half=bottom,shape=straight]")
     # railing between the posts
     if rail:
         for x in range(x1, x2 + 1):
             for z in range(z1, z2 + 1):
                 if (x in (x1, x2) or z in (z1, z2)) and (x, z) not in piles and (x, z) not in gaps:
-                    c.set(x, D + 1, z, FENCE)
+                    end = any((x + dx, z + dz) in gaps for dx, dz in ((1, 0), (-1, 0), (0, 1), (0, -1)))
+                    # a railing ends in a post at a stair opening, never in a bare fence
+                    c.set(x, D + 1, z, PILE if end else FENCE)
+                    if end:
+                        c.set(x, D + 2, z, "lantern[hanging=false]")
     return piles
 
 
@@ -686,17 +713,16 @@ def ruin(c: Canvas):
     platform(c, px1, pz1, px2, pz2, D, step=3, wale=True)
     walls(c, x1, z1, x2, z2, D, "west", seed=41)
     roof(c, x1, z1, x2, z2, D + 4, "x", seed=42)
-    span = (px2 - px1) + (pz2 - pz1)
     for x in range(px1 - 1, px2 + 2):
         for z in range(pz1 - 1, pz2 + 2):
-            k = (x - px1) + (z - pz1)
-            cut = span - k                      # 0 at the far corner
-            for y in range(G + 1, SY):
-                # everything above a slope that falls toward the south-east corner is gone
-                keep_to = D + 1 + cut - 3 + int(h3(x, 0, z, 43) * 2)
-                if y > keep_to and k > span * 0.45:
-                    if c.get(x, y, z) != "water":
-                        c.set(x, y, z, "air")
+            # 0 at the north-west corner, 1 at the south-east one: the slope of the collapse
+            t = ((x - px1) / (px2 - px1) + (z - pz1) / (pz2 - pz1)) / 2
+            if t <= 0.45:
+                continue
+            keep_to = D + 7 - int((t - 0.45) * 22) + int(h3(x, 0, z, 43) * 2)
+            for y in range(max(G + 1, keep_to + 1), SY):
+                if c.get(x, y, z) != "water":
+                    c.set(x, y, z, "air")
     rub = Pal(("mangrove_planks", 3), ("spruce_planks", 2), ("packed_mud", 2), ("mud_bricks", 1), seed=44)
     for (rx, rz) in ((x2 + 2, z2 + 2), (x2, z2 + 3), (x2 + 3, z2)):
         f = FLOOR.get((rx, rz), G - 1)
@@ -770,7 +796,9 @@ def hanging_moss(c: Canvas, x, y, z, n):
 def willow(c: Canvas, x, z, height=6, r=3.3, seed=0):
     """Swamp oak: short trunk, a wide flat canopy whose edge droops in curtains of leaves, and
     grey moss hanging from it."""
-    y = c.top_solid(x, z) + 1
+    y = FLOOR.get((x, z), c.top_solid(x, z)) + 1
+    if c.top_solid(x, z) >= y:
+        return
     for i in range(height):
         c.set(x, y + i, z, "oak_log[axis=y]")
     top = y + height
@@ -805,6 +833,8 @@ def mangrove(c: Canvas, x, z, height=6, r=2.8, seed=0):
     """Mangrove: a trunk raised on arching prop roots that reach down into the mud or the water,
     a flat canopy, propagules hanging under it."""
     f = FLOOR.get((x, z), c.top_solid(x, z))
+    if c.top_solid(x, z) > max(f, G):
+        return
     base = max(f, G) + 2
     for y in range(f + 1, base):
         put(c, x, y, z, "mangrove_roots")
@@ -882,7 +912,7 @@ def woods(c: Canvas):
                 dens = 0.3
             r = h3(x, 7, z, 62)
             if r > dens:
-                if land and not border and r < dens + 0.3:
+                if land and not border and r < dens + 0.3 and c.top_solid(x, z) == FLOOR.get((x, z)):
                     P.bush(c, x, c.top_solid(x, z) + 1, z, r=1.1 + h3(x, 8, z, 63) * 0.8, seed=x * 7 + z)
                 continue
             mangrove_zone = z > 66 or (border and h3(x, 9, z, 64) < 0.5)
