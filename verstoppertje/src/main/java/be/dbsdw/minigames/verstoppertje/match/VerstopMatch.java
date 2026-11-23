@@ -21,6 +21,7 @@ import java.util.random.RandomGenerator;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.minimessage.tag.resolver.Placeholder;
 import net.kyori.adventure.title.Title;
+import org.bukkit.Axis;
 import org.bukkit.Bukkit;
 import org.bukkit.FluidCollisionMode;
 import org.bukkit.GameMode;
@@ -30,30 +31,37 @@ import org.bukkit.Particle;
 import org.bukkit.Sound;
 import org.bukkit.block.Block;
 import org.bukkit.block.BlockFace;
-import org.bukkit.block.BlockState;
+import org.bukkit.block.data.Directional;
+import org.bukkit.block.data.Orientable;
 import org.bukkit.block.data.BlockData;
 import org.bukkit.entity.Entity;
+import org.bukkit.entity.LivingEntity;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.plugin.Plugin;
 import org.bukkit.potion.PotionEffect;
 import org.bukkit.potion.PotionEffectType;
+import org.bukkit.util.BoundingBox;
 import org.bukkit.util.RayTraceResult;
 import org.bukkit.util.Vector;
 
 /**
  * One Verstoppertje match. Team 0 hides, team 1 seeks; a hider who is hit joins the seekers. The
  * seekers win when nobody is left hiding, the hiders when one of them is still hidden at the end.
- * Everyone plays in creative without flying and may place and break a limited number of blocks; the
- * arena is put back when the match ends. A hider is the block they hold.
+ * Players get the arena's own blocks in their inventory (E shows them all) and may place and break a
+ * limited number of them; the plugin does the placing and breaking (players are in adventure mode),
+ * and the arena is put back when the match ends. A hider is the block they hold.
  */
 public final class VerstopMatch implements MatchHandler {
     public static final int HIDERS = 0;
     public static final int SEEKERS = 1;
+    /** How far a player reaches to break a block (adventure's block reach). */
+    private static final double BREAK_REACH = 4.5;
 
     private final Plugin plugin;
     private final MatchContext ctx;
     private final Settings settings;
+    /** The arena's own blocks, most common first: what players get and may become. */
     private final List<Material> disguises;
     private final Messages messages;
     private final Logger log;
@@ -95,9 +103,9 @@ public final class VerstopMatch implements MatchHandler {
         for (Player p : everyone()) {
             names.put(p.getUniqueId(), p.getName());
             ctx.moveToTeam(p, chosen.contains(p.getUniqueId()) ? SEEKERS : HIDERS);
-            p.setGameMode(GameMode.CREATIVE);
-            // Creative allows flight, and players may stand on fake blocks the server does not know
-            // about (it would kick them for flying without it). Flying itself is stopped in the listener.
+            p.setGameMode(GameMode.ADVENTURE);
+            // Players may stand on fake blocks the server does not know about; without this the
+            // server would kick them for flying. Flight itself is stopped in the listener.
             p.setAllowFlight(true);
             p.setFlying(false);
         }
@@ -108,7 +116,7 @@ public final class VerstopMatch implements MatchHandler {
             Player h = hiderList.get(i);
             h.teleport(hideSpawns.get(i % hideSpawns.size()));
             int slot = rnd.nextInt(Math.min(9, disguises.size()));
-            hiderItems(h);
+            fill(h, 0);
             h.getInventory().setHeldItemSlot(slot);
             hidden.put(h.getUniqueId(), new Disguise(plugin, h, disguises.get(slot).createBlockData()));
             h.showTitle(Title.title(messages.get("hide.title"), messages.get("hide.subtitle",
@@ -250,9 +258,9 @@ public final class VerstopMatch implements MatchHandler {
     }
 
     /** A seeker swings (in the air or at a fake block): finds the nearest hider block on their line of sight. */
-    public void swing(Player seeker) {
+    public boolean swing(Player seeker) {
         if (!isSeeker(seeker) || !released) {
-            return;
+            return false;
         }
         Location eye = seeker.getEyeLocation();
         Vector dir = eye.getDirection();
@@ -272,7 +280,27 @@ public final class VerstopMatch implements MatchHandler {
         }
         if (best != null) {
             found(best, seeker);
+            return true;
         }
+        return false;
+    }
+
+    /** A swing that found no hider breaks the block looked at, unless a hider's block is in front of it. */
+    public void swingDig(Player p) {
+        Location eye = p.getEyeLocation();
+        Vector dir = eye.getDirection();
+        RayTraceResult r = eye.getWorld().rayTraceBlocks(eye, dir, BREAK_REACH, FluidCollisionMode.NEVER, true);
+        if (r == null || r.getHitBlock() == null) {
+            return;
+        }
+        double dist = r.getHitPosition().distance(eye.toVector());
+        for (Disguise d : hidden.values()) {
+            double t = d.hider.equals(p) ? -1 : d.hit(eye, dir);
+            if (t >= 0 && t < dist) {
+                return;
+            }
+        }
+        dig(p, r.getHitBlock());
     }
 
     private void found(Disguise d, Player seeker) {
@@ -309,7 +337,7 @@ public final class VerstopMatch implements MatchHandler {
     /** A hider is the block in their hand: switching hotbar slots (or taking one from the menu) changes it. */
     private void held(Disguise d, List<Player> all) {
         Material m = d.hider.getInventory().getItemInMainHand().getType();
-        if (m == d.data().getMaterial() || !allowed(m)) {
+        if (m == d.data().getMaterial() || !disguises.contains(m)) {
             return;
         }
         d.change(m.createBlockData(), all);
@@ -322,55 +350,77 @@ public final class VerstopMatch implements MatchHandler {
         return m != null && BlockRules.allowed(m.name(), m.isBlock(), m.isSolid(), m.hasGravity());
     }
 
-    private void hiderItems(Player h) {
-        h.getInventory().clear();
-        for (int i = 0; i < Math.min(9, disguises.size()); i++) {
-            h.getInventory().setItem(i, ItemStack.of(disguises.get(i)));
+    /**
+     * Puts the arena's blocks in the hotbar and the storage slots (from slot {@code from} on), so E
+     * shows every block the player may use. The stacks never run out: the plugin places the blocks.
+     */
+    private void fill(Player p, int from) {
+        p.getInventory().clear();
+        for (int i = 0; i < disguises.size() && from + i < 36; i++) {
+            p.getInventory().setItem(from + i, ItemStack.of(disguises.get(i)));
         }
     }
 
     // ------------------------------------------------------------------ building
 
-    /**
-     * A player places a block (the world already shows it). False when they may not: the event is then
-     * cancelled. {@code replaced} are the states it replaced (two for a door).
-     */
-    public boolean place(Player p, Block block, List<BlockState> replaced) {
-        if (!canBuild(p, block) || !allowed(block.getType())) {
-            return false;
+    /** A player right-clicks a block face holding an item: places that block against it. */
+    public void place(Player p, Block clicked, BlockFace face, ItemStack item) {
+        Material m = item == null ? null : item.getType();
+        if (m == null || !disguises.contains(m)) {
+            return;
+        }
+        Block target = clicked.isReplaceable() ? clicked : clicked.getRelative(face);
+        if (!target.isReplaceable() || !canBuild(p, target)
+                || !target.getWorld().getNearbyEntities(BoundingBox.of(target).expand(-0.01), e -> e instanceof LivingEntity).isEmpty()) {
+            return;
         }
         int used = placed.getOrDefault(p.getUniqueId(), 0);
         if (used >= settings.placeLimit()) {
             p.sendActionBar(messages.get("build.place-full"));
-            return false;
+            return;
         }
-        for (BlockState st : replaced) {
-            original.putIfAbsent(st.getBlock(), st.getBlockData());
+        remember(target, true);
+        BlockData data = m.createBlockData();
+        if (data instanceof Orientable o && o.getAxes().contains(axis(face))) {
+            o.setAxis(axis(face));
+        } else if (data instanceof Directional d && d.getFaces().contains(face)) {
+            d.setFacing(face);
         }
-        for (BlockState st : replaced) {
-            remember(st.getBlock(), false);
-        }
+        target.setBlockData(data, false);
+        target.getWorld().playSound(target.getLocation().add(0.5, 0.5, 0.5), data.getSoundGroup().getPlaceSound(), 1f, 0.8f);
         placed.put(p.getUniqueId(), used + 1);
         p.sendActionBar(messages.get("build.placed", Placeholder.unparsed("left",
                 String.valueOf(BlockRules.left(settings.placeLimit(), used + 1)))));
-        return true;
     }
 
-    /** A player breaks a block (it is still there). False when they may not. */
-    public boolean dig(Player p, Block block) {
-        if (!canBuild(p, block)) {
-            return false;
+    /** A player hits a block: breaks it at once, unless they hold the seeker's sword. */
+    private void dig(Player p, Block block) {
+        Material m = block.getType();
+        if (p.getInventory().getItemInMainHand().getType() == Material.WOODEN_SWORD || block.isEmpty()
+                || block.isLiquid() || m.getHardness() < 0 || !canBuild(p, block)) {
+            return;
         }
         int used = broken.getOrDefault(p.getUniqueId(), 0);
         if (used >= settings.breakLimit()) {
             p.sendActionBar(messages.get("build.break-full"));
-            return false;
+            return;
         }
         remember(block, true);
+        BlockData was = block.getBlockData();
+        block.setType(Material.AIR, false);
+        block.getWorld().playSound(block.getLocation().add(0.5, 0.5, 0.5), was.getSoundGroup().getBreakSound(), 1f, 0.8f);
+        block.getWorld().spawnParticle(Particle.BLOCK, block.getLocation().add(0.5, 0.5, 0.5), 20, 0.25, 0.25, 0.25, 0, was);
         broken.put(p.getUniqueId(), used + 1);
         p.sendActionBar(messages.get("build.broken", Placeholder.unparsed("left",
                 String.valueOf(BlockRules.left(settings.breakLimit(), used + 1)))));
-        return true;
+    }
+
+    private static Axis axis(BlockFace face) {
+        return switch (face) {
+            case EAST, WEST -> Axis.X;
+            case NORTH, SOUTH -> Axis.Z;
+            default -> Axis.Y;
+        };
     }
 
     private boolean canBuild(Player p, Block block) {
@@ -412,7 +462,8 @@ public final class VerstopMatch implements MatchHandler {
 
     private void seekerSetup(Player s) {
         s.removePotionEffect(PotionEffectType.BLINDNESS);
-        // A sword: in creative it cannot break blocks, so hitting a hider never breaks the arena.
+        // Slot 0 is the sword (hitting with it never breaks blocks), the rest the arena's blocks.
+        fill(s, 1);
         ItemStack sword = ItemStack.of(Material.WOODEN_SWORD);
         sword.editMeta(meta -> meta.customName(messages.get("item.seeker")));
         s.getInventory().setItem(0, sword);

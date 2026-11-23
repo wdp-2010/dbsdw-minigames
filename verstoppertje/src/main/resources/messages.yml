@@ -23,8 +23,8 @@ item:
 
 hide:
   title: "<#9CC05A><bold>Verstop je!"
-  subtitle: "<gray>Je bent het blok in je hand · <white><seconds></white>s tot de zoekers komen"
-  bar: "<gray>Zoekers komen over <white><seconds></white>s <dark_gray>·</dark_gray> <gray>sta <white>3s</white> stil om een echt blok te worden <dark_gray>·</dark_gray> <gray>wissel van blok in je hotbar"
+  subtitle: "<gray>Je bent het blok in je hand · <white>E</white> voor meer · <white><seconds></white>s tot de zoekers komen"
+  bar: "<gray>Zoekers komen over <white><seconds></white>s <dark_gray>·</dark_gray> <gray>sta <white>3s</white> stil om een echt blok te worden <dark_gray>·</dark_gray> <gray>druk <white>E</white> voor alle blokken"
 
 wait:
   title: "<#FFB52E><bold>Jij zoekt!"

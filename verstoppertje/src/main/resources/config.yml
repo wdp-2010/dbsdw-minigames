@@ -13,10 +13,11 @@ match:
   hint-seconds: 30
   # How far a seeker reaches when hitting a block.
   reach: 3.5
-  # Everyone plays in creative (no flying) and may place and break this many blocks per match.
-  # The arena is put back as it was when the match ends.
+  # Players get the arena's own blocks (hotbar + E inventory) and may place and break this many
+  # blocks per match: right click places, hitting breaks. The arena is put back when the match ends.
   place-limit: 30
   break-limit: 30
 
-# The hotbar a hider starts with. A hider is the block in their hand; the creative menu has more.
+# Blocks used only when the arena scan finds none. Normally players get the blocks the arena is built
+# from (seen at least 4 times), most common first. A hider is the block in their hand.
 disguises: [barrel, hay_block, spruce_log, oak_log, crafting_table, composter, moss_block, pumpkin]
