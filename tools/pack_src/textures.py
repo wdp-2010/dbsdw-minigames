@@ -14,7 +14,7 @@ import sys
 from PIL import ImageChops
 from pathlib import Path
 
-from palette import (BLUE, BROWN, CYAN, GOLD, GREEN, GUNMETAL_DARK, KHAKI, KHAKI_DARK, MAGENTA, OLIVE, OLIVE_DARK,
+from palette import (BLUE, BROWN, CYAN, GOLD, GREEN, GUNMETAL, GUNMETAL_DARK, KHAKI, KHAKI_DARK, MAGENTA, OLIVE, OLIVE_DARK,
                      OLIVE_LIGHT, ORANGE, OUTLINE, RED, SAND, WHITE, YELLOW)
 from pixel import (Canvas, blob, darken, dilate, ellipse, erode, intersect, lighten, mask, polygon,
                    rect, shift, subtract, union)
@@ -176,12 +176,32 @@ def gun_side(c: Canvas, ox: int, oy: int, hopper=BLUE) -> None:
 
 
 def lobby_games() -> Canvas:
+    """A game controller in army olive with bright buttons: every game, not just paintball."""
     c = Canvas(32)
-    rng = random.Random(7)
-    b = blob(rng, 32, 22, 21, 9, bumps=5, wobble=0.5)
-    c.fill(b, BLUE)
-    c.fill(subtract(b, shift(b, -1, -1)), darken(BLUE, 0.3))
-    gun_side(c, 0, 2, hopper=RED)
+    s = (32, 32)
+    # Body: a wide rounded bar with two handles hanging down.
+    bar = rect(mask(s), (3, 9, 28, 20), radius=4)
+    left = ellipse(mask(s), (2, 12, 13, 27))
+    right = ellipse(mask(s), (18, 12, 29, 27))
+    body = union(bar, left, right)
+    c.outline(body, OUTLINE)
+    c.shaded(body, OLIVE, light=0.45, shade=0.35)
+    # Shoulder buttons along the top edge.
+    for x0 in (5, 21):
+        bump = rect(mask(s), (x0, 7, x0 + 5, 8), radius=0)
+        c.fill(bump, GUNMETAL_DARK)
+    # D-pad on the left.
+    dpad = union(rect(mask(s), (6, 13, 12, 15)), rect(mask(s), (8, 11, 10, 17)))
+    c.fill(dpad, OUTLINE)
+    c.fill(rect(mask(s), (8, 11, 10, 11)), GUNMETAL).fill(rect(mask(s), (6, 13, 6, 15)), GUNMETAL)
+    # Four buttons on the right, in the paint colours.
+    for (x, y), colour in (((22, 11), YELLOW), ((19, 14), BLUE), ((25, 14), RED), ((22, 17), GREEN)):
+        b = ellipse(mask(s), (x - 0.5, y - 0.5, x + 2.5, y + 2.5))
+        c.fill(dilate(b, 1, diagonal=False), OLIVE_DARK)
+        c.shaded(b, colour, light=0.5, shade=0.3)
+    # Two small grey sticks in the middle.
+    for x0 in (13, 17):
+        c.fill(rect(mask(s), (x0, 19, x0 + 1, 20)), GUNMETAL_DARK)
     return c
 
 
