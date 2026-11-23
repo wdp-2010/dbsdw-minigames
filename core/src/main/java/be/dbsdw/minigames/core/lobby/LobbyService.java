@@ -11,6 +11,7 @@ import org.bukkit.NamespacedKey;
 import org.bukkit.World;
 import org.bukkit.attribute.Attribute;
 import org.bukkit.attribute.AttributeInstance;
+import org.bukkit.attribute.AttributeModifier;
 import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
@@ -42,6 +43,7 @@ public final class LobbyService {
     }
 
     private static final NamespacedKey ITEM_KEY = new NamespacedKey("dbsdw", "lobby_item");
+    private static final NamespacedKey NO_LOCATOR = new NamespacedKey("dbsdw", "no_locator_bar");
 
     private final Plugin plugin;
     private final Messages messages;
@@ -99,6 +101,23 @@ public final class LobbyService {
         player.setInvisible(false);
         for (PotionEffect effect : player.getActivePotionEffects()) {
             player.removePotionEffect(effect.getType());
+        }
+        locatorBar(player, true);
+    }
+
+    /**
+     * Shows or hides the locator bar for this player only: during a match it would point at the
+     * enemies (paintball) or the seekers (verstoppertje). Hidden by bringing the player's waypoint
+     * receive range to zero; the modifier is transient, so it never outlives a session.
+     */
+    public static void locatorBar(Player player, boolean shown) {
+        AttributeInstance range = player.getAttribute(Attribute.WAYPOINT_RECEIVE_RANGE);
+        if (range == null) {
+            return;
+        }
+        range.removeModifier(NO_LOCATOR);
+        if (!shown) {
+            range.addTransientModifier(new AttributeModifier(NO_LOCATOR, -1, AttributeModifier.Operation.MULTIPLY_SCALAR_1));
         }
     }
 

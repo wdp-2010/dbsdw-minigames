@@ -85,6 +85,7 @@ final class RunningMatch implements MatchContext {
                 names.put(player.getUniqueId(), player.getName());
                 add(player.getUniqueId(), "matches", 1);
                 LobbyService.reset(player);
+                LobbyService.locatorBar(player, false);
                 player.setGameMode(GameMode.ADVENTURE);
                 player.teleport(spawns.get(i % spawns.size()));
                 player.showTitle(Title.title(text("match.start"),
@@ -178,6 +179,7 @@ final class RunningMatch implements MatchContext {
             return false;
         }
         names.put(player.getUniqueId(), player.getName());
+        LobbyService.locatorBar(player, false);
         onRejoin.accept(player.getUniqueId());
         log.info("[match] " + player.getName() + " rejoined " + mode.key() + " on " + arena.name());
         return true;
