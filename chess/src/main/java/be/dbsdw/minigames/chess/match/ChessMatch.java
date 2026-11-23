@@ -2,6 +2,8 @@ package be.dbsdw.minigames.chess.match;
 
 import be.dbsdw.minigames.chess.ChessGame;
 import be.dbsdw.minigames.chess.ChessSettings;
+import be.dbsdw.minigames.chess.bot.BotLevel;
+import be.dbsdw.minigames.chess.bot.Engine;
 import be.dbsdw.minigames.chess.menu.PromotionMenu;
 import be.dbsdw.minigames.chess.rules.BoardGeometry;
 import be.dbsdw.minigames.chess.rules.ChessClock;
@@ -18,6 +20,10 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 import java.util.UUID;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.Future;
+import java.util.concurrent.ThreadLocalRandom;
+import java.util.logging.Level;
 import net.kyori.adventure.bossbar.BossBar;
 import net.kyori.adventure.key.Key;
 import net.kyori.adventure.sound.Sound;
@@ -43,6 +49,11 @@ public final class ChessMatch implements MatchHandler {
     private static final long CLICK_GAP_TICKS = 3;
     private static final long CONFIRM_TICKS = 60;
     private static final long REQUEST_TICKS = 30 * 20;
+    /** The bot waits at least this long before it moves, so its moves do not land instantly. */
+    private static final long BOT_MIN_TICKS = 16;
+    /** The bot takes a draw when it stands at least this badly. */
+    private static final int BOT_DRAW_SCORE = -150;
+    private static final UUID BOT_ID = new UUID(0, 0xB07);
 
     private final MatchContext ctx;
     private final ChessGame game;
@@ -78,6 +89,13 @@ public final class ChessMatch implements MatchHandler {
      * game: never saved, and no win, loss or draw is counted.
      */
     private boolean solo;
+    /** A game against the bot (also never saved and never counted); null for two players. */
+    private BotLevel botLevel;
+    private UUID bot;
+    private Future<Engine.Result> thinking;
+    private long thinkingSince;
+    /** The bot's last score of the position, from its own side (centipawns); for draw offers. */
+    private int botScore;
 
     public ChessMatch(MatchContext ctx, ChessGame game) {
         this.ctx = ctx;
@@ -101,7 +119,22 @@ public final class ChessMatch implements MatchHandler {
         black = b.getUniqueId();
         whiteName = w.getName();
         blackName = b.getName();
-        SavedGame resume = solo ? null : game.takeResume(white, black);
+        ChessGame.BotGame botGame = solo ? game.takeBot(white) : null;
+        if (botGame != null) {
+            // Against the bot: the player is on the team of their colour, the bot plays the other one.
+            solo = false;
+            botLevel = botGame.level();
+            bot = BOT_ID;
+            String botName = messages.raw("bot.name." + botLevel.id());
+            if (team0.isEmpty()) {
+                white = bot;
+                whiteName = botName;
+            } else {
+                black = bot;
+                blackName = botName;
+            }
+        }
+        SavedGame resume = practice() ? null : game.takeResume(white, black);
         if (resume != null) {
             record = GameRecord.replay(resume.moves());
             clock = new ChessClock(resume.initialMillis(), resume.incrementMillis(), resume.whiteMillis(),
@@ -133,14 +166,31 @@ public final class ChessMatch implements MatchHandler {
         if (solo) {
             w.sendMessage(messages.get("solo"));
         }
+        if (botLevel != null) {
+            w.sendMessage(messages.get("bot.start", Placeholder.parsed("level", messages.raw("bot.level." + botLevel.id()))));
+        }
         if (resume != null) {
             tellBoth(messages.get("resumed", Placeholder.unparsed("moves", String.valueOf(record.moves().size()))));
         }
-        game.track(this, white, black);
+        game.track(this, human(white), human(black));
         lastNanos = System.nanoTime();
         updateBar();
         game.plugin().getLogger().info("[chess] game " + saved.id() + (resume != null ? " resumed: " : " started: ")
                 + whiteName + " (white) vs " + blackName + " (black), " + ctx.mode().id());
+    }
+
+    /** Practice games are never saved and count nothing: alone, or against the bot. */
+    private boolean practice() {
+        return solo || botLevel != null;
+    }
+
+    private boolean isBot(UUID id) {
+        return bot != null && bot.equals(id);
+    }
+
+    /** This side's player id, or the human's for the bot's side (for tracking). */
+    private UUID human(UUID id) {
+        return isBot(id) ? (isBot(white) ? black : white) : id;
     }
 
     private void equip(Player p) {
@@ -154,6 +204,9 @@ public final class ChessMatch implements MatchHandler {
     private List<Player> players() {
         List<Player> out = new ArrayList<>();
         for (UUID id : solo ? new UUID[] {white} : new UUID[] {white, black}) {
+            if (isBot(id)) {
+                continue;
+            }
             Player p = Bukkit.getPlayer(id);
             if (p != null && ctx.teamOf(p).isPresent()) {
                 out.add(p);
@@ -204,6 +257,12 @@ public final class ChessMatch implements MatchHandler {
                 Player mover = mover();
                 if (mover != null && ctx.ticks() % 2 == 0) {
                     view.hover(look(mover), mover);
+                }
+                if (isBot(record.position().whiteToMove() ? white : black)) {
+                    botTurn();
+                    if (ended) {
+                        return;
+                    }
                 }
             }
             case AWAY -> {
@@ -259,6 +318,60 @@ public final class ChessMatch implements MatchHandler {
         Location eye = p.getEyeLocation();
         Vector dir = eye.getDirection();
         return geo.square(eye.getX(), eye.getY(), eye.getZ(), dir.getX(), dir.getY(), dir.getZ(), settings.reach());
+    }
+
+    // ---------------------------------------------------------------- the bot
+
+    /** On the bot's turn: start thinking, or play the move once it is found (and a moment has passed). */
+    private void botTurn() {
+        if (record.over()) {
+            return;
+        }
+        if (thinking == null) {
+            Position position = record.position();
+            List<Long> hashes = new ArrayList<>();
+            Position p = Position.start();
+            hashes.add(Engine.hash(p));
+            for (Move m : record.moves()) {
+                p = p.play(m);
+                hashes.add(Engine.hash(p));
+            }
+            boolean botWhite = position.whiteToMove();
+            Engine.Limits limits = botLevel.limitsFor(clock.unlimited() ? 0 : clock.millis(botWhite),
+                    clock.incrementMillis(), record.moves().size());
+            thinkingSince = ctx.ticks();
+            thinking = game.botThreads().submit(() -> new Engine(hashes).think(position, limits, ThreadLocalRandom.current()));
+            return;
+        }
+        if (!thinking.isDone() || ctx.ticks() - thinkingSince < BOT_MIN_TICKS) {
+            return;
+        }
+        Future<Engine.Result> done = thinking;
+        thinking = null;
+        Move move;
+        try {
+            Engine.Result r = done.get();
+            move = r.move();
+            botScore = r.score();
+            if (settings.debug()) {
+                game.plugin().getLogger().info("[chess] bot " + botLevel.id() + " plays " + move + " (score " + r.score()
+                        + ", depth " + r.depth() + ", " + r.nodes() + " nodes)");
+            }
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            return;
+        } catch (ExecutionException e) {
+            game.plugin().getLogger().log(Level.WARNING, "[chess] bot search failed; it plays its first legal move", e);
+            move = record.legalMoves().getFirst();
+        }
+        play(move);
+    }
+
+    private void stopThinking() {
+        if (thinking != null) {
+            thinking.cancel(false);
+            thinking = null;
+        }
     }
 
     // ---------------------------------------------------------------- input
@@ -344,7 +457,7 @@ public final class ChessMatch implements MatchHandler {
         Position after = record.position();
         view.move(m, effect, after);
         Player moverPlayer = Bukkit.getPlayer(whiteMoved ? white : black);
-        if (effect.capturedSquare() >= 0 && moverPlayer != null) {
+        if (effect.capturedSquare() >= 0 && moverPlayer != null && !practice()) {
             ctx.addStat(moverPlayer, "captures", 1);
         }
         Location at = new Location(ctx.arena().world(), geo.centreX(m.to()), geo.topY(), geo.centreZ(m.to()));
@@ -401,6 +514,15 @@ public final class ChessMatch implements MatchHandler {
             return;
         }
         UUID id = p.getUniqueId();
+        if (botLevel != null) {
+            if (botScore <= BOT_DRAW_SCORE) {
+                decided = true;
+                result(MatchOutcome.draw(List.of(messages.get("bot.draw-accepted"))));
+            } else {
+                p.sendMessage(messages.get("bot.draw-declined"));
+            }
+            return;
+        }
         if (solo || drawOffer != null && !drawOffer.equals(id)) {
             decided = true;
             game.store().delete(saved.id());
@@ -422,7 +544,7 @@ public final class ChessMatch implements MatchHandler {
             return;
         }
         UUID id = p.getUniqueId();
-        if (solo || pauseRequest != null && !pauseRequest.equals(id)) {
+        if (practice() || pauseRequest != null && !pauseRequest.equals(id)) {
             pausedEnd(messages.get("result.paused-agreed"));
             return;
         }
@@ -477,7 +599,7 @@ public final class ChessMatch implements MatchHandler {
         if (ended) {
             return;
         }
-        if (solo) {
+        if (practice()) {
             // The only player is gone: nothing to wait for, a practice game is not kept.
             pausedEnd(null);
             return;
@@ -544,7 +666,7 @@ public final class ChessMatch implements MatchHandler {
         if (status == GameRecord.Status.CHECKMATE) {
             boolean whiteWon = !record.position().whiteToMove();
             Player winner = Bukkit.getPlayer(whiteWon ? white : black);
-            if (winner != null) {
+            if (winner != null && !practice()) {
                 ctx.addStat(winner, "checkmates", 1);
             }
             result(MatchOutcome.win(whiteWon ? 0 : 1, List.of(messages.get("result.checkmate",
@@ -574,25 +696,30 @@ public final class ChessMatch implements MatchHandler {
                 Placeholder.unparsed("player", nameOf(who))))));
     }
 
-    /** Ends the match with this result; a solo practice game counts nothing, so it ends without one. */
+    /**
+     * Ends the match with this result. A solo practice game counts nothing, so it ends without one; a
+     * game against the bot shows its result but counts nothing either.
+     */
     private void result(MatchOutcome outcome) {
-        ctx.finish(solo ? MatchOutcome.paused(outcome.lines()) : outcome);
+        stopThinking();
+        ctx.finish(solo ? MatchOutcome.paused(outcome.lines()) : botLevel != null ? outcome.asPractice() : outcome);
     }
 
     /** Ends without a result; the game stays saved (if a move was made). */
     private void pausedEnd(Component line) {
+        stopThinking();
         save();
         List<Component> lines = new ArrayList<>();
         if (line != null) {
             lines.add(line);
         }
-        lines.add(record.moves().isEmpty() || solo ? messages.get("result.nothing-saved") : messages.get("result.saved"));
+        lines.add(record.moves().isEmpty() || practice() ? messages.get("result.nothing-saved") : messages.get("result.saved"));
         ctx.finish(MatchOutcome.paused(lines));
     }
 
     /** Writes the game to disk; a game without moves is not worth keeping. */
     private void save() {
-        if (solo || decided || record.moves().isEmpty()) {
+        if (practice() || decided || record.moves().isEmpty()) {
             return;
         }
         saved = saved.withProgress(record.uciMoves(), clock.millis(true), clock.millis(false), System.currentTimeMillis());
@@ -612,6 +739,7 @@ public final class ChessMatch implements MatchHandler {
         }
         save();
         ended = true;
+        stopThinking();
         game.untrack(this);
         view.remove();
         for (UUID id : new UUID[] {white, black}) {

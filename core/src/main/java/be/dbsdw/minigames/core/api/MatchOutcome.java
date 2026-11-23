@@ -7,9 +7,11 @@ import net.kyori.adventure.text.Component;
 /**
  * How a match ended: a winning team, a draw, or no result at all (paused, to be continued later),
  * plus result lines shown to the players. {@code gaveUp} is the team that left the match (all its
- * players gone), when that ended it.
+ * players gone), when that ended it. A {@code practice} result is shown as usual but counts nothing:
+ * no win, loss, draw, match or game stat (e.g. a game against a bot).
  */
-public record MatchOutcome(OptionalInt winner, OptionalInt gaveUp, List<Component> lines, boolean paused) {
+public record MatchOutcome(OptionalInt winner, OptionalInt gaveUp, List<Component> lines, boolean paused,
+                           boolean practice) {
     public MatchOutcome {
         lines = List.copyOf(lines);
         if (paused && (winner.isPresent() || gaveUp.isPresent())) {
@@ -18,16 +20,16 @@ public record MatchOutcome(OptionalInt winner, OptionalInt gaveUp, List<Componen
     }
 
     public static MatchOutcome win(int team, List<Component> lines) {
-        return new MatchOutcome(OptionalInt.of(team), OptionalInt.empty(), lines, false);
+        return new MatchOutcome(OptionalInt.of(team), OptionalInt.empty(), lines, false, false);
     }
 
     public static MatchOutcome draw(List<Component> lines) {
-        return new MatchOutcome(OptionalInt.empty(), OptionalInt.empty(), lines, false);
+        return new MatchOutcome(OptionalInt.empty(), OptionalInt.empty(), lines, false, false);
     }
 
     /** {@code winner} is the last team with players left; {@code gaveUp} the team whose players all left. */
     public static MatchOutcome forfeit(int winner, int gaveUp, List<Component> lines) {
-        return new MatchOutcome(OptionalInt.of(winner), OptionalInt.of(gaveUp), lines, false);
+        return new MatchOutcome(OptionalInt.of(winner), OptionalInt.of(gaveUp), lines, false, false);
     }
 
     /**
@@ -35,6 +37,11 @@ public record MatchOutcome(OptionalInt winner, OptionalInt gaveUp, List<Componen
      * No win, loss, draw or match is counted.
      */
     public static MatchOutcome paused(List<Component> lines) {
-        return new MatchOutcome(OptionalInt.empty(), OptionalInt.empty(), lines, true);
+        return new MatchOutcome(OptionalInt.empty(), OptionalInt.empty(), lines, true, false);
+    }
+
+    /** This result, shown as usual but counting nothing. */
+    public MatchOutcome asPractice() {
+        return new MatchOutcome(winner, gaveUp, lines, paused, true);
     }
 }

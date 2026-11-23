@@ -1,6 +1,8 @@
 package be.dbsdw.minigames.chess;
 
+import be.dbsdw.minigames.chess.bot.BotLevel;
 import be.dbsdw.minigames.chess.match.ChessMatch;
+import be.dbsdw.minigames.chess.menu.BotMenu;
 import be.dbsdw.minigames.chess.menu.GamesMenu;
 import be.dbsdw.minigames.chess.rules.Piece;
 import be.dbsdw.minigames.chess.save.SaveStore;
@@ -20,6 +22,10 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.IntConsumer;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.minimessage.tag.resolver.Placeholder;
 import net.kyori.adventure.text.minimessage.tag.resolver.TagResolver;
@@ -48,9 +54,17 @@ public final class ChessGame implements GameType {
     private final Map<String, SavedGame> resumes = new HashMap<>();
     /** Open invites to continue a game: game id → who asked, and until when (server tick). */
     private final Map<String, Invite> invites = new HashMap<>();
+    /** Games against the bot about to start, by the player's id. */
+    private final Map<UUID, BotGame> bots = new HashMap<>();
+    /** The last choices in the bot menu, per player. */
+    private final Map<UUID, BotMenu.Choice> botChoices = new HashMap<>();
+    private ExecutorService botThreads;
     private long ticks;
 
     private record Invite(UUID from, long until) {}
+
+    /** A game against the bot: its level (the player's colour is their team). */
+    public record BotGame(BotLevel level) {}
 
     public ChessGame(Plugin plugin, ChessSettings settings, Messages messages, SaveStore store, MatchStarter starter) {
         this.plugin = plugin;
@@ -179,6 +193,77 @@ public final class ChessGame implements GameType {
     /** The chess match this player plays in (also while they are away from it). */
     public Optional<ChessMatch> matchOf(UUID player) {
         return Optional.ofNullable(matchOf.get(player));
+    }
+
+    // ---------------------------------------------------------------- the bot
+
+    /** Threads the bot thinks on (never the server's), started on first use. */
+    public synchronized ExecutorService botThreads() {
+        if (botThreads == null) {
+            AtomicInteger n = new AtomicInteger();
+            botThreads = Executors.newFixedThreadPool(2, r -> {
+                Thread t = new Thread(r, "Chess-bot-" + n.incrementAndGet());
+                t.setDaemon(true);
+                t.setPriority(Thread.MIN_PRIORITY);
+                return t;
+            });
+        }
+        return botThreads;
+    }
+
+    synchronized void shutdown() {
+        if (botThreads != null) {
+            botThreads.shutdownNow();
+        }
+    }
+
+    /** The bot game this player is about to start, once. */
+    public BotGame takeBot(UUID player) {
+        return bots.remove(player);
+    }
+
+    public BotMenu.Choice botChoice(UUID player) {
+        return botChoices.getOrDefault(player, new BotMenu.Choice(BotLevel.NORMAAL, BotMenu.Colour.WHITE, modes.getFirst().id()));
+    }
+
+    public void rememberBotChoice(UUID player, BotMenu.Choice choice) {
+        botChoices.put(player, choice);
+    }
+
+    /** {@code /schaakbot}: the bot menu, to start a game against the bot from the lobby. */
+    public void openBotMenu(Player player) {
+        BotMenu.open(player, this, null, null);
+    }
+
+    /** Started from the bot menu outside a room: straight onto a board. */
+    public void startBot(Player player, BotLevel level, boolean white, String modeId) {
+        Optional<ModeSpec> mode = modes.stream().filter(m -> m.id().equals(modeId)).findFirst();
+        if (mode.isEmpty()) {
+            player.sendMessage(messages.get("resume.failed-unknown-mode"));
+            return;
+        }
+        if (!starter.available(player.getUniqueId())) {
+            player.sendMessage(messages.get("bot.busy"));
+            return;
+        }
+        UUID id = player.getUniqueId();
+        bots.put(id, new BotGame(level));
+        List<List<UUID>> teams = white ? List.of(List.of(id), List.of()) : List.of(List.of(), List.of(id));
+        MatchStarter.Result result = starter.start(mode.get(), teams);
+        if (result != MatchStarter.Result.STARTED) {
+            bots.remove(id);
+            player.sendMessage(messages.get("resume.failed-" + result.name().toLowerCase().replace('_', '-')));
+        }
+    }
+
+    /** Pressing start alone in a room opens the bot menu; its start button starts the room's countdown. */
+    @Override
+    public boolean startAlone(Player host, ModeSpec mode, IntConsumer startOnTeam) {
+        BotMenu.open(host, this, mode, (level, white) -> {
+            bots.put(host.getUniqueId(), new BotGame(level));
+            startOnTeam.accept(white ? 0 : 1);
+        });
+        return true;
     }
 
     /** The saved game to load for a match between these two, once. */

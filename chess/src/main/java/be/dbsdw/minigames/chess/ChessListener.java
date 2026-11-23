@@ -2,6 +2,7 @@ package be.dbsdw.minigames.chess;
 
 import be.dbsdw.minigames.chess.match.ChessMatch;
 import be.dbsdw.minigames.chess.match.Hotbar;
+import be.dbsdw.minigames.chess.menu.BotMenu;
 import be.dbsdw.minigames.chess.menu.GamesMenu;
 import be.dbsdw.minigames.chess.menu.PromotionMenu;
 import io.papermc.paper.event.player.PlayerArmSwingEvent;
@@ -91,6 +92,12 @@ final class ChessListener implements Listener {
             if (top) {
                 menu.typeAt(event.getSlot()).ifPresent(type -> Bukkit.getScheduler().runTask(game.plugin(), () -> menu.pick(type)));
             }
+        } else if (holder instanceof BotMenu menu) {
+            event.setCancelled(true);
+            if (top) {
+                int slot = event.getSlot();
+                Bukkit.getScheduler().runTask(game.plugin(), () -> menu.click(player, slot));
+            }
         } else if (holder instanceof GamesMenu menu) {
             event.setCancelled(true);
             if (top) {
@@ -106,7 +113,7 @@ final class ChessListener implements Listener {
     @EventHandler
     public void onDrag(InventoryDragEvent event) {
         InventoryHolder holder = event.getView().getTopInventory().getHolder(false);
-        if (holder instanceof PromotionMenu || holder instanceof GamesMenu
+        if (holder instanceof PromotionMenu || holder instanceof GamesMenu || holder instanceof BotMenu
                 || (event.getWhoClicked() instanceof Player p && playing(p).isPresent())) {
             event.setCancelled(true);
         }

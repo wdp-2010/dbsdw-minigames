@@ -1,6 +1,6 @@
 # Chess messages (MiniMessage format).
 # Raise "version" when texts change: servers with an older file get it backed up and replaced.
-version: 2
+version: 3
 
 game-name: "<#C8A26B><bold>Schaken"
 team:
@@ -117,5 +117,44 @@ menu:
   delete-running: "<#FF8A5C>Die partij wordt nu gespeeld."
   deleted: "<#C8A26B>»</#C8A26B> <gray>Partij tegen <player> verwijderd."
 command:
-  usage: "<gray>/schaak <dark_gray>·</dark_gray> /schaak doorgaan <id>"
+  usage: "<gray>/schaak <dark_gray>·</dark_gray> /schaak doorgaan <id> <dark_gray>·</dark_gray> /schaakbot"
   no-game: "<#FF8A5C>Je speelt nu geen schaakpartij."
+bot:
+  # The bot's name on the boss bar and in result lines (plain text, no tags).
+  name:
+    makkelijk: "Bot (makkelijk)"
+    normaal: "Bot (normaal)"
+    moeilijk: "Bot (moeilijk)"
+    meester: "Bot (meester)"
+  level:
+    makkelijk: "<#9CC05A><bold>Makkelijk"
+    normaal: "<#FFB52E><bold>Normaal"
+    moeilijk: "<#FF8A5C><bold>Moeilijk"
+    meester: "<#FF5C5C><bold>Meester"
+  start: "<#C8A26B>»</#C8A26B> <gray>Je speelt tegen de bot: <level><reset><gray>. Oefenen: het wordt niet bewaard en telt niet mee."
+  draw-accepted: "<#C8A26B>»</#C8A26B> <gray>De bot neemt je remise-aanbod aan."
+  draw-declined: "<#C8A26B>»</#C8A26B> <gray>De bot slaat je remise-aanbod af en speelt door."
+  busy: "<#FF8A5C>Je zit al in een spel of in een kamer. Alleen in een kamer? Druk daar op Start om tegen de bot te spelen."
+  usage: "<gray>/schaakbot <dark_gray>·</dark_gray> /schaakbot <makkelijk|normaal|moeilijk|meester> [wit|zwart|willekeurig] [modus]"
+  menu:
+    title: "Schaken tegen de bot"
+    level-header: "<#C8A26B><bold>Kies hoe sterk de bot is"
+    level-lore:
+      makkelijk: "<gray>Kijkt één zet vooruit en blundert vaak"
+      normaal: "<gray>Kijkt twee zetten vooruit, maakt soms fouten"
+      moeilijk: "<gray>Rekent een paar zetten diep, geeft weinig weg"
+      meester: "<gray>Denkt tot 3 seconden per zet: veel succes!"
+    colour:
+      white: "<#F4EBD9><bold>Jij speelt wit"
+      random: "<#C8A26B><bold>Willekeurige kleur"
+      black: "<#B98E63><bold>Jij speelt zwart"
+    colour-lore:
+      white: "<gray>Jij begint"
+      random: "<gray>Het lot beslist"
+      black: "<gray>De bot begint"
+    mode-lore: "<gray>Tijd voor jou én de bot"
+    room-mode: "<gray>Gekozen in je kamer"
+    chosen: "<#9CC05A>✔ Gekozen"
+    click: "<dark_gray>Klik om te kiezen"
+    start: "<#9CC05A><bold>Start!"
+    start-lore: "<gray>Tegen de bot: <level>"

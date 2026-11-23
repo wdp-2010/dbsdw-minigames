@@ -109,10 +109,11 @@ def stand(north: bool):
     xa, xb = CX - 7, CX + 6
     step = -1 if north else 1                     # from the front towards the back
     c.box(xa, STAND, za, xb, STAND, zb, "spruce_planks")
-    # The front two rows are glass: looking steeply down at the near ranks, you see through them.
+    # The front two rows are barriers: solid to stand on but invisible, so looking steeply down at the
+    # near ranks nothing (no glass frame or streaks) is in the way.
     for x in range(xa + 1, xb):
         for k in (0, 1):
-            c.set(x, STAND, z_front + k * step, "glass")
+            c.set(x, STAND, z_front + k * step, "barrier")
     # Posts at the corners and the middle, braced with stripped logs halfway up.
     for x in (xa, (xa + xb) // 2, xb):
         for z in (za, zb):
@@ -124,7 +125,7 @@ def stand(north: bool):
     # Railing all round (it is a long way down), lanterns on the front corners.
     for x in range(xa, xb + 1):
         c.set(x, STAND + 1, z_back, "spruce_fence")
-        c.set(x, STAND + 1, z_front, "glass_pane[east=true,west=true]" if xa < x < xb else "spruce_fence")
+        c.set(x, STAND + 1, z_front, "barrier" if xa < x < xb else "spruce_fence")
     for z in range(za, zb + 1):
         c.set(xa, STAND + 1, z, "spruce_fence")
         c.set(xb, STAND + 1, z, "spruce_fence")

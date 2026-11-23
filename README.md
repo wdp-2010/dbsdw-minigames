@@ -191,6 +191,14 @@ game by themselves.
   result (paused together, a player gone, server restart) can be continued: `/schaak` (or the button in
   the chess modes menu) lists your unfinished games; click one to invite your opponent
   (**[Doorgaan]**). Shift-click twice deletes one, without a result.
+- **Against the bot:** `/schaakbot` opens a menu: difficulty (makkelijk, normaal, moeilijk, meester),
+  your colour (white, black, random) and the time control; or start at once with
+  `/schaakbot <niveau> [wit|zwart|willekeurig] [modus]`. Pressing start alone in a chess room opens the
+  same menu (with the room's mode) and then starts the room's countdown. The bot is a small built-in
+  engine (`chess/.../bot/Engine.java`, alpha-beta on its own threads, never the server's); easy levels
+  search shallow and add noise or random moves, meester thinks up to 3 s a move (less on a short clock).
+  Bot games are practice: the result is shown but nothing is saved or counted. It takes a draw offer
+  only when it stands clearly worse.
 - **Leaving mid-game:** the board waits `away-grace-seconds` (120) with the clocks stopped; rejoining in
   that time puts you straight back. After it, the player who stayed claims the win or keeps the game.
 - **Limits:** at most `unfinished.max-per-player` (5) unfinished games each; unplayed games are
@@ -199,5 +207,7 @@ game by themselves.
   `tools/maps/deploy.sh schaakwoud --arena`). It sits at x 3000, z 3000, far from the other maps; its
   arena file is a template with `copies: 5` (copies up to x 5608). For your own
   chess arena: `setflag 0` on the centre of a1 and `setflag 1` on the centre of h8 (standing on the
-  board), `setspawn 0` on white's stand (rank-1 side), `setspawn 1` on black's.
+  board), `setspawn 0` on white's stand (rank-1 side), `setspawn 1` on black's. The front of each stand
+  (floor over the board edge and the railing) is barrier blocks, so nothing is in the way when looking
+  down at the near ranks.
 - Pieces are pack models (`tools/pack_src/chess.py`, Staunton shapes in boxwood and walnut).

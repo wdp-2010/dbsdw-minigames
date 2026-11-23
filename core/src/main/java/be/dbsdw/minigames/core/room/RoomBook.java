@@ -221,6 +221,14 @@ public final class RoomBook {
 
     /** Checks the room can start, reserves its arena and starts the countdown. */
     public Outcome start(UUID host) {
+        return start(host, OptionalInt.empty());
+    }
+
+    /**
+     * As {@link #start(UUID)}; with a team, the host is alone in the room and plays on that team (the
+     * game chose it, e.g. the colour against a chess bot) and the other teams stay empty.
+     */
+    public Outcome start(UUID host, OptionalInt soloTeam) {
         Outcome check = hostCheck(host);
         if (check != Outcome.OK) {
             return check;
@@ -230,6 +238,10 @@ public final class RoomBook {
         if (ready != Outcome.OK) {
             return ready;
         }
+        if (soloTeam.isPresent() && (room.members.size() != 1 || soloTeam.getAsInt() < 0
+                || soloTeam.getAsInt() >= room.mode.teams())) {
+            return Outcome.NOT_ALLOWED;
+        }
         Optional<ArenaDefinition> reserved = room.arena.isPresent()
                 ? pool.reserve(room.arena.get(), room.mode)
                 : pool.reserve(room.mode, rnd);
@@ -237,6 +249,7 @@ public final class RoomBook {
             return room.arena.isPresent() ? Outcome.BUSY : Outcome.NO_ARENA;
         }
         room.reserved = reserved.get();
+        room.soloTeam = soloTeam;
         room.startedWith = room.members.size();
         room.ticksLeft = COUNTDOWN_SECONDS * TICKS_PER_SECOND;
         pending.add(new RoomEvent.CountdownTick(room.id, List.copyOf(room.members), COUNTDOWN_SECONDS));
@@ -281,15 +294,18 @@ public final class RoomBook {
             }
             // Leavers that make the room short-handed stop the countdown, so nobody gets a solo match unwarned.
             boolean nowShort = shortHanded(room.members.size(), room.mode) && !shortHanded(room.startedWith, room.mode);
-            if (room.readiness() != Outcome.OK || nowShort) {
+            boolean soloBroken = room.soloTeam.isPresent() && room.members.size() != 1;
+            if (room.readiness() != Outcome.OK || nowShort || soloBroken) {
                 room.stopCountdown();
                 events.add(new RoomEvent.CountdownCancelled(room.id, List.copyOf(room.members)));
                 continue;
             }
             room.ticksLeft--;
             if (room.ticksLeft == 0) {
-                List<List<UUID>> teams = RoomTeams.build(List.copyOf(room.members), room.picks, room.rule,
-                        room.mode.teams(), rnd);
+                List<List<UUID>> teams = room.soloTeam.isPresent()
+                        ? soloTeams(room.host, room.soloTeam.getAsInt(), room.mode.teams())
+                        : RoomTeams.build(List.copyOf(room.members), room.picks, room.rule, room.mode.teams(), rnd);
+                room.soloTeam = OptionalInt.empty();
                 events.add(new RoomEvent.Start(room.id, room.mode, room.reserved, teams));
                 room.reserved = null;
                 room.playing = true;
@@ -310,6 +326,14 @@ public final class RoomBook {
     }
 
     /** Whether a room with this many members plays without a full set of opponents. */
+    private static List<List<UUID>> soloTeams(UUID host, int team, int teams) {
+        List<List<UUID>> out = new ArrayList<>();
+        for (int t = 0; t < teams; t++) {
+            out.add(t == team ? List.of(host) : List.of());
+        }
+        return out;
+    }
+
     public static boolean shortHanded(int members, ModeSpec mode) {
         return members < Math.max(2, mode.teams());
     }
@@ -343,6 +367,8 @@ public final class RoomBook {
         /** Members when the countdown began. */
         int startedWith;
         boolean playing;
+        /** Set for a countdown the host started alone on a team the game chose. */
+        OptionalInt soloTeam = OptionalInt.empty();
 
         Room(int id, UUID host, ModeSpec mode) {
             this.id = id;
@@ -403,6 +429,7 @@ public final class RoomBook {
                 pool.release(reserved.name());
                 reserved = null;
             }
+            soloTeam = OptionalInt.empty();
         }
 
         RoomView view() {

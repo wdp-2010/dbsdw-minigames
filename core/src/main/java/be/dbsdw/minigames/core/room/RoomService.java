@@ -194,6 +194,12 @@ public final class RoomService {
     /** The start button and {@code /room start}: starts, or cancels a running countdown. */
     public void start(Player host) {
         Optional<RoomView> room = book.roomOf(host.getUniqueId());
+        if (room.isPresent() && !room.get().counting() && !room.get().playing() && room.get().members().size() == 1
+                && room.get().host().equals(host.getUniqueId())
+                && hooks.startAlone(host, room.get().mode(), team -> startAlone(host, team))) {
+            log.info("[room] " + host.getName() + " pressed start alone; " + room.get().mode().key() + " takes over");
+            return;
+        }
         Outcome out = room.isPresent() && room.get().counting()
                 ? book.cancel(host.getUniqueId())
                 : book.start(host.getUniqueId());
@@ -205,6 +211,17 @@ public final class RoomService {
             if (!cancelled && RoomBook.shortHanded(room.get().members().size(), room.get().mode())) {
                 tellAll(room.get(), messages.get("room.short-warning"));
             }
+        }
+        refresh();
+    }
+
+    /** The game picked the host's team for a solo start (see {@link RoomHooks#startAlone}). */
+    private void startAlone(Player host, int team) {
+        Outcome out = book.start(host.getUniqueId(), java.util.OptionalInt.of(team));
+        if (out != Outcome.OK) {
+            error(host, out);
+        } else {
+            log.info("[room] " + host.getName() + " started alone on team " + team);
         }
         refresh();
     }

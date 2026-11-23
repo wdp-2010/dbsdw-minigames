@@ -195,6 +195,36 @@ class RoomBookTest {
     }
 
     @Test
+    void soloStartPutsHostOnTheGamesTeam() {
+        room();
+        book.pick(p.get(0), OptionalInt.of(0));
+        assertEquals(Outcome.NOT_ALLOWED, book.start(p.get(0), OptionalInt.of(2)));
+        assertEquals(Outcome.OK, book.start(p.get(0), OptionalInt.of(1)));
+        List<RoomEvent> events = ticks(RoomBook.COUNTDOWN_SECONDS * 20);
+        RoomEvent.Start start = (RoomEvent.Start) events.stream()
+                .filter(e -> e instanceof RoomEvent.Start).findFirst().orElseThrow();
+        assertEquals(List.of(List.of(), List.of(p.get(0))), start.teams());
+    }
+
+    @Test
+    void soloStartRefusedWithTwoMembers() {
+        room(1);
+        assertEquals(Outcome.NOT_ALLOWED, book.start(p.get(0), OptionalInt.of(0)));
+    }
+
+    @Test
+    void soloCountdownCancelledWhenSomeoneJoins() {
+        room();
+        assertEquals(Outcome.OK, book.start(p.get(0), OptionalInt.of(0)));
+        // If someone may join during the countdown, the solo start is off.
+        if (book.invite(p.get(0), p.get(1)) == Outcome.OK && book.join(p.get(1), p.get(0)) == Outcome.OK) {
+            List<RoomEvent> events = ticks(RoomBook.COUNTDOWN_SECONDS * 20);
+            assertTrue(events.stream().noneMatch(e -> e instanceof RoomEvent.Start));
+            assertTrue(events.stream().anyMatch(e -> e instanceof RoomEvent.CountdownCancelled));
+        }
+    }
+
+    @Test
     void startRefusedWhenATeamWouldBeEmpty() {
         room(1);
         book.pick(p.get(0), OptionalInt.of(0));

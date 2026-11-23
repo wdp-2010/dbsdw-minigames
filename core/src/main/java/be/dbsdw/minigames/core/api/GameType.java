@@ -3,6 +3,7 @@ package be.dbsdw.minigames.core.api;
 import java.util.List;
 import java.util.Optional;
 import java.util.function.Consumer;
+import java.util.function.IntConsumer;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.minimessage.tag.resolver.TagResolver;
 import org.bukkit.Material;
@@ -66,6 +67,16 @@ public interface GameType {
 
     /** A button in a game's modes menu: its icon, and what a click does (the menu is closed first). */
     record MenuEntry(ItemStack icon, Consumer<Player> onClick) {}
+
+    /**
+     * The host of a private room pressed start while alone in it. Return true when the game takes this
+     * over (e.g. opens a menu to pick a bot's difficulty); it then calls {@code startOnTeam} with the
+     * team the host plays on, which starts the room's countdown with only that team filled. Return false
+     * (the default) to start short-handed as usual.
+     */
+    default boolean startAlone(Player host, ModeSpec mode, IntConsumer startOnTeam) {
+        return false;
+    }
 
     /** A new handler for one match; called when the match starts. */
     MatchHandler newMatch(MatchContext context);

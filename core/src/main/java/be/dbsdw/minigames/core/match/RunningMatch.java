@@ -195,7 +195,7 @@ final class RunningMatch implements MatchContext {
             paused(outcome);
             return;
         }
-        for (UUID id : state.everyone()) {
+        for (UUID id : outcome.practice() ? List.<UUID>of() : state.everyone()) {
             OptionalInt team = state.teamOf(id);
             if (outcome.winner().isEmpty()) {
                 add(id, "draws", 1);
@@ -204,6 +204,9 @@ final class RunningMatch implements MatchContext {
             } else {
                 add(id, "losses", 1);
             }
+        }
+        if (outcome.practice()) {
+            deltas.clear();
         }
         saveStats();
         Component title = outcome.winner().isPresent()
@@ -233,7 +236,8 @@ final class RunningMatch implements MatchContext {
         }
         log.info("[match] " + mode.key() + " on " + arena.name() + " ended: "
                 + (outcome.winner().isPresent() ? "winner team " + outcome.winner().getAsInt() : "draw")
-                + (outcome.gaveUp().isPresent() ? " (team " + outcome.gaveUp().getAsInt() + " gave up)" : ""));
+                + (outcome.gaveUp().isPresent() ? " (team " + outcome.gaveUp().getAsInt() + " gave up)" : "")
+                + (outcome.practice() ? ", practice: nothing counted" : ""));
     }
 
     /** No result: only the game's own stats count, not even a played match. */

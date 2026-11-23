@@ -278,6 +278,20 @@ public final class MatchManager implements MenuModel, RoomHooks, Listener, Match
         return open(game.get(), mode, arena, world, online, roomId);
     }
 
+    @Override
+    public boolean startAlone(Player host, ModeSpec mode, java.util.function.IntConsumer startOnTeam) {
+        Optional<GameType> game = registry.game(mode.gameId());
+        if (game.isEmpty()) {
+            return false;
+        }
+        try {
+            return game.get().startAlone(host, mode, startOnTeam);
+        } catch (RuntimeException e) {
+            plugin.getLogger().log(java.util.logging.Level.WARNING, "[room] startAlone of " + game.get().id() + " failed", e);
+            return false;
+        }
+    }
+
     // MatchStarter
 
     @Override

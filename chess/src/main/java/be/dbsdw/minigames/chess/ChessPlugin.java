@@ -21,6 +21,7 @@ public final class ChessPlugin extends JavaPlugin {
     private static final long HOUR_TICKS = 20L * 60 * 60;
 
     private ExecutorService io;
+    private ChessGame game;
 
     @Override
     public void onEnable() {
@@ -54,7 +55,7 @@ public final class ChessPlugin extends JavaPlugin {
             return;
         }
         Messages messages = Messages.load(this);
-        ChessGame game = new ChessGame(this, settings, messages, store, starter);
+        game = new ChessGame(this, settings, messages, store, starter);
         registry.register(this, game);
         getServer().getPluginManager().registerEvents(new ChessListener(game), this);
         getServer().getScheduler().runTaskTimer(this, game::tick, 1, 1);
@@ -67,12 +68,19 @@ public final class ChessPlugin extends JavaPlugin {
         }, 20, HOUR_TICKS);
         ChessCommand command = new ChessCommand(game);
         getLifecycleManager().registerEventHandler(LifecycleEvents.COMMANDS, event ->
-                event.registrar().register("schaak", "Schaken: je onafgemaakte partijen", List.of("chess"), command));
+                {
+                    event.registrar().register("schaak", "Schaken: je onafgemaakte partijen", List.of("chess"), command);
+                    event.registrar().register("schaakbot", "Schaken tegen de computer", List.of("chessbot"),
+                            new BotCommand(game));
+                });
         getLogger().info("[chess] enabled: " + settings.modes().size() + " modes, " + store.size() + " saved games");
     }
 
     @Override
     public void onDisable() {
+        if (game != null) {
+            game.shutdown();
+        }
         if (io != null) {
             io.shutdown();
             try {
