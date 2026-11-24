@@ -112,14 +112,17 @@ def stand(north: bool):
     for x in range(xa + 1, xb):
         for k in (0, 1):
             c.set(x, STAND, z_front + k * step, "barrier")
-    # Posts at the corners and the middle, braced with stripped logs halfway up.
+    # Posts at the corners and the middle, braced with stripped logs halfway up. The front posts stand
+    # under the last plank row: the two barrier rows in front of it show nothing for a post to carry.
+    z_edge = z_front + 2 * step
+    pa, pb = min(z_edge, z_back), max(z_edge, z_back)
     for x in (xa, (xa + xb) // 2, xb):
-        for z in (za, zb):
+        for z in (pa, pb):
             c.box(x, G + 1, z, x, STAND - 1, z, "spruce_log[axis=y]")
-    for z in (za, zb):
+    for z in (pa, pb):
         c.box(xa, G + 7, z, xb, G + 7, z, "stripped_spruce_log[axis=x]")
     for x in (xa, xb):
-        c.box(x, G + 7, za, x, G + 7, zb, "stripped_spruce_log[axis=z]")
+        c.box(x, G + 7, pa, x, G + 7, pb, "stripped_spruce_log[axis=z]")
     # Railing all round (it is a long way down), lanterns on the front corners.
     for x in range(xa, xb + 1):
         c.set(x, STAND + 1, z_back, "spruce_fence")
