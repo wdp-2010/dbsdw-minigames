@@ -101,7 +101,9 @@ final class PaintBot {
             m.setInvulnerable(true);
             m.setGravity(false);
             m.setImmovable(true);
-            m.setCollidable(false);
+            // Stays collidable: a living entity that does not collide is not pickable, and
+            // paintballs (anyone's) then fly straight through it.
+            m.setCollidable(true);
             m.setSilent(true);
             m.customName(Component.text(name, team == 0 ? NamedTextColor.RED : NamedTextColor.BLUE));
             m.setCustomNameVisible(true);
