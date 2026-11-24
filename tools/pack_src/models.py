@@ -1,4 +1,4 @@
-"""3D models (gun, flag, splat plane), sprite models and every item definition.
+"""3D models (gun, flag, splat plane, paint drips), sprite models and every item definition.
 
 Run: python3 tools/pack_src/models.py <resourcepack dir>
 Item definitions follow the asset table in docs/superpowers/plans/2026-11-18-plan-6-resource-pack.md.
@@ -317,6 +317,28 @@ def splat_definition() -> dict:
     }}
 
 
+def drip_definition() -> dict:
+    """floats[0] is the part (0 = the stretched stripe, 1 = the drop at its end), floats[1] the fade
+    stage, as for the splat."""
+    def stage_dispatch(part: str) -> dict:
+        return {
+            "type": "minecraft:range_dispatch",
+            "property": "minecraft:custom_model_data",
+            "index": 1,
+            "entries": [{"threshold": s, "model": model_ref(f"dbsdw:item/drip_{part}_{s}", True)}
+                        for s in (1, 2, 3)],
+            "fallback": model_ref(f"dbsdw:item/drip_{part}_0", True),
+        }
+
+    return {"model": {
+        "type": "minecraft:range_dispatch",
+        "property": "minecraft:custom_model_data",
+        "index": 0,
+        "entries": [{"threshold": 1, "model": stage_dispatch("head")}],
+        "fallback": stage_dispatch("body"),
+    }}
+
+
 def main(out: Path) -> None:
     assets = out / "assets" / "dbsdw"
     models, items, tex = assets / "models" / "item", assets / "items", assets / "textures" / "item"
@@ -345,6 +367,13 @@ def main(out: Path) -> None:
                 "parent": "dbsdw:item/splat_base",
                 "textures": {"splat": f"dbsdw:item/splat_{shape}_{stage}"}})
     write_json(items / "splat.json", splat_definition())
+    # Paint drips: the same flat square as the splat, with their own sprites.
+    for part in ("body", "head"):
+        for stage in range(4):
+            write_json(models / f"drip_{part}_{stage}.json", {
+                "parent": "dbsdw:item/splat_base",
+                "textures": {"splat": f"dbsdw:item/drip_{part}_{stage}"}})
+    write_json(items / "drip.json", drip_definition())
 
     for name in SPRITES:
         write_json(models / f"{name}.json", {"parent": "minecraft:item/generated",

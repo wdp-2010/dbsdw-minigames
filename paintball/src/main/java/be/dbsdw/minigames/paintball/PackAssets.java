@@ -15,6 +15,8 @@ public final class PackAssets {
     public static final String GUN = "dbsdw:gun";
     public static final String PAINTBALL = "dbsdw:paintball";
     public static final String SPLAT = "dbsdw:splat";
+    /** Paint running down a wall under a splat: floats[0] part (0 stripe, 1 drop), floats[1] fade stage. */
+    public static final String DRIP = "dbsdw:drip";
     public static final String FLAG = "dbsdw:flag";
 
     /** Invisible helmet that shows the scope overlay (equippable camera_overlay). */

@@ -1,4 +1,4 @@
-"""Flat item sprites: paintball, splats, power-ups, lobby items and pack.png.
+"""Flat item sprites: paintball, splats, paint drips, power-ups, lobby items and pack.png.
 
 Run: python3 tools/pack_src/textures.py <resourcepack dir>
 Sprites that are tinted in game (paintball, splats) are drawn in greys: the client multiplies them
@@ -75,6 +75,38 @@ def splat(shape: int, stage: int) -> Canvas:
     c = Canvas(32)
     c.fill(full, GREY_BASE, a)
     c.fill(subtract(full, shift(full, -1, -1)), GREY_SHADE, a)
+    c.fill(shine, WHITE, a)
+    return c
+
+
+def drip_body(stage: int) -> Canvas:
+    """The run of paint under a wall splat: a straight stripe, top to bottom of the sprite. The
+    plugin stretches it lengthwise to the length of the run, so it has no detail along its length:
+    a lit left edge, a shaded right edge. The top rows thin out so it starts softly under the splat."""
+    a = FADE_ALPHA[stage]
+    c = Canvas(16)
+    for y in range(16):
+        alpha = a if y >= 2 else round(a * (0.45 + 0.25 * y))
+        c.fill(rect(mask((16, 16)), (5, y, 10, y)), GREY_BASE, alpha)
+        c.px(5, y, WHITE, alpha)
+        c.px(10, y, GREY_SHADE, alpha)
+    return c
+
+
+def drip_head_shape() -> tuple:
+    """A drop with its point up: a round bottom that narrows to the width of the stripe."""
+    drop = union(ellipse(mask((16, 16)), (3, 6, 12, 15)),
+                 polygon(mask((16, 16)), [(5, 0), (10, 0), (12, 10), (3, 10)]))
+    shine = intersect(ellipse(mask((16, 16)), (4.5, 8, 7.5, 11)), erode(drop, 1))
+    return drop, shine
+
+
+def drip_head(stage: int) -> Canvas:
+    drop, shine = drip_head_shape()
+    a = FADE_ALPHA[stage]
+    c = Canvas(16)
+    c.fill(drop, GREY_BASE, a)
+    c.fill(subtract(drop, shift(drop, -1, -1)), GREY_SHADE, a)
     c.fill(shine, WHITE, a)
     return c
 
@@ -327,6 +359,9 @@ def main(out: Path) -> None:
     for shape in range(3):
         for stage in range(4):
             splat(shape, stage).save(tex / f"splat_{shape}_{stage}.png")
+    for stage in range(4):
+        drip_body(stage).save(tex / f"drip_body_{stage}.png")
+        drip_head(stage).save(tex / f"drip_head_{stage}.png")
     for name in POWERUPS:
         powerup(name).save(tex / f"powerup_{name}.png")
     lobby_games().save(tex / "lobby_games.png")
