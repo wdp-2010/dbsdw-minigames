@@ -20,6 +20,20 @@ public final class Spread {
             return new double[] {dx, dy, dz};
         }
         double cosT = 1 - rng.nextDouble() * (1 - Math.cos(Math.toRadians(maxDegrees)));
+        return turn(dx, dy, dz, cosT, rng);
+    }
+
+    /** Returns a unit vector exactly {@code degrees} away from (x, y, z), in a random direction. */
+    public static double[] tilt(double x, double y, double z, double degrees, RandomGenerator rng) {
+        double len = Math.sqrt(x * x + y * y + z * z);
+        if (len == 0) {
+            throw new IllegalArgumentException("direction must not be zero");
+        }
+        return turn(x / len, y / len, z / len, Math.cos(Math.toRadians(degrees)), rng);
+    }
+
+    /** Turns the unit vector d by the angle whose cosine is {@code cosT}, around d at a random angle. */
+    private static double[] turn(double dx, double dy, double dz, double cosT, RandomGenerator rng) {
         double sinT = Math.sqrt(Math.max(0, 1 - cosT * cosT));
         double phi = 2 * Math.PI * rng.nextDouble();
         // Helper axis not parallel to the direction.

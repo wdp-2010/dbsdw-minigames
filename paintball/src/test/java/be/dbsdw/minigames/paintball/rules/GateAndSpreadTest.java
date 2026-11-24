@@ -65,4 +65,16 @@ class GateAndSpreadTest {
         assertEquals("0:02", Clock.format(21));
         assertEquals("0:00", Clock.format(-5));
     }
+
+    @Test
+    void tiltTurnsByExactlyTheAngle() {
+        SplittableRandom rng = new SplittableRandom(7);
+        for (int i = 0; i < 200; i++) {
+            double[] d = Spread.tilt(0.3, -0.2, 0.9, 2.5, rng);
+            double len = Math.sqrt(0.3 * 0.3 + 0.2 * 0.2 + 0.9 * 0.9);
+            double cos = (d[0] * 0.3 - d[1] * 0.2 + d[2] * 0.9) / len;
+            assertEquals(1.0, d[0] * d[0] + d[1] * d[1] + d[2] * d[2], 1e-9);
+            assertEquals(2.5, Math.toDegrees(Math.acos(Math.min(1, cos))), 1e-6);
+        }
+    }
 }

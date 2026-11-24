@@ -200,25 +200,29 @@ final class PaintBot {
             target = e.id();
             sawAt = now;
         }
+        double dx = e.feet()[0] - x;
+        double dz = e.feet()[2] - z;
+        double dist = Math.sqrt(dx * dx + dz * dz);
         Optional<BotAim.Solution> aim = BotAim.solve(muzzle(), e.chest(), e.velocity(), settings.speed(),
                 settings.ballGravity(), (int) settings.ballLifetimeTicks(), level.leads());
         if (aim.isPresent()) {
             BotAim.Solution s = aim.get();
             lookAt(s.x(), s.y(), s.z());
-            if (now - sawAt >= level.reactionTicks() && now >= nextShot) {
-                double[] d = Spread.apply(s.x(), s.y(), s.z(), level.aimErrorDegrees() + settings.spreadDegrees(), rnd);
-                orders.fire(this, d, now);
+            boolean inRange = dist <= level.fightRange() * 1.5;
+            if (inRange && now - sawAt >= level.reactionTicks() && now >= nextShot) {
+                orders.fire(this, shot(s), now);
                 body.swingMainHand();
                 nextShot = now + level.shotInterval(settings.shotIntervalTicks()) + rnd.nextInt(3);
             }
         } else {
             lookAt(e.chest()[0] - x, e.chest()[1] - (y + EYE), e.chest()[2] - z);
         }
-        // Move while fighting: strong bots step sideways, others close in on far enemies or stand.
-        double dx = e.feet()[0] - x;
-        double dz = e.feet()[2] - z;
-        double dist = Math.sqrt(dx * dx + dz * dz);
-        if (level.strafes()) {
+        // Close in until the enemy is in fight range (from far away nobody hits anything), then fight:
+        // strong bots step sideways, others stand.
+        if (dist > level.fightRange()) {
+            strafeTo = null;
+            nav.nearest(e.feet()[0], e.feet()[1], e.feet()[2]).ifPresent(c -> walkTowards(now, c));
+        } else if (level.strafes()) {
             Optional<Cell> here = nav.nearest(x, y, z);
             if ((strafeTo == null || now >= strafeUntil) && here.isPresent()) {
                 strafeTo = nav.randomNear(here.get(), 3, rnd).orElse(here.get());
@@ -228,9 +232,17 @@ final class PaintBot {
                 goal = strafeTo;
             }
             followPath();
-        } else if (dist > level.sightRange() * 0.6) {
-            nav.nearest(e.feet()[0], e.feet()[1], e.feet()[2]).ifPresent(c -> walkTowards(now, c));
         }
+    }
+
+    /**
+     * The direction a shot really goes: off the perfect aim by the bot's own error (mostly small, a
+     * folded normal capped at three times the level's typical error), then the gun's spread.
+     */
+    private double[] shot(BotAim.Solution s) {
+        double off = Math.min(3, Math.abs(rnd.nextGaussian())) * level.aimErrorDegrees();
+        double[] d = Spread.tilt(s.x(), s.y(), s.z(), off, rnd);
+        return Spread.apply(d[0], d[1], d[2], settings.spreadDegrees(), rnd);
     }
 
     /** The closest enemy in sight range with a clear line from the bot's eyes; checked every few ticks. */
