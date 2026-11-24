@@ -54,6 +54,20 @@ class RulesTest {
     }
 
     @Test
+    void crackingGrowsUntilTheBlockDrops() {
+        FloorDecay d = new FloorDecay(8);
+        d.touch(1, 100);
+        d.touch(2, 104);
+        List<FloorDecay.Crack> at104 = d.cracking(104);
+        assertEquals(2, at104.size());
+        assertEquals(0.5f, at104.get(0).progress(), 1e-6);
+        assertEquals(0.05f, at104.get(1).progress(), 1e-6, "a fresh step already shows a little crack");
+        d.due(108);
+        assertEquals(List.of(new FloorDecay.Crack(2, 0.5f)), d.cracking(108));
+        assertEquals(1f, new FloorDecay(0).cracking(0).stream().findFirst().map(FloorDecay.Crack::progress).orElse(1f), 1e-6);
+    }
+
+    @Test
     void lastTeamOnTheFloorWins() {
         UUID a = new UUID(0, 1);
         UUID b = new UUID(0, 2);

@@ -101,5 +101,71 @@
     "sounds": [
       "dbsdw:match/draw"
     ]
+  },
+  "match.time_warning": {
+    "sounds": [
+      "dbsdw:match/time_warning"
+    ]
+  },
+  "match.time_tick": {
+    "sounds": [
+      "dbsdw:match/time_tick"
+    ]
+  },
+  "valvloer.crack": {
+    "sounds": [
+      "dbsdw:valvloer/crack"
+    ]
+  },
+  "valvloer.drop": {
+    "sounds": [
+      "dbsdw:valvloer/drop"
+    ]
+  },
+  "valvloer.fall": {
+    "sounds": [
+      "dbsdw:valvloer/fall"
+    ]
+  },
+  "valvloer.go": {
+    "sounds": [
+      "dbsdw:valvloer/go"
+    ]
+  },
+  "verstoppertje.squeak": {
+    "sounds": [
+      "dbsdw:verstoppertje/squeak1",
+      "dbsdw:verstoppertje/squeak2"
+    ]
+  },
+  "verstoppertje.found": {
+    "sounds": [
+      "dbsdw:verstoppertje/found"
+    ]
+  },
+  "verstoppertje.release": {
+    "sounds": [
+      "dbsdw:verstoppertje/release"
+    ]
+  },
+  "verstoppertje.lock": {
+    "sounds": [
+      "dbsdw:verstoppertje/lock"
+    ]
+  },
+  "chess.move": {
+    "sounds": [
+      "dbsdw:chess/move"
+    ]
+  },
+  "chess.capture": {
+    "sounds": [
+      "dbsdw:chess/capture"
+    ]
+  },
+  "chess.check": {
+    "sounds": [
+      "dbsdw:chess/check"
+    ]
   }
 }

@@ -4,6 +4,8 @@ import be.dbsdw.minigames.core.Messages;
 import be.dbsdw.minigames.core.api.MatchContext;
 import be.dbsdw.minigames.core.api.MatchHandler;
 import be.dbsdw.minigames.core.api.MatchOutcome;
+import be.dbsdw.minigames.core.pack.PackItems;
+import be.dbsdw.minigames.verstoppertje.PackAssets;
 import be.dbsdw.minigames.verstoppertje.rules.BlockRules;
 import be.dbsdw.minigames.verstoppertje.rules.Phase;
 import be.dbsdw.minigames.verstoppertje.rules.Roles;
@@ -11,6 +13,7 @@ import be.dbsdw.minigames.verstoppertje.rules.Settings;
 import be.dbsdw.minigames.verstoppertje.rules.Stillness;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -18,6 +21,7 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.logging.Logger;
 import java.util.random.RandomGenerator;
+import net.kyori.adventure.bossbar.BossBar;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.minimessage.tag.resolver.Placeholder;
 import net.kyori.adventure.title.Title;
@@ -78,6 +82,12 @@ public final class VerstopMatch implements MatchHandler {
     /** Every block a player changed (or that may change with it), with what it was at the start. */
     private final Map<Block, BlockData> original = new LinkedHashMap<>();
     private boolean released;
+    /** No hider status in the action bar before this tick, so a shared line (the squeak) stays readable. */
+    private long quietUntil;
+    /** Hide countdown, then hiders left and time: the action bar stays free for each hider's own state. */
+    private final BossBar bar = BossBar.bossBar(Component.empty(), 1, BossBar.Color.YELLOW, BossBar.Overlay.PROGRESS);
+    /** Everyone who was shown the bar, so it is hidden from all of them at the end. */
+    private final Set<UUID> barViewers = new HashSet<>();
 
     public VerstopMatch(Plugin plugin, MatchContext ctx, Settings settings, List<Material> disguises, Messages messages,
                         Logger log, RandomGenerator rnd, Set<VerstopMatch> active) {
@@ -146,8 +156,11 @@ public final class VerstopMatch implements MatchHandler {
         if (phase == Phase.HIDE) {
             holdSeekers();
             if ((settings.hideTicks() - now) % 20 == 0) {
-                Component bar = messages.get("hide.bar", Placeholder.unparsed("seconds", String.valueOf((settings.hideTicks() - now) / 20)));
-                everyone().forEach(p -> p.sendActionBar(bar));
+                long secs = (settings.hideTicks() - now + 19) / 20;
+                bar.name(messages.get("hide.bar", Placeholder.unparsed("seconds", String.valueOf(secs))));
+                bar.color(BossBar.Color.YELLOW);
+                bar.progress(progress(settings.hideTicks() - now, settings.hideTicks()));
+                showBar();
             }
         } else if (!released) {
             release();
@@ -169,11 +182,49 @@ public final class VerstopMatch implements MatchHandler {
             return;
         }
         if (now % 10 == 0 && phase == Phase.SEEK) {
-            long left = (settings.hideTicks() + settings.seekTicks() - now) / 20;
-            Component bar = messages.get("hud.bar", Placeholder.unparsed("hiders", String.valueOf(hidden.size())),
-                    Placeholder.unparsed("time", String.format("%d:%02d", left / 60, left % 60)));
-            all.forEach(p -> p.sendActionBar(bar));
+            long ticksLeft = settings.hideTicks() + settings.seekTicks() - now;
+            long left = (ticksLeft + 19) / 20;
+            bar.name(messages.get("hud.bar", Placeholder.unparsed("hiders", String.valueOf(hidden.size())),
+                    Placeholder.unparsed("time", String.format("%d:%02d", left / 60, left % 60))));
+            bar.color(left <= 30 ? BossBar.Color.RED : BossBar.Color.GREEN);
+            bar.progress(progress(ticksLeft, settings.seekTicks()));
+            showBar();
         }
+        if (now % 40 == 20 && now >= quietUntil) {
+            // Each hider's own state, kept on screen: locked as a block, or still free to move.
+            Component free = messages.get("solid.free", Placeholder.unparsed("seconds",
+                    String.valueOf(Math.max(1, (settings.solidTicks() + 19) / 20))));
+            Component locked = messages.get("solid.locked");
+            for (Disguise d : hidden.values()) {
+                d.hider.sendActionBar(d.solid() ? locked : free);
+            }
+        }
+    }
+
+    private static float progress(long left, long total) {
+        return total <= 0 ? 0f : (float) Math.clamp((double) left / total, 0.0, 1.0);
+    }
+
+    /** Shows the bar to everyone in the match (again for players who joined the seekers). */
+    private void showBar() {
+        for (Player p : everyone()) {
+            if (barViewers.add(p.getUniqueId())) {
+                p.showBossBar(bar);
+            }
+        }
+    }
+
+    private void hideBar(Player p) {
+        if (barViewers.remove(p.getUniqueId())) {
+            p.hideBossBar(bar);
+        }
+    }
+
+    @Override
+    public long ticksLeft() {
+        long now = ctx.ticks();
+        return Phase.at(now, settings.hideTicks(), settings.seekTicks()) == Phase.SEEK
+                ? Math.max(0, settings.hideTicks() + settings.seekTicks() - now) : -1;
     }
 
     private void holdSeekers() {
@@ -194,7 +245,7 @@ public final class VerstopMatch implements MatchHandler {
         for (Player s : ctx.team(SEEKERS)) {
             seekerSetup(s);
             s.showTitle(Title.title(messages.get("seek.title"), messages.get("seek.subtitle")));
-            s.playSound(s, Sound.BLOCK_NOTE_BLOCK_BELL, 1f, 1.2f);
+            PackItems.play(s, PackAssets.SOUND_RELEASE, 1f, 1f);
         }
         for (Player h : ctx.team(HIDERS)) {
             h.showTitle(Title.title(messages.get("coming.title"), messages.get("coming.subtitle")));
@@ -223,7 +274,7 @@ public final class VerstopMatch implements MatchHandler {
         if (d.still.stillFor(now) >= settings.solidTicks() && Disguise.canSolidify(feet)) {
             d.solidify(feet, all);
             d.hider.sendActionBar(messages.get("solid.locked"));
-            d.hider.playSound(d.hider, Sound.BLOCK_WOOD_PLACE, 0.6f, 1.2f);
+            PackItems.play(d.hider, PackAssets.SOUND_LOCK, 0.7f, 1f);
         } else {
             d.follow();
         }
@@ -246,11 +297,12 @@ public final class VerstopMatch implements MatchHandler {
     private void hint() {
         for (Disguise d : hidden.values()) {
             Location at = d.hider.getLocation().add(0, 0.6, 0);
-            at.getWorld().playSound(at, Sound.ENTITY_CHICKEN_AMBIENT, 1.2f, 0.8f + rnd.nextFloat() * 0.6f);
+            PackItems.play(at, PackAssets.SOUND_SQUEAK, 1.2f, 0.85f + rnd.nextFloat() * 0.3f);
             at.getWorld().spawnParticle(Particle.NOTE, at.clone().add(0, 0.8, 0), 1);
         }
         Component line = messages.get("hint");
         everyone().forEach(p -> p.sendActionBar(line));
+        quietUntil = ctx.ticks() + 50;
     }
 
     // ------------------------------------------------------------------ hits
@@ -333,7 +385,7 @@ public final class VerstopMatch implements MatchHandler {
         seekerSetup(h);
         h.showTitle(Title.title(messages.get("found.title"), messages.get("found.subtitle",
                 Placeholder.unparsed("seeker", seeker.getName()))));
-        h.getWorld().playSound(h.getLocation(), Sound.ENTITY_ITEM_PICKUP, 1f, 0.6f);
+        PackItems.play(h.getLocation(), PackAssets.SOUND_FOUND, 1f, 1f);
         h.getWorld().spawnParticle(Particle.BLOCK, h.getLocation().add(0, 0.5, 0), 25, 0.3, 0.3, 0.3, 0, d.data());
         seeker.playSound(seeker, Sound.ENTITY_EXPERIENCE_ORB_PICKUP, 1f, 1.2f);
         Component line = messages.get("found.broadcast", Placeholder.unparsed("seeker", seeker.getName()),
@@ -527,6 +579,7 @@ public final class VerstopMatch implements MatchHandler {
     @Override
     public void playerLeft(Player player, int team) {
         waiting.remove(player.getUniqueId());
+        hideBar(player);
         unhide(player);
         // Whoever left still sees the other hiders' fake blocks until their chunks reload; clear those.
         hidden.values().forEach(d -> d.forget(player));
@@ -557,6 +610,13 @@ public final class VerstopMatch implements MatchHandler {
             }
         }
         waiting.clear();
+        for (UUID id : List.copyOf(barViewers)) {
+            Player p = Bukkit.getPlayer(id);
+            if (p != null) {
+                p.hideBossBar(bar);
+            }
+        }
+        barViewers.clear();
         restore();
     }
 

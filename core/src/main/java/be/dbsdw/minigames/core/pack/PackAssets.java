@@ -14,6 +14,10 @@ public final class PackAssets {
     public static final String SOUND_WIN = "dbsdw:match.win";
     public static final String SOUND_LOSE = "dbsdw:match.lose";
     public static final String SOUND_DRAW = "dbsdw:match.draw";
+    /** One minute left in a match. */
+    public static final String SOUND_TIME_WARNING = "dbsdw:match.time_warning";
+    /** Each of a match's last ten seconds. */
+    public static final String SOUND_TIME_TICK = "dbsdw:match.time_tick";
 
     private PackAssets() {
     }

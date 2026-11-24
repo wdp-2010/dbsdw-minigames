@@ -236,6 +236,107 @@ def match_draw() -> Signal:
     return arpeggio(["G4", "G4"], 0.25, 0.22, harmonics=SOFT_SQUARE, last=0.4)
 
 
+# ---------------------------------------------------------------- match clock
+
+def time_warning() -> Signal:
+    """One minute left: two bright bell calls."""
+    call = arpeggio(["C6", "G5"], 0.12, 0.16, last=0.3)
+    return mix((0, call), (0.42, call))
+
+
+def time_tick() -> Signal:
+    """A clock tick for each of the last ten seconds (the plugin raises the pitch as it counts down)."""
+    rng = random.Random(51)
+    return mix((0, tone(1800, 0.03, attack=0.0005, decay=0.02, harmonics=(1.0, 0.0, 0.3))),
+               (0, gain(tone(900, 0.06, attack=0.001, decay=0.05, harmonics=(1.0, 0.4)), 0.6)),
+               (0, gain(noise(rng, 0.015, lowpass=0.8, highpass=0.4, decay=0.01), 0.3)))
+
+
+# ---------------------------------------------------------------- valvloer
+
+def floor_crack() -> Signal:
+    """A plank starts to give: a short creak with a few splinter clicks."""
+    rng = random.Random(61)
+    creak = tone((240, 180), 0.16, attack=0.01, decay=0.14, harmonics=(1.0, 0.6, 0.4, 0.25), vibrato=0.04)
+    clicks = [(rng.uniform(0.0, 0.12), gain(noise(rng, 0.012, lowpass=0.7, highpass=0.3, decay=0.008), rng.uniform(0.3, 0.6)))
+              for _ in range(5)]
+    return mix((0, gain(creak, 0.5)), *clicks)
+
+
+def floor_drop() -> Signal:
+    """The plank breaks away: a wooden crunch dropping in pitch."""
+    rng = random.Random(62)
+    crunch = noise(rng, 0.22, lowpass=0.4, highpass=0.04, attack=0.002, decay=0.16, curve=4)
+    snap = tone((520, 160), 0.18, attack=0.001, decay=0.15, harmonics=(1.0, 0.5, 0.3))
+    return mix((0, crunch), (0, gain(snap, 0.55)), (0.03, gain(noise(rng, 0.03, lowpass=0.6, decay=0.02), 0.4)))
+
+
+def floor_fall() -> Signal:
+    """Falling through the floor: a whoosh down and a soft landing far below."""
+    rng = random.Random(63)
+    whoosh = noise(rng, 0.7, lowpass=0.12, attack=0.15, decay=0.5, curve=2.5)
+    wah = tone((700, 140), 0.7, attack=0.02, decay=0.65, harmonics=SOFT_SQUARE, curve=2.0, vibrato=0.02)
+    thump = tone((110, 45), 0.2, attack=0.002, decay=0.18, harmonics=(1.0, 0.4))
+    return mix((0, gain(whoosh, 0.7)), (0, gain(wah, 0.4)), (0.62, gain(thump, 0.9)))
+
+
+def floor_go() -> Signal:
+    """Grace is over: a quick rising call."""
+    return arpeggio(["G4", "C5", "E5", "G5"], 0.05, 0.1, harmonics=SOFT_SQUARE, last=0.35)
+
+
+# ---------------------------------------------------------------- verstoppertje
+
+def squeak(seed: int) -> Signal:
+    """A rubber-toy squeak, twice: the hint that gives hiders away."""
+    base = 950 + (seed % 2) * 180
+    one = lambda f: tone((f, f * 1.45), 0.11, attack=0.01, decay=0.1, harmonics=SOFT_SQUARE, curve=2.5, vibrato=0.05)
+    return mix((0, one(base)), (0.15, gain(one(base * 1.12), 0.85)))
+
+
+def found() -> Signal:
+    """A hider is caught: a pop and a cheeky little run up."""
+    rng = random.Random(71)
+    pop = noise(rng, 0.04, lowpass=0.6, highpass=0.1, decay=0.025, curve=6)
+    run = arpeggio(["E5", "G#5", "B5", "E6"], 0.055, 0.09, last=0.25)
+    return mix((0, gain(pop, 0.8)), (0.03, run))
+
+
+def release() -> Signal:
+    """The seekers are let loose: a referee-style double whistle."""
+    w = lambda: tone((1900, 2300), 0.18, attack=0.01, decay=0.17, harmonics=(1.0, 0.15), curve=1.5, vibrato=0.03)
+    return mix((0, gain(w(), 0.8)), (0.24, w()))
+
+
+def lock() -> Signal:
+    """A hider settles into a solid block: a low wooden clunk."""
+    rng = random.Random(72)
+    knock = tone((240, 170), 0.12, attack=0.001, decay=0.1, harmonics=(1.0, 0.5, 0.2))
+    return mix((0, knock), (0, gain(noise(rng, 0.02, lowpass=0.35, decay=0.015), 0.5)))
+
+
+# ---------------------------------------------------------------- chess
+
+def chess_move() -> Signal:
+    """A big wooden piece set down on its square."""
+    rng = random.Random(81)
+    knock = tone((380, 300), 0.14, attack=0.001, decay=0.12, harmonics=(1.0, 0.45, 0.2, 0.1))
+    return mix((0, knock), (0, gain(noise(rng, 0.02, lowpass=0.5, highpass=0.1, decay=0.012), 0.45)))
+
+
+def chess_capture() -> Signal:
+    """A piece knocked off the board, then the winner set down."""
+    rng = random.Random(82)
+    hit_ = mix((0, tone((300, 200), 0.16, attack=0.001, decay=0.14, harmonics=(1.0, 0.6, 0.3))),
+               (0, gain(noise(rng, 0.05, lowpass=0.45, decay=0.035), 0.6)))
+    return mix((0, hit_), (0.13, gain(chess_move(), 0.8)))
+
+
+def chess_check() -> Signal:
+    """Check: a clear two-note bell."""
+    return arpeggio(["A5", "E6"], 0.1, 0.16, last=0.45)
+
+
 # event -> list of (file name, generator)
 EVENTS: dict[str, list[tuple[str, callable]]] = {
     "paintball.shot": [("paintball/shot1", lambda: shot(1)), ("paintball/shot2", lambda: shot(2))],
@@ -258,6 +359,19 @@ EVENTS: dict[str, list[tuple[str, callable]]] = {
     "match.win": [("match/win", match_win)],
     "match.lose": [("match/lose", match_lose)],
     "match.draw": [("match/draw", match_draw)],
+    "match.time_warning": [("match/time_warning", time_warning)],
+    "match.time_tick": [("match/time_tick", time_tick)],
+    "valvloer.crack": [("valvloer/crack", floor_crack)],
+    "valvloer.drop": [("valvloer/drop", floor_drop)],
+    "valvloer.fall": [("valvloer/fall", floor_fall)],
+    "valvloer.go": [("valvloer/go", floor_go)],
+    "verstoppertje.squeak": [("verstoppertje/squeak1", lambda: squeak(1)), ("verstoppertje/squeak2", lambda: squeak(2))],
+    "verstoppertje.found": [("verstoppertje/found", found)],
+    "verstoppertje.release": [("verstoppertje/release", release)],
+    "verstoppertje.lock": [("verstoppertje/lock", lock)],
+    "chess.move": [("chess/move", chess_move)],
+    "chess.capture": [("chess/capture", chess_capture)],
+    "chess.check": [("chess/check", chess_check)],
 }
 
 

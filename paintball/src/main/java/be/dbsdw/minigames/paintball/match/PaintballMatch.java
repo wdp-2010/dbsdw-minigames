@@ -158,6 +158,11 @@ public final class PaintballMatch implements MatchHandler {
     }
 
     @Override
+    public long ticksLeft() {
+        return Math.max(0, rules.timeLimitTicks() - ctx.ticks());
+    }
+
+    @Override
     public void tick() {
         long now = ctx.ticks();
         if (now >= rules.timeLimitTicks()) {

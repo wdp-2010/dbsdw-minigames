@@ -13,6 +13,7 @@ import be.dbsdw.minigames.core.pack.PackItems;
 import be.dbsdw.minigames.core.stats.StatsStore;
 import be.dbsdw.minigames.core.voice.MatchVoice;
 import be.dbsdw.minigames.core.voice.VoiceRule;
+import java.time.Duration;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -53,6 +54,7 @@ final class RunningMatch implements MatchContext {
     private final VoiceRule voiceRule;
     /** Unique per match: the prefix of its voice group keys. */
     private final String voiceKey;
+    private final TimeWarning timeWarning = new TimeWarning();
 
     /**
      * {@code onRejoin} is told about a player taken back in by {@link #rejoin}. Players are put in
@@ -125,6 +127,9 @@ final class RunningMatch implements MatchContext {
             case RUNNING -> {
                 ticks++;
                 guarded(handler::tick);
+                if (state.phase() == MatchState.Phase.RUNNING) {
+                    guarded(() -> timeWarning.update(handler.ticksLeft()).ifPresent(this::timeWarning));
+                }
             }
             case ENDING -> {
                 if (state.tickEnding()) {
@@ -261,6 +266,32 @@ final class RunningMatch implements MatchContext {
                 + (outcome.winner().isPresent() ? "winner team " + outcome.winner().getAsInt() : "draw")
                 + (outcome.gaveUp().isPresent() ? " (team " + outcome.gaveUp().getAsInt() + " gave up)" : "")
                 + (outcome.practice() ? ", practice: nothing counted" : ""));
+    }
+
+    /** Tells everyone the time is nearly up: a line at one minute and at ten seconds, a tick each second, big numbers at the end. */
+    private void timeWarning(int seconds) {
+        Component line = seconds == TimeWarning.MINUTE ? text("match.time-minute")
+                : seconds == TimeWarning.COUNTDOWN ? text("match.time-ten") : null;
+        Title count = seconds <= 5 ? Title.title(Component.empty(),
+                text("match.time-count", Placeholder.unparsed("seconds", String.valueOf(seconds))),
+                Title.Times.times(Duration.ZERO, Duration.ofMillis(1100), Duration.ofMillis(200))) : null;
+        for (UUID id : state.everyone()) {
+            Player player = Bukkit.getPlayer(id);
+            if (player == null) {
+                continue;
+            }
+            if (line != null) {
+                player.sendMessage(line);
+            }
+            if (count != null) {
+                player.showTitle(count);
+            }
+            if (seconds == TimeWarning.MINUTE) {
+                PackItems.play(player, PackAssets.SOUND_TIME_WARNING, 0.9f, 1f);
+            } else {
+                PackItems.play(player, PackAssets.SOUND_TIME_TICK, 0.8f, 1f + (TimeWarning.COUNTDOWN - seconds) * 0.05f);
+            }
+        }
     }
 
     /** No result: only the game's own stats count, not even a played match. */

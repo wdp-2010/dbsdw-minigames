@@ -1,7 +1,7 @@
 # Verstoppertje player messages (MiniMessage format).
 # Raise "version" when texts change: servers with an older file get it backed up and replaced.
 # Colours: khaki #D9C78F (headings), field green #9CC05A (good news), amber #FFB52E (alerts, numbers).
-version: 4
+version: 5
 
 game:
   name: "<#D9C78F><bold>Verstoppertje"
@@ -24,6 +24,7 @@ item:
 hide:
   title: "<#9CC05A><bold>Verstop je!"
   subtitle: "<gray>Zoekers over <white><seconds></white>s"
+  # Boss bar during the hiding time.
   bar: "<gray>Zoekers over <white><seconds></white>s <dark_gray>·</dark_gray> <gray>sta stil = blok <dark_gray>·</dark_gray> <white>E</white> <gray>meer blokken"
 
 wait:
@@ -48,9 +49,12 @@ build:
 solid:
   locked: "<#9CC05A>Vast als blok"
   loose: "<#FFB52E>Los: je beweegt!"
+  # Repeated in a hider's action bar while they are not a solid block.
+  free: "<gray>Sta <white><seconds>s</white> stil om een vast blok te worden"
 
 hint: "<#FFB52E>Piep!</#FFB52E> <gray>De verstoppers piepten"
 
+# Boss bar while seeking (turns red in the last 30 seconds).
 hud:
   bar: "<#9CC05A>Verstoppers <white><bold><hiders></bold></white> <dark_gray>·</dark_gray> <gray>tijd <white><time>"
 

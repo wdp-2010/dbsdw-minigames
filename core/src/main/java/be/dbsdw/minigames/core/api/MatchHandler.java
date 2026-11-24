@@ -32,6 +32,15 @@ public interface MatchHandler {
         return false;
     }
 
+    /**
+     * Ticks until the match's time limit, or -1 while there is no running clock (no time limit, or a
+     * phase that does not count down). The core warns everyone at one minute left and counts down
+     * the last ten seconds. Called every tick, right after {@link #tick()}.
+     */
+    default long ticksLeft() {
+        return -1;
+    }
+
     /** Shared result lines when the core ends the match itself (last team standing). */
     default List<Component> resultLines() {
         return List.of();

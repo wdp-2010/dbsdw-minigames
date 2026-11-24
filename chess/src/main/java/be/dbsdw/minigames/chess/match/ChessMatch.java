@@ -1,5 +1,6 @@
 package be.dbsdw.minigames.chess.match;
 
+import be.dbsdw.minigames.chess.PackAssets;
 import be.dbsdw.minigames.chess.ChessGame;
 import be.dbsdw.minigames.chess.ChessSettings;
 import be.dbsdw.minigames.chess.bot.BotLevel;
@@ -461,13 +462,12 @@ public final class ChessMatch implements MatchHandler {
             ctx.addStat(moverPlayer, "captures", 1);
         }
         Location at = new Location(ctx.arena().world(), geo.centreX(m.to()), geo.topY(), geo.centreZ(m.to()));
-        at.getWorld().playSound(Sound.sound(Key.key(effect.capturedSquare() >= 0
-                ? "minecraft:entity.zombie.break_wooden_door" : "minecraft:block.wood.place"),
-                Sound.Source.PLAYER, effect.capturedSquare() >= 0 ? 0.5f : 1f, 1f), at.getX(), at.getY(), at.getZ());
+        at.getWorld().playSound(Sound.sound(Key.key(effect.capturedSquare() >= 0 ? PackAssets.SOUND_CAPTURE : PackAssets.SOUND_MOVE),
+                Sound.Source.PLAYER, 1f, 1f), at.getX(), at.getY(), at.getZ());
         if (after.inCheck() && !record.over()) {
             for (Player p : players()) {
                 p.sendActionBar(messages.get("check"));
-                sound(p, "minecraft:block.note_block.bell", 1f, 1.2f);
+                sound(p, PackAssets.SOUND_CHECK, 1f, 1f);
             }
         }
         save();

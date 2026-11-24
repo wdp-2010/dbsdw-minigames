@@ -1,7 +1,7 @@
 """Every message key the plugins ask for by literal name must exist in that module's messages.yml.
 
 A missing key shows its raw name in game (for example "hud.streak" as a subtitle). Keys built at
-runtime ("powerup." + type) are not checked. Run: python3 -m unittest discover -s tools
+runtime ("powerup." + type, "match.voice-" + rule) are not checked. Run: python3 -m unittest discover -s tools
 """
 
 from __future__ import annotations
@@ -32,7 +32,7 @@ def yaml_keys(path: Path) -> set[str]:
 
 class MessageKeysTest(unittest.TestCase):
     def test_literal_keys_exist(self):
-        for module in ("core", "paintball", "bridge"):
+        for module in ("core", "paintball", "bridge", "valvloer", "verstoppertje", "chess"):
             keys = yaml_keys(ROOT / module / "src/main/resources/messages.yml")
             for java in (ROOT / module / "src/main/java").rglob("*.java"):
                 text = java.read_text(encoding="utf-8")
@@ -40,7 +40,7 @@ class MessageKeysTest(unittest.TestCase):
                 for a, b in TERNARY.findall(text):
                     used |= {a, b}
                 used |= set(FLAG_EVENT.findall(text))
-                for key in sorted(k for k in used if not k.endswith(".")):
+                for key in sorted(k for k in used if not k.endswith((".", "-"))):
                     self.assertIn(key, keys, f"{java.relative_to(ROOT)} uses {key}, missing in {module}/messages.yml")
 
 
