@@ -8,9 +8,6 @@ package be.dbsdw.minigames.paintball.rules;
  * A run never gets longer than {@code max} blocks; a longer one dries up on the way.
  */
 public final class DripPath {
-    /** How slowly the paint runs: ticks per block (14 = a bit under 1.5 blocks a second). */
-    public static final int TICKS_PER_BLOCK = 14;
-
     /** What is at a level below the start block, looking at the wall and the block in front of it. */
     public enum Cell {
         /** The wall goes on with nothing in front: the paint runs past. */
@@ -49,10 +46,5 @@ public final class DripPath {
                 case WALL -> length += 1;
             }
         }
-    }
-
-    /** Ticks the paint takes to run {@code length} blocks: a steady trickle, at least a few ticks. */
-    public static int ticks(double length) {
-        return (int) Math.max(6, Math.round(length * TICKS_PER_BLOCK));
     }
 }

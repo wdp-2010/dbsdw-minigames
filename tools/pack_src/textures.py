@@ -79,34 +79,89 @@ def splat(shape: int, stage: int) -> Canvas:
     return c
 
 
-def drip_body(stage: int) -> Canvas:
-    """The run of paint under a wall splat: a straight stripe, top to bottom of the sprite. The
-    plugin stretches it lengthwise to the length of the run, so it has no detail along its length:
-    a lit left edge, a shaded right edge. The top rows thin out so it starts softly under the splat."""
+DRIP_VARIANTS = 3
+
+
+def drip_body_shape(variant: int) -> tuple:
+    """Mask of the trail a running drop leaves, top (at the splat) to bottom (at the drop).
+
+    Real paint runs are fed from the splat, so the trail is widest at the top and thins towards
+    the drop; it wanders a little with the wall's roughness and has a lump here and there where
+    the drop stalled. The plugin stretches it lengthwise to the length of the run.
+    """
+    rng = random.Random(2000 + variant)
+    size = 32
+    m = mask((size, size))
+    phase = rng.uniform(0, math.tau)
+    waves = rng.uniform(0.7, 1.3)
+    drift = rng.uniform(-1.0, 1.0)
+    lumps = [(rng.uniform(6, 26), rng.uniform(0.8, 1.4)) for _ in range(1 + variant % 2)]
+    for y in range(size):
+        t = y / (size - 1)
+        cx = 15.5 + 1.4 * math.sin(phase + t * math.tau * waves) * (0.3 + 0.7 * t) + drift * t
+        half = 4.6 - 2.2 * t
+        for ly, extra in lumps:
+            half += extra * math.exp(-((y - ly) / 1.6) ** 2)
+        for x in range(size):
+            if abs(x + 0.5 - cx) <= half:
+                m.putpixel((x, y), 255)
+    return m
+
+
+def drip_body(variant: int, stage: int) -> Canvas:
+    """The trail, lit on its left edge and shaded on its right; the first rows thin out so it
+    starts softly under the splat."""
     a = FADE_ALPHA[stage]
-    c = Canvas(16)
-    for y in range(16):
-        alpha = a if y >= 2 else round(a * (0.45 + 0.25 * y))
-        c.fill(rect(mask((16, 16)), (5, y, 10, y)), GREY_BASE, alpha)
-        c.px(5, y, WHITE, alpha)
-        c.px(10, y, GREY_SHADE, alpha)
+    m = drip_body_shape(variant)
+    c = Canvas(32)
+    c.fill(m, GREY_BASE, a)
+    c.fill(subtract(m, shift(m, -1, 0)), GREY_SHADE, a)
+    c.fill(subtract(m, shift(m, 1, 0)), WHITE, a)
+    for y in range(3):
+        for x in range(32):
+            if m.getpixel((x, y)):
+                r, g, b, _ = c.img.getpixel((x, y))
+                c.img.putpixel((x, y), (r, g, b, round(a * (0.35 + 0.22 * y))))
     return c
 
 
-def drip_head_shape() -> tuple:
-    """A drop with its point up: a round bottom that narrows to the width of the stripe."""
-    drop = union(ellipse(mask((16, 16)), (3, 6, 12, 15)),
-                 polygon(mask((16, 16)), [(5, 0), (10, 0), (12, 10), (3, 10)]))
-    shine = intersect(ellipse(mask((16, 16)), (4.5, 8, 7.5, 11)), erode(drop, 1))
-    return drop, shine
+def drip_head_shape(variant: int) -> tuple:
+    """The drop at the end of a run, point up: a thin neck from the trail that swells into a heavy,
+    slightly lopsided bulb (gravity pulls the paint into the bottom), with a highlight."""
+    rng = random.Random(3000 + variant)
+    size = 32
+    bw = rng.uniform(5.6, 6.8)          # half width of the bulb
+    bh = rng.uniform(6.2, 7.4)          # half height of the bulb
+    lean = rng.uniform(-1.0, 1.0)
+    cx, cy = 15.5 + lean, 31 - bh - 0.5
+    m = mask((size, size))
+    for y in range(size):
+        for x in range(size):
+            dx, dy = (x + 0.5 - cx) / bw, (y + 0.5 - cy) / bh
+            # a bulb a little flatter on top than at the bottom
+            if dy < 0:
+                dx *= 1 + 0.25 * -dy
+            if dx * dx + dy * dy <= 1:
+                m.putpixel((x, y), 255)
+    neck_bottom = cy - bh * 0.4
+    for y in range(0, int(neck_bottom) + 1):
+        t = y / max(1.0, neck_bottom)
+        ncx = 15.5 + lean * t
+        half = 2.4 + (bw * 0.75 - 2.4) * t ** 2.2
+        for x in range(size):
+            if abs(x + 0.5 - ncx) <= half:
+                m.putpixel((x, y), 255)
+    shine = intersect(ellipse(mask((size, size)), (cx - bw * 0.62, cy - bh * 0.55, cx - bw * 0.12, cy - bh * 0.05)),
+                      erode(m, 2))
+    return m, shine
 
 
-def drip_head(stage: int) -> Canvas:
-    drop, shine = drip_head_shape()
+def drip_head(variant: int, stage: int) -> Canvas:
+    m, shine = drip_head_shape(variant)
     a = FADE_ALPHA[stage]
-    c = Canvas(16)
-    c.fill(drop, GREY_BASE, a)
-    c.fill(subtract(drop, shift(drop, -1, -1)), GREY_SHADE, a)
+    c = Canvas(32)
+    c.fill(m, GREY_BASE, a)
+    c.fill(subtract(m, shift(m, -1, -1)), GREY_SHADE, a)
     c.fill(shine, WHITE, a)
     return c
 
@@ -359,9 +414,10 @@ def main(out: Path) -> None:
     for shape in range(3):
         for stage in range(4):
             splat(shape, stage).save(tex / f"splat_{shape}_{stage}.png")
-    for stage in range(4):
-        drip_body(stage).save(tex / f"drip_body_{stage}.png")
-        drip_head(stage).save(tex / f"drip_head_{stage}.png")
+    for variant in range(DRIP_VARIANTS):
+        for stage in range(4):
+            drip_body(variant, stage).save(tex / f"drip_body_{variant}_{stage}.png")
+            drip_head(variant, stage).save(tex / f"drip_head_{variant}_{stage}.png")
     for name in POWERUPS:
         powerup(name).save(tex / f"powerup_{name}.png")
     lobby_games().save(tex / "lobby_games.png")

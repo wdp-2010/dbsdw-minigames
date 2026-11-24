@@ -52,13 +52,6 @@ class DripPathTest {
     }
 
     @Test
-    void ticksGrowWithLengthAndNeverDropBelowAFewTicks() {
-        assertEquals(6, DripPath.ticks(0.1));
-        assertEquals(28, DripPath.ticks(2));
-        assertTrue(DripPath.ticks(4) > DripPath.ticks(3));
-    }
-
-    @Test
     void puddleHoldsThenFadesThroughThreeStagesAndGoes() {
         assertEquals(0, PuddleFade.stage(0));
         assertEquals(0, PuddleFade.stage(PuddleFade.HOLD - 1));

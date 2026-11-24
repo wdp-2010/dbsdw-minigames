@@ -1,0 +1,6 @@
+{
+  "parent": "dbsdw:item/splat_base",
+  "textures": {
+    "splat": "dbsdw:item/drip_body_2_2"
+  }
+}

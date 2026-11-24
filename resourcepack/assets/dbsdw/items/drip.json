@@ -9,61 +9,194 @@
         "model": {
           "type": "minecraft:range_dispatch",
           "property": "minecraft:custom_model_data",
-          "index": 1,
+          "index": 2,
           "entries": [
             {
               "threshold": 1,
               "model": {
-                "type": "minecraft:model",
-                "model": "dbsdw:item/drip_head_1",
-                "tints": [
+                "type": "minecraft:range_dispatch",
+                "property": "minecraft:custom_model_data",
+                "index": 1,
+                "entries": [
                   {
-                    "type": "minecraft:custom_model_data",
-                    "index": 0,
-                    "default": -1
+                    "threshold": 1,
+                    "model": {
+                      "type": "minecraft:model",
+                      "model": "dbsdw:item/drip_head_1_1",
+                      "tints": [
+                        {
+                          "type": "minecraft:custom_model_data",
+                          "index": 0,
+                          "default": -1
+                        }
+                      ]
+                    }
+                  },
+                  {
+                    "threshold": 2,
+                    "model": {
+                      "type": "minecraft:model",
+                      "model": "dbsdw:item/drip_head_1_2",
+                      "tints": [
+                        {
+                          "type": "minecraft:custom_model_data",
+                          "index": 0,
+                          "default": -1
+                        }
+                      ]
+                    }
+                  },
+                  {
+                    "threshold": 3,
+                    "model": {
+                      "type": "minecraft:model",
+                      "model": "dbsdw:item/drip_head_1_3",
+                      "tints": [
+                        {
+                          "type": "minecraft:custom_model_data",
+                          "index": 0,
+                          "default": -1
+                        }
+                      ]
+                    }
                   }
-                ]
+                ],
+                "fallback": {
+                  "type": "minecraft:model",
+                  "model": "dbsdw:item/drip_head_1_0",
+                  "tints": [
+                    {
+                      "type": "minecraft:custom_model_data",
+                      "index": 0,
+                      "default": -1
+                    }
+                  ]
+                }
               }
             },
             {
               "threshold": 2,
               "model": {
-                "type": "minecraft:model",
-                "model": "dbsdw:item/drip_head_2",
-                "tints": [
+                "type": "minecraft:range_dispatch",
+                "property": "minecraft:custom_model_data",
+                "index": 1,
+                "entries": [
                   {
-                    "type": "minecraft:custom_model_data",
-                    "index": 0,
-                    "default": -1
-                  }
-                ]
-              }
-            },
-            {
-              "threshold": 3,
-              "model": {
-                "type": "minecraft:model",
-                "model": "dbsdw:item/drip_head_3",
-                "tints": [
+                    "threshold": 1,
+                    "model": {
+                      "type": "minecraft:model",
+                      "model": "dbsdw:item/drip_head_2_1",
+                      "tints": [
+                        {
+                          "type": "minecraft:custom_model_data",
+                          "index": 0,
+                          "default": -1
+                        }
+                      ]
+                    }
+                  },
                   {
-                    "type": "minecraft:custom_model_data",
-                    "index": 0,
-                    "default": -1
+                    "threshold": 2,
+                    "model": {
+                      "type": "minecraft:model",
+                      "model": "dbsdw:item/drip_head_2_2",
+                      "tints": [
+                        {
+                          "type": "minecraft:custom_model_data",
+                          "index": 0,
+                          "default": -1
+                        }
+                      ]
+                    }
+                  },
+                  {
+                    "threshold": 3,
+                    "model": {
+                      "type": "minecraft:model",
+                      "model": "dbsdw:item/drip_head_2_3",
+                      "tints": [
+                        {
+                          "type": "minecraft:custom_model_data",
+                          "index": 0,
+                          "default": -1
+                        }
+                      ]
+                    }
                   }
-                ]
+                ],
+                "fallback": {
+                  "type": "minecraft:model",
+                  "model": "dbsdw:item/drip_head_2_0",
+                  "tints": [
+                    {
+                      "type": "minecraft:custom_model_data",
+                      "index": 0,
+                      "default": -1
+                    }
+                  ]
+                }
               }
             }
           ],
           "fallback": {
-            "type": "minecraft:model",
-            "model": "dbsdw:item/drip_head_0",
-            "tints": [
+            "type": "minecraft:range_dispatch",
+            "property": "minecraft:custom_model_data",
+            "index": 1,
+            "entries": [
               {
-                "type": "minecraft:custom_model_data",
-                "index": 0,
-                "default": -1
+                "threshold": 1,
+                "model": {
+                  "type": "minecraft:model",
+                  "model": "dbsdw:item/drip_head_0_1",
+                  "tints": [
+                    {
+                      "type": "minecraft:custom_model_data",
+                      "index": 0,
+                      "default": -1
+                    }
+                  ]
+                }
+              },
+              {
+                "threshold": 2,
+                "model": {
+                  "type": "minecraft:model",
+                  "model": "dbsdw:item/drip_head_0_2",
+                  "tints": [
+                    {
+                      "type": "minecraft:custom_model_data",
+                      "index": 0,
+                      "default": -1
+                    }
+                  ]
+                }
+              },
+              {
+                "threshold": 3,
+                "model": {
+                  "type": "minecraft:model",
+                  "model": "dbsdw:item/drip_head_0_3",
+                  "tints": [
+                    {
+                      "type": "minecraft:custom_model_data",
+                      "index": 0,
+                      "default": -1
+                    }
+                  ]
+                }
               }
-            ]
+            ],
+            "fallback": {
+              "type": "minecraft:model",
+              "model": "dbsdw:item/drip_head_0_0",
+              "tints": [
+                {
+                  "type": "minecraft:custom_model_data",
+                  "index": 0,
+                  "default": -1
+                }
+              ]
+            }
           }
         }
       }
@@ -71,61 +204,194 @@
     "fallback": {
       "type": "minecraft:range_dispatch",
       "property": "minecraft:custom_model_data",
-      "index": 1,
+      "index": 2,
       "entries": [
         {
           "threshold": 1,
           "model": {
-            "type": "minecraft:model",
-            "model": "dbsdw:item/drip_body_1",
-            "tints": [
+            "type": "minecraft:range_dispatch",
+            "property": "minecraft:custom_model_data",
+            "index": 1,
+            "entries": [
               {
-                "type": "minecraft:custom_model_data",
-                "index": 0,
-                "default": -1
+                "threshold": 1,
+                "model": {
+                  "type": "minecraft:model",
+                  "model": "dbsdw:item/drip_body_1_1",
+                  "tints": [
+                    {
+                      "type": "minecraft:custom_model_data",
+                      "index": 0,
+                      "default": -1
+                    }
+                  ]
+                }
+              },
+              {
+                "threshold": 2,
+                "model": {
+                  "type": "minecraft:model",
+                  "model": "dbsdw:item/drip_body_1_2",
+                  "tints": [
+                    {
+                      "type": "minecraft:custom_model_data",
+                      "index": 0,
+                      "default": -1
+                    }
+                  ]
+                }
+              },
+              {
+                "threshold": 3,
+                "model": {
+                  "type": "minecraft:model",
+                  "model": "dbsdw:item/drip_body_1_3",
+                  "tints": [
+                    {
+                      "type": "minecraft:custom_model_data",
+                      "index": 0,
+                      "default": -1
+                    }
+                  ]
+                }
               }
-            ]
+            ],
+            "fallback": {
+              "type": "minecraft:model",
+              "model": "dbsdw:item/drip_body_1_0",
+              "tints": [
+                {
+                  "type": "minecraft:custom_model_data",
+                  "index": 0,
+                  "default": -1
+                }
+              ]
+            }
           }
         },
         {
           "threshold": 2,
           "model": {
-            "type": "minecraft:model",
-            "model": "dbsdw:item/drip_body_2",
-            "tints": [
+            "type": "minecraft:range_dispatch",
+            "property": "minecraft:custom_model_data",
+            "index": 1,
+            "entries": [
               {
-                "type": "minecraft:custom_model_data",
-                "index": 0,
-                "default": -1
-              }
-            ]
-          }
-        },
-        {
-          "threshold": 3,
-          "model": {
-            "type": "minecraft:model",
-            "model": "dbsdw:item/drip_body_3",
-            "tints": [
+                "threshold": 1,
+                "model": {
+                  "type": "minecraft:model",
+                  "model": "dbsdw:item/drip_body_2_1",
+                  "tints": [
+                    {
+                      "type": "minecraft:custom_model_data",
+                      "index": 0,
+                      "default": -1
+                    }
+                  ]
+                }
+              },
               {
-                "type": "minecraft:custom_model_data",
-                "index": 0,
-                "default": -1
+                "threshold": 2,
+                "model": {
+                  "type": "minecraft:model",
+                  "model": "dbsdw:item/drip_body_2_2",
+                  "tints": [
+                    {
+                      "type": "minecraft:custom_model_data",
+                      "index": 0,
+                      "default": -1
+                    }
+                  ]
+                }
+              },
+              {
+                "threshold": 3,
+                "model": {
+                  "type": "minecraft:model",
+                  "model": "dbsdw:item/drip_body_2_3",
+                  "tints": [
+                    {
+                      "type": "minecraft:custom_model_data",
+                      "index": 0,
+                      "default": -1
+                    }
+                  ]
+                }
               }
-            ]
+            ],
+            "fallback": {
+              "type": "minecraft:model",
+              "model": "dbsdw:item/drip_body_2_0",
+              "tints": [
+                {
+                  "type": "minecraft:custom_model_data",
+                  "index": 0,
+                  "default": -1
+                }
+              ]
+            }
           }
         }
       ],
       "fallback": {
-        "type": "minecraft:model",
-        "model": "dbsdw:item/drip_body_0",
-        "tints": [
+        "type": "minecraft:range_dispatch",
+        "property": "minecraft:custom_model_data",
+        "index": 1,
+        "entries": [
           {
-            "type": "minecraft:custom_model_data",
-            "index": 0,
-            "default": -1
+            "threshold": 1,
+            "model": {
+              "type": "minecraft:model",
+              "model": "dbsdw:item/drip_body_0_1",
+              "tints": [
+                {
+                  "type": "minecraft:custom_model_data",
+                  "index": 0,
+                  "default": -1
+                }
+              ]
+            }
+          },
+          {
+            "threshold": 2,
+            "model": {
+              "type": "minecraft:model",
+              "model": "dbsdw:item/drip_body_0_2",
+              "tints": [
+                {
+                  "type": "minecraft:custom_model_data",
+                  "index": 0,
+                  "default": -1
+                }
+              ]
+            }
+          },
+          {
+            "threshold": 3,
+            "model": {
+              "type": "minecraft:model",
+              "model": "dbsdw:item/drip_body_0_3",
+              "tints": [
+                {
+                  "type": "minecraft:custom_model_data",
+                  "index": 0,
+                  "default": -1
+                }
+              ]
+            }
           }
-        ]
+        ],
+        "fallback": {
+          "type": "minecraft:model",
+          "model": "dbsdw:item/drip_body_0_0",
+          "tints": [
+            {
+              "type": "minecraft:custom_model_data",
+              "index": 0,
+              "default": -1
+            }
+          ]
+        }
       }
     }
   }

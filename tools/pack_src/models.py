@@ -317,25 +317,37 @@ def splat_definition() -> dict:
     }}
 
 
+DRIP_VARIANTS = 3
+
+
 def drip_definition() -> dict:
-    """floats[0] is the part (0 = the stretched stripe, 1 = the drop at its end), floats[1] the fade
-    stage, as for the splat."""
-    def stage_dispatch(part: str) -> dict:
+    """floats[0] is the part (0 = the stretched trail, 1 = the drop at its end), floats[1] the fade
+    stage (as for the splat) and floats[2] the variant (0..2)."""
+    def stage_dispatch(part: str, variant: int) -> dict:
         return {
             "type": "minecraft:range_dispatch",
             "property": "minecraft:custom_model_data",
             "index": 1,
-            "entries": [{"threshold": s, "model": model_ref(f"dbsdw:item/drip_{part}_{s}", True)}
+            "entries": [{"threshold": s, "model": model_ref(f"dbsdw:item/drip_{part}_{variant}_{s}", True)}
                         for s in (1, 2, 3)],
-            "fallback": model_ref(f"dbsdw:item/drip_{part}_0", True),
+            "fallback": model_ref(f"dbsdw:item/drip_{part}_{variant}_0", True),
+        }
+
+    def variant_dispatch(part: str) -> dict:
+        return {
+            "type": "minecraft:range_dispatch",
+            "property": "minecraft:custom_model_data",
+            "index": 2,
+            "entries": [{"threshold": v, "model": stage_dispatch(part, v)} for v in range(1, DRIP_VARIANTS)],
+            "fallback": stage_dispatch(part, 0),
         }
 
     return {"model": {
         "type": "minecraft:range_dispatch",
         "property": "minecraft:custom_model_data",
         "index": 0,
-        "entries": [{"threshold": 1, "model": stage_dispatch("head")}],
-        "fallback": stage_dispatch("body"),
+        "entries": [{"threshold": 1, "model": variant_dispatch("head")}],
+        "fallback": variant_dispatch("body"),
     }}
 
 
@@ -369,10 +381,11 @@ def main(out: Path) -> None:
     write_json(items / "splat.json", splat_definition())
     # Paint drips: the same flat square as the splat, with their own sprites.
     for part in ("body", "head"):
-        for stage in range(4):
-            write_json(models / f"drip_{part}_{stage}.json", {
-                "parent": "dbsdw:item/splat_base",
-                "textures": {"splat": f"dbsdw:item/drip_{part}_{stage}"}})
+        for variant in range(DRIP_VARIANTS):
+            for stage in range(4):
+                name = f"drip_{part}_{variant}_{stage}"
+                write_json(models / f"{name}.json", {
+                    "parent": "dbsdw:item/splat_base", "textures": {"splat": f"dbsdw:item/{name}"}})
     write_json(items / "drip.json", drip_definition())
 
     for name in SPRITES:

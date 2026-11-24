@@ -2,14 +2,17 @@ package be.dbsdw.minigames.paintball.match;
 
 import be.dbsdw.minigames.core.pack.PackItems;
 import be.dbsdw.minigames.paintball.PackAssets;
+import be.dbsdw.minigames.paintball.rules.DripMotion;
 import be.dbsdw.minigames.paintball.rules.DripPath;
 import be.dbsdw.minigames.paintball.rules.PuddleFade;
 import be.dbsdw.minigames.paintball.rules.SplatFade;
 import be.dbsdw.minigames.paintball.rules.SplatPlacement;
 import be.dbsdw.minigames.paintball.rules.SplatQueue;
 import java.util.ArrayDeque;
+import java.util.ArrayList;
 import java.util.Deque;
 import java.util.Iterator;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ThreadLocalRandom;
 import org.bukkit.Color;
@@ -34,53 +37,76 @@ import org.joml.Vector3f;
 /**
  * Paint splats: flat decals from the resource pack where a paintball hit, in the shooter's
  * colour, in one of three shapes; placed by {@link SplatPlacement} so they never hang over an edge. They fade out in steps near the end of their lifetime.
- * Paint on a wall runs down it ({@link DripPath}) to the floor, where it forms a puddle that soaks
- * away after a few seconds ({@link PuddleFade}). The world itself never changes.
+ * Paint on a wall runs down it ({@link DripPath}, moving as {@link DripMotion}) to the floor, where it
+ * pools against the foot of the wall and soaks away after a few seconds ({@link PuddleFade}); the
+ * splat it came from shrinks a little as it drains. The world itself never changes.
  */
 final class Splats {
     private static final int SHAPES = 3;
     /** Longest run of paint down a wall, in blocks; a higher hit dries up on the way down. */
     private static final double MAX_DRIP = 8;
+    /** Trail and drop sprites come in this many shapes. */
+    private static final int DRIP_VARIANTS = 3;
+    /** Half the widest part of the trail and drop sprites, as a share of their size (8.5 of 32 px). */
+    private static final double DRIP_HALF_WIDTH = 8.5 / 32;
+    /** At most this tilt off straight down (radians), as a wall is never perfectly smooth. */
+    private static final double MAX_TILT = 0.05;
+    /** Chance of a second, short run next to the first that dries up on the wall. */
+    private static final double SECOND_DRIP = 0.4;
+    /** How far a splat shrinks as paint drains out of it, and how fast (ticks). */
+    private static final float DRAINED = 0.84f;
+    private static final int DRAIN_TICKS = 40;
     /** Ticks between spawning a display and starting its movement, so the client has it first. */
     private static final int START_DELAY = 2;
     private static final Quaternionf NO_TURN = new Quaternionf();
 
     /**
-     * Paint running down the wall under a splat: a stripe that grows downwards with a drop at its
-     * end. Both move by display interpolation, so the client animates them smoothly on its own.
+     * Paint running down the wall under a splat: a trail that grows downwards with a drop at its
+     * end. Every {@link DripMotion#STEP} ticks both get the next frame and the client glides there.
      */
     private static final class Drip {
         final ItemDisplay body;
         ItemDisplay head;
-        final Transformation bodyEnd;
-        final Transformation headEnd;
-        final int ticks;
+        final Quaternionf turn;
+        /** Straight down the wall, tilted a little. */
+        final Vector3f dir;
+        final float scale;
+        final int variant;
+        final List<DripMotion.Frame> frames;
         final long startAt;
         /** The floor block the paint lands on, or null when it dries up on the wall. */
         final Block floor;
+        /** The wall's face the paint runs down (the puddle pools against it). */
+        final BlockFace face;
         /** World x and z where the run ends. */
         final double footX;
         final double footZ;
-        boolean started;
         boolean ended;
 
-        Drip(ItemDisplay body, ItemDisplay head, Transformation bodyEnd, Transformation headEnd, int ticks,
-             long startAt, Block floor, double footX, double footZ) {
+        Drip(ItemDisplay body, ItemDisplay head, Quaternionf turn, Vector3f dir, float scale, int variant,
+             List<DripMotion.Frame> frames, long startAt, Block floor, BlockFace face, double footX, double footZ) {
             this.body = body;
             this.head = head;
-            this.bodyEnd = bodyEnd;
-            this.headEnd = headEnd;
-            this.ticks = ticks;
+            this.turn = turn;
+            this.dir = dir;
+            this.scale = scale;
+            this.variant = variant;
+            this.frames = frames;
             this.startAt = startAt;
             this.floor = floor;
+            this.face = face;
             this.footX = footX;
             this.footZ = footZ;
         }
 
+        long endsAt() {
+            return startAt + (long) frames.size() * DripMotion.STEP;
+        }
+
         void restyle(int team, int stage) {
-            body.setItemStack(dripItem(team, 0, stage));
+            body.setItemStack(dripItem(team, 0, stage, variant));
             if (head != null) {
-                head.setItemStack(dripItem(team, 1, stage));
+                head.setItemStack(dripItem(team, 1, stage, variant));
             }
         }
 
@@ -117,22 +143,23 @@ final class Splats {
     /** One splat on the map; {@code stage} is the fade stage it currently shows. */
     private static final class Splat {
         final ItemDisplay display;
+        final Matrix4f shape;
         final int team;
-        final int shape;
+        final int look;
         int stage;
-        Drip drip;
+        List<Drip> drips = List.of();
+        boolean draining;
 
-        Splat(ItemDisplay display, int team, int shape) {
+        Splat(ItemDisplay display, Matrix4f shape, int team, int look) {
             this.display = display;
-            this.team = team;
             this.shape = shape;
+            this.team = team;
+            this.look = look;
         }
 
         void remove() {
             display.remove();
-            if (drip != null) {
-                drip.remove();
-            }
+            drips.forEach(Drip::remove);
         }
     }
 
@@ -213,27 +240,41 @@ final class Splats {
             d.setTransformationMatrix(m);
             d.setViewRange(0.6f);
         });
-        Splat splat = new Splat(display, team, shape);
+        Splat splat = new Splat(display, m, team, shape);
         if (full && face.getModY() == 0 && puddleCap > 0) {
-            splat.drip = drip(block, face, axis, ua, origin, plane, c, h, team, now);
+            // one run that goes as far as the wall lets it, sometimes a short one next to it
+            List<Drip> drips = new ArrayList<>(2);
+            Drip main = drip(block, face, axis, ua, origin, plane, c, h, team, now, MAX_DRIP, true);
+            if (main != null) {
+                drips.add(main);
+            }
+            if (rnd.nextDouble() < SECOND_DRIP) {
+                Drip second = drip(block, face, axis, ua, origin, plane, c, h * 0.75, team, now,
+                        0.3 + rnd.nextDouble() * 0.9, false);
+                if (second != null) {
+                    drips.add(second);
+                }
+            }
+            splat.drips = drips;
         }
         queue.add(splat, now).forEach(Splat::remove);
         PackItems.play(at, PackAssets.SOUND_SPLAT, 0.5f, 0.9f + rnd.nextFloat() * 0.2f);
     }
 
     /**
-     * Paint running down the wall from just under the centre of a splat at {@code c} (face
-     * coordinates of the hit {@code block}), or null when there is no wall under it to run down.
+     * Paint running down the wall from under the splat at {@code c} (face coordinates of the hit
+     * {@code block}), at most {@code max} blocks, or null when there is no wall under it to run
+     * down. When {@code mayLand} is false the run always dries up on the wall.
      */
     private Drip drip(Block block, BlockFace face, int axis, int ua, double[] origin, double plane, double[] c,
-                      double h, int team, long now) {
+                      double h, int team, long now, double max, boolean mayLand) {
         ThreadLocalRandom rnd = ThreadLocalRandom.current();
-        float scale = (float) (h * 0.8);
-        double half = scale * 3 / 16; // the stripe is 6 of the sprite's 16 pixels wide
-        double su = c[0] + (rnd.nextDouble() * 2 - 1) * h * 0.35;
+        float scale = (float) h;
+        double half = scale * DRIP_HALF_WIDTH;
+        double su = c[0] + (rnd.nextDouble() * 2 - 1) * h * 0.4;
         int du = (int) Math.floor(su);
         su = clamp(su, du + half, du + 1 - half);
-        double sv = c[1] - h * 0.15;
+        double sv = c[1] - h * (0.1 + rnd.nextDouble() * 0.15);
         int dv = (int) Math.floor(sv);
         int[] off = new int[3];
         off[ua] = du;
@@ -242,10 +283,20 @@ final class Splats {
         if (!wall(start, face) || !start.getRelative(face).isPassable()) {
             return null;
         }
-        DripPath.Run run = DripPath.run(sv - dv, MAX_DRIP, k -> below(start, face, k));
-        if (run.length() < 0.15) {
+        DripPath.Run run = DripPath.run(sv - dv, max, k -> below(start, face, k));
+        boolean landed = run.landed() && mayLand;
+        // a drop that dries up on the wall stops a little higher, so it never hangs over the edge
+        double length = landed ? run.length() : run.length() - scale * 0.75;
+        if (length < 0.15) {
             return null;
         }
+        // a little off straight down, but never so much that it leaves its column of blocks
+        double margin = Math.max(0, Math.min(su - du, du + 1 - su) - half);
+        double tilt = (rnd.nextDouble() * 2 - 1) * Math.min(MAX_TILT, Math.atan(margin / length));
+        Vector3f out = new Vector3f(face.getModX(), face.getModY(), face.getModZ());
+        Quaternionf turn = new Quaternionf().rotationAxis((float) tilt, out).mul(downTheWall(face));
+        Vector3f dir = turn.transform(new Vector3f(0, 0, 1));
+
         int n = face.getModX() + face.getModY() + face.getModZ();
         double depth = 0.0015 + rnd.nextDouble() * 0.002;
         double[] p = new double[3];
@@ -253,16 +304,15 @@ final class Splats {
         p[ua] = origin[ua] + su;
         p[1] = origin[1] + sv;
         Location top = new Location(block.getWorld(), p[0], p[1], p[2]);
-        Quaternionf turn = downTheWall(face);
-        // a drop that dries up on the wall stops a little higher, so it never hangs over the edge
-        double length = run.landed() ? run.length() : Math.max(0.05, run.length() - scale * 0.7);
-        int ticks = DripPath.ticks(length);
-        ItemDisplay body = spawnFlat(top, dripItem(team, 0, 0), stripe(turn, scale, 0.02));
-        Location headAt = top.clone().add(face.getModX() * 0.0005, 0, face.getModZ() * 0.0005);
-        ItemDisplay head = spawnFlat(headAt, dripItem(team, 1, 0), drop(turn, scale, 0.02));
-        Block floor = run.landed() ? start.getRelative(0, -run.level(), 0).getRelative(face) : null;
-        return new Drip(body, head, stripe(turn, scale, length), drop(turn, scale, length), ticks,
-                now + START_DELAY, floor, p[0], p[2]);
+        List<DripMotion.Frame> frames = DripMotion.plan(length, landed, rnd);
+        int variant = rnd.nextInt(DRIP_VARIANTS);
+        ItemDisplay body = spawnFlat(top, dripItem(team, 0, 0, variant), trail(turn, dir, scale, 0.02));
+        Location headAt = top.clone().add(out.x * 0.0005, 0, out.z * 0.0005);
+        float firstSize = (float) frames.get(0).size();
+        ItemDisplay head = spawnFlat(headAt, dripItem(team, 1, 0, variant), drop(turn, dir, scale * firstSize, 0.02));
+        Block floor = landed ? start.getRelative(0, -run.level(), 0).getRelative(face) : null;
+        return new Drip(body, head, turn, dir, scale, variant, frames, now + START_DELAY, floor, face,
+                p[0] + dir.x * length, p[2] + dir.z * length);
     }
 
     /** What is {@code k} blocks under the drip's start block on this wall (see {@link DripPath}). */
@@ -291,16 +341,16 @@ final class Splats {
         return new Quaternionf().setFromNormalized(new Matrix3f(side, out, down));
     }
 
-    /** The stripe hanging {@code length} blocks down from the entity. */
-    private static Transformation stripe(Quaternionf turn, float scale, double length) {
-        return new Transformation(new Vector3f(0, (float) (-length / 2), 0), turn,
+    /** The trail hanging {@code length} blocks from the entity along {@code dir}. */
+    private static Transformation trail(Quaternionf turn, Vector3f dir, float scale, double length) {
+        return new Transformation(new Vector3f(dir).mul((float) (length / 2)), turn,
                 new Vector3f(scale, 1, (float) length), NO_TURN);
     }
 
-    /** The drop at the end of a stripe of {@code length} blocks: its point overlaps the stripe's end. */
-    private static Transformation drop(Quaternionf turn, float scale, double length) {
-        return new Transformation(new Vector3f(0, (float) -(length + scale * 0.2), 0), turn,
-                new Vector3f(scale, 1, scale), NO_TURN);
+    /** The drop at the end of a trail of {@code length} blocks: its neck overlaps the trail's end. */
+    private static Transformation drop(Quaternionf turn, Vector3f dir, float size, double length) {
+        return new Transformation(new Vector3f(dir).mul((float) (length + size * 0.2)), turn,
+                new Vector3f(size, 1, size), NO_TURN);
     }
 
     private static ItemDisplay spawnFlat(Location at, ItemStack item, Transformation shape) {
@@ -321,15 +371,30 @@ final class Splats {
         display.setTransformation(to);
     }
 
-    /** A puddle on top of {@code floor} where paint running down the wall at (x, z) lands. */
-    private void puddle(Block floor, double x, double z, int team, long now) {
+    /**
+     * A puddle on top of {@code floor} where paint running down the wall (facing {@code face}) at
+     * (x, z) lands. It pools against the foot of the wall: centred on the line where wall and floor
+     * meet, so the wall hides half of it.
+     */
+    private void puddle(Block floor, BlockFace face, double x, double z, int team, long now) {
         if (!carriesPaint(floor) || !floor.getRelative(BlockFace.UP).isPassable()) {
             return;
         }
         ThreadLocalRandom rnd = ThreadLocalRandom.current();
         double h = 0.2 + rnd.nextDouble() * 0.12;
-        double[] c = SplatPlacement.place(x - floor.getX(), z - floor.getZ(), h,
-                (du, dv) -> paintable(floor, BlockFace.UP, 0, 2, du, dv));
+        int fx = face.getModX();
+        int fz = face.getModZ();
+        // the wall's own block on the floor's level: it has to be solid to hide half the puddle
+        boolean against = floor.getRelative(face.getOppositeFace()).getType().isOccluding();
+        double[] c = SplatPlacement.place(x - floor.getX(), z - floor.getZ(), h, (du, dv) ->
+                (against && (du == -fx && fx != 0 || dv == -fz && fz != 0)) || paintable(floor, BlockFace.UP, 0, 2, du, dv));
+        if (against) {
+            if (fx != 0) {
+                c[0] = fx > 0 ? 0 : 1;
+            } else {
+                c[1] = fz > 0 ? 0 : 1;
+            }
+        }
         Location at = new Location(floor.getWorld(), floor.getX() + c[0],
                 floor.getY() + 1 + 0.004 + rnd.nextDouble() * 0.008, floor.getZ() + c[1]);
         Quaternionf turn = new Quaternionf().rotateY(rnd.nextInt(4) * (float) (Math.PI / 2));
@@ -340,7 +405,7 @@ final class Splats {
             puddles.removeFirst().display.remove();
         }
         puddles.addLast(new Puddle(display, team, shape, now, turn, size));
-        at.getWorld().spawnParticle(Particle.DUST, at.clone().add(0, 0.05, 0), 6, 0.12, 0.02, 0.12, 0,
+        at.getWorld().spawnParticle(Particle.DUST, at.clone().add(fx * 0.15, 0.05, fz * 0.15), 6, 0.12, 0.02, 0.12, 0,
                 new Particle.DustOptions(Color.fromRGB(PackAssets.teamRgb(team)), 0.7f));
         PackItems.play(at, PackAssets.SOUND_SPLAT, 0.15f, 1.5f + rnd.nextFloat() * 0.2f);
     }
@@ -392,29 +457,42 @@ final class Splats {
             int stage = SplatFade.stage(e.getValue(), lifetime);
             if (stage != splat.stage && splat.display.isValid()) {
                 splat.stage = stage;
-                splat.display.setItemStack(item(splat.team, splat.shape, stage));
-                if (splat.drip != null) {
-                    splat.drip.restyle(splat.team, stage);
+                splat.display.setItemStack(item(splat.team, splat.look, stage));
+                for (Drip drip : splat.drips) {
+                    drip.restyle(splat.team, stage);
                 }
             }
-            if (splat.drip != null) {
-                tick(splat.drip, splat.team, now);
+            for (Drip drip : splat.drips) {
+                if (!splat.draining && now >= drip.startAt && splat.display.isValid()) {
+                    // paint drains out of the splat into its runs: it shrinks a little
+                    splat.draining = true;
+                    splat.display.setInterpolationDelay(0);
+                    splat.display.setInterpolationDuration(DRAIN_TICKS);
+                    splat.display.setTransformationMatrix(new Matrix4f(splat.shape).scale(DRAINED));
+                }
+                tick(drip, splat.team, now);
             }
         }
         tickPuddles(now);
     }
 
     private void tick(Drip drip, int team, long now) {
-        if (!drip.started && now >= drip.startAt) {
-            drip.started = true;
-            if (drip.body.isValid()) {
-                glide(drip.body, drip.bodyEnd, drip.ticks);
-            }
-            if (drip.head != null && drip.head.isValid()) {
-                glide(drip.head, drip.headEnd, drip.ticks);
+        long since = now - drip.startAt;
+        if (since >= 0 && since % DripMotion.STEP == 0 && since / DripMotion.STEP < drip.frames.size()) {
+            int i = (int) (since / DripMotion.STEP);
+            DripMotion.Frame frame = drip.frames.get(i);
+            if (i == 0 || !frame.equals(drip.frames.get(i - 1))) {
+                double length = Math.max(0.02, frame.distance());
+                if (drip.body.isValid()) {
+                    glide(drip.body, trail(drip.turn, drip.dir, drip.scale, length), DripMotion.STEP);
+                }
+                if (drip.head != null && drip.head.isValid()) {
+                    float size = (float) (drip.scale * frame.size());
+                    glide(drip.head, drop(drip.turn, drip.dir, size, length), DripMotion.STEP);
+                }
             }
         }
-        if (drip.started && !drip.ended && now >= drip.startAt + drip.ticks) {
+        if (!drip.ended && now >= drip.endsAt()) {
             drip.ended = true;
             if (drip.floor != null) {
                 // the drop runs into the floor and becomes the puddle
@@ -422,7 +500,7 @@ final class Splats {
                     drip.head.remove();
                     drip.head = null;
                 }
-                puddle(drip.floor, drip.footX, drip.footZ, team, now);
+                puddle(drip.floor, drip.face, drip.footX, drip.footZ, team, now);
             }
         }
     }
@@ -462,8 +540,8 @@ final class Splats {
         return PackItems.item(Material.PAPER, PackAssets.SPLAT, PackAssets.teamRgb(team), shape, stage);
     }
 
-    /** Part 0 is the stripe, part 1 the drop at its end. */
-    private static ItemStack dripItem(int team, int part, int stage) {
-        return PackItems.item(Material.PAPER, PackAssets.DRIP, PackAssets.teamRgb(team), part, stage);
+    /** Part 0 is the trail, part 1 the drop at its end; {@code variant} picks one of their shapes. */
+    private static ItemStack dripItem(int team, int part, int stage, int variant) {
+        return PackItems.item(Material.PAPER, PackAssets.DRIP, PackAssets.teamRgb(team), part, stage, variant);
     }
 }
