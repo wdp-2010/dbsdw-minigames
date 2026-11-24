@@ -126,7 +126,7 @@ public final class PaintballPlugin extends JavaPlugin {
 
     private static ModeRules mode(FileConfiguration c, String key, String winKey) {
         return new ModeRules(key, c.getInt(key + ".min-per-team"), c.getInt(key + ".max-per-team"),
-                c.getInt(key + "." + winKey), Math.round(c.getDouble(key + ".time-limit-minutes") * 60 * 20));
+                c.getInt(key + "." + winKey), c.getInt(key + "." + winKey + "-per-player", 0), Math.round(c.getDouble(key + ".time-limit-minutes") * 60 * 20));
     }
 
     private static long seconds(FileConfiguration c, String key) {
@@ -134,7 +134,8 @@ public final class PaintballPlugin extends JavaPlugin {
     }
 
     private static String describe(ModeRules r) {
-        return r.minPerTeam() + "-" + r.maxPerTeam() + " per team, first to " + r.winScore() + ", "
+        return r.minPerTeam() + "-" + r.maxPerTeam() + " per team, first to " + r.winScore()
+                + (r.winScorePerPlayer() > 0 ? " (" + r.winScorePerPlayer() + " per player on the bigger team)" : "") + ", "
                 + r.timeLimitTicks() / 20 / 60.0 + " min";
     }
 }

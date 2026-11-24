@@ -4,7 +4,9 @@
 tdm:
   min-per-team: 2
   max-per-team: 8
-  # First team to this many eliminations wins.
+  # First team to this many eliminations wins: this many per player on the bigger team (bots count),
+  # up to win-eliminations. 1v1 plays to 10, 2v2 to 20, 3v3 and up to 30. 0 = always win-eliminations.
+  win-eliminations-per-player: 10
   win-eliminations: 30
   # After this, the team with the most eliminations wins (equal = draw).
   time-limit-minutes: 10

@@ -76,7 +76,8 @@ public final class PaintballMatch implements MatchHandler {
     private final Settings settings;
     private final ModeRules rules;
     private final Messages messages;
-    private final TeamScore score;
+    /** Set in {@link #start()}, once the teams (bots included) are known. */
+    private TeamScore score;
     private final Hud hud;
     private final Map<UUID, Integer> teams = new LinkedHashMap<>();
     private final Map<UUID, String> names = new HashMap<>();
@@ -114,7 +115,6 @@ public final class PaintballMatch implements MatchHandler {
         this.settings = game.settings();
         this.rules = mode == Mode.CTF ? settings.ctf() : settings.tdm();
         this.messages = game.messages();
-        this.score = new TeamScore(2, rules.winScore());
         this.hud = new Hud(ctx, messages, settings, rules, mode == Mode.CTF);
         this.splats = new Splats(settings.splatCap(), settings.splatLifetimeTicks());
         this.scope = new Scope(settings, messages);
@@ -134,6 +134,9 @@ public final class PaintballMatch implements MatchHandler {
             }
         }
         spawnBots();
+        int[] size = new int[2];
+        teams.values().forEach(t -> size[t]++);
+        score = new TeamScore(2, rules.winScoreFor(Math.max(size[0], size[1])));
         combat = new Combat(teams, settings);
         combat.start(0);
         if (mode == Mode.CTF) {
@@ -696,13 +699,13 @@ public final class PaintballMatch implements MatchHandler {
                         occupied.add(new WalkableArea.Cell(o.getBlockX(), o.getBlockY(), o.getBlockZ()));
                     }
                 }
-                Optional<WalkableArea.Cell> spot = powerupDirector.pickSpot(movers, occupied, points, rules.winScore());
+                Optional<WalkableArea.Cell> spot = powerupDirector.pickSpot(movers, occupied, points, score.target());
                 if (spot.isEmpty()) {
                     powerupSpawns.taken(i, now); // try again later
                     continue;
                 }
                 WalkableArea.Cell c = spot.get();
-                PowerupType type = powerupDirector.pickType(c, movers, enabled, points, rules.winScore());
+                PowerupType type = powerupDirector.pickType(c, movers, enabled, points, score.target());
                 powerups.spawn(i, new Location(ctx.arena().world(), c.x() + 0.5, c.y(), c.z() + 0.5), type);
             }
         }

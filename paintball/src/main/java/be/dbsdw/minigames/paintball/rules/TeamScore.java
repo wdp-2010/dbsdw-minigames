@@ -18,6 +18,10 @@ public final class TeamScore {
         return points[team] == target ? OptionalInt.of(team) : OptionalInt.empty();
     }
 
+    public int target() {
+        return target;
+    }
+
     public int points(int team) {
         return points[team];
     }

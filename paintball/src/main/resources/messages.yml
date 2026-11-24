@@ -20,7 +20,7 @@ item:
 hud:
   title-tdm: "<#D9C78F><bold>PAINTBALL</bold> <gray>· Teamgevecht"
   title-ctf: "<#D9C78F><bold>PAINTBALL</bold> <gray>· Vlagroof"
-  score: "<team><gray>: <white><bold><score>"
+  score: "<team><gray>: <white><bold><score></bold><dark_gray>/<goal>"
   time: "<gray>Tijd <white><time>"
   bossbar: "<#D9C78F>Nog <white><time></white> te gaan"
   protected: " <font:dbsdw:hud><white>\uE007</white></font> <aqua>Beschermd"

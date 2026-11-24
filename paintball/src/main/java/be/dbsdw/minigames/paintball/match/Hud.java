@@ -85,7 +85,8 @@ final class Hud {
         for (int team = 0; team < 2; team++) {
             objective.getScore("score" + team).customName(messages.get("hud.score",
                     Placeholder.component("team", ctx.teamName(team)),
-                    Placeholder.unparsed("score", Integer.toString(score.points(team)))));
+                    Placeholder.unparsed("score", Integer.toString(score.points(team))),
+                    Placeholder.unparsed("goal", Integer.toString(score.target()))));
         }
         long left = rules.timeLimitTicks() - now;
         String time = Clock.format(left);
