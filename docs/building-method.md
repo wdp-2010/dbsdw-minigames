@@ -149,6 +149,30 @@ copper waxed. After the redeploy a fresh world snapshot equals the code (0 diffe
 map is exactly 180° symmetric. Backup of the world before: node1
 `/root/server5-duinbasis-backup-20261122/`.
 
+Fourth pass (2026-11-24): the owner called the map "cooked": the ground looked like noise, the
+houses had odd holes and strange blocks, and a 1v1 to 30 dragged on. Rebuilt in code:
+- **Terrain**: the high-frequency fbm is gone. `dunes()` makes long ridges (gentle windward side,
+  steep lee side, nothing under ~8 blocks), lone one-block bumps and pits are smoothed out, and
+  near the centre line each column is blended with its rotated partner so the halves meet without
+  a step. One sand palette with rare sandstone; the random gravel/coarse-dirt blotches are gone.
+  Paving only on the streets and the square, two-rut tracks from the side gates, a sandstone bluff
+  south of the wadi (the owner's supply cache is dug into it). Cliff faces show banded rock.
+- **Houses**: doorways only where the data lists them (two or three per house, not four),
+  windows one per three blocks with sills and shutters, never next to a door. Two-storey houses
+  have a ladder between floors and an outside stair that really reaches the roof (it used to stop
+  short), with the vigas left off the stair side. The ruined house keeps part of its roof and
+  parapet and has rubble at the collapsed corner. No annexes, no street shades on posts.
+- **Middle**: a market square around a well hall on the centre line: an arcade of piers, a flat
+  roof and a waxed oxidized copper dome as the landmark. Stalls, a broken garden wall, troughs and
+  crates give cover across the square. The lookout tower no longer has holes punched into its
+  solid shaft (blind niches instead).
+- **Base**: even Hesco caps, lanterns on the gate beams instead of hanging in the air, walkway on
+  log supports, HQ windows one per three blocks, water tank on log legs. Palms got a knee log where
+  the trunk shifts (they joined only at an edge).
+- Checks: cover 81 % (was 87 %), far sightlines 6 %, no spawn-to-spawn sight, 0 asymmetric blocks.
+- The TDM goal now scales with team size (`tdm.win-eliminations-per-player`, 10 per player on the
+  bigger team up to 30), so a 1v1 is first to 10.
+
 **Moerasdorp** (marsh, 2026-11-23, 150 × 100 at x 300..449, z 400..499, water surface at y -55,
 low land at y -54). Asked for as a third paintball arena next to Duinbasis, with "mooie palen".
 A fishing village on stilts: each team's raised deck stands on a grid of piles over its island

@@ -249,6 +249,8 @@ def palm(c: Canvas, x, y, z, height=7, seed=0):
     for j in range(height):
         if j == height // 2:
             px += lean
+            # a sideways knee under the shifted trunk, so it never joins only at an edge
+            c.set(px, y + j - 1, z, "jungle_log[axis=x]")
         c.set(px, y + j, z, "jungle_log[axis=y]")
     t = y + height
     c.set(px, t, z, leaves("jungle"))

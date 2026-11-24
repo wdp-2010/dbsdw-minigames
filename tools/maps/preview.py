@@ -48,6 +48,7 @@ COLORS = {
     "smooth_stone": (159, 159, 159), "bamboo_block": (127, 140, 50), "dead_bush": (107, 79, 40),
     "lightning_rod": (180, 100, 70), "waxed_lightning_rod": (180, 100, 70), "cut_copper": (191, 106, 80), "weathered_cut_copper": (109, 145, 107),
     "exposed_cut_copper": (154, 121, 101), "oxidized_cut_copper": (82, 162, 132),
+    "oxidized_copper": (88, 168, 138), "weathered_copper": (108, 153, 110),
     "bone_block": (229, 225, 207), "pale_oak_planks": (227, 217, 216), "target": (226, 170, 157),
     "bricks": (150, 97, 83), "red_banner": (176, 46, 38), "blue_banner": (60, 68, 170),
     "red_wall_banner": (176, 46, 38), "blue_wall_banner": (60, 68, 170), "short_dry_grass": (190, 160, 90),
@@ -86,7 +87,7 @@ _cache: dict[str, tuple[int, int, int] | None] = {}
 def color(state: str):
     if state in _cache:
         return _cache[state]
-    name = parse(state)[0]
+    name = parse(state)[0].removeprefix("waxed_")   # wax does not change the colour
     for suffix in ("_slab", "_stairs", "_wall", "_fence", "_trapdoor", "_carpet"):
         base = name[: -len(suffix)] if name.endswith(suffix) else None
         if base and base in COLORS:
