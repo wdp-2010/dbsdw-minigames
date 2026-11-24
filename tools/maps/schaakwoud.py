@@ -83,7 +83,7 @@ def board():
             c.box(x0, G, z0, x0 + SQ - 1, G, z0 + SQ - 1, "spruce_planks")
     x1, z1 = BX - 1, BZ - 1
     x2, z2 = BX + 8 * SQ, BZ + 8 * SQ
-    # Frame of logs, a slab step around it, corner posts with lanterns.
+    # Frame of logs and a slab step around it.
     for x in range(x1, x2 + 1):
         c.set(x, G + 1, z1, "stripped_spruce_log[axis=x]")
         c.set(x, G + 1, z2, "stripped_spruce_log[axis=x]")
@@ -96,9 +96,7 @@ def board():
     for z in range(z1 - 1, z2 + 2):
         for x in (x1 - 1, x2 + 1):
             c.set(x, G + 1, z, "spruce_slab[type=bottom]")
-    for x, z in ((x1, z1), (x2, z1), (x1, z2), (x2, z2)):
-        c.box(x, G + 1, z, x, G + 3, z, "spruce_log[axis=y]")
-        c.set(x, G + 4, z, "lantern[hanging=false]")
+    # Corner posts: bridge() raises them to the walkway and puts the lanterns on top.
 
 
 def stand(north: bool):
@@ -147,7 +145,41 @@ def stand(north: bool):
     c.set(CX, STAND, lz, "spruce_planks")
     facing = "north" if north else "south"
     c.box(CX, G + 1, lz + step, CX, STAND + 1, lz + step, f"ladder[facing={facing}]")
-    c.set(CX, STAND + 1, z_back, "air")
+    # The railing stays closed over the ladder: players start on the stand and walk the bridge, they
+    # never need to climb down, and nobody can fall through the gap.
+
+
+def bridge():
+    """An invisible walkway at stand height over the whole board, from one stand to the other.
+
+    Barrier floor (x over the board frame, z between the stands' fronts) with a barrier wall two blocks
+    high on its open edges (one block can be jumped onto). The stands' front railings go, so you walk
+    straight on. The board's corner posts rise to the walkway and carry its lanterns.
+    """
+    c = CANVAS
+    x1, x2 = BX - 1, BX + 8 * SQ          # board frame lines
+    zn, zs = 9, SZ - 10                    # first rows past the north and south stand fronts
+    for x in range(x1, x2 + 1):
+        for z in range(zn, zs + 1):
+            c.set(x, STAND, z, "barrier")
+    xa, xb = CX - 7, CX + 6               # stand width
+    # Stand front railings open onto the walkway (the corner fences and lanterns stay).
+    for z_front in (8, SZ - 9):
+        for x in range(xa + 1, xb):
+            c.set(x, STAND + 1, z_front, "air")
+    wall = []
+    for z in range(zn, zs + 1):
+        wall += [(x1, z), (x2, z)]
+    for x in range(x1, x2 + 1):
+        if not xa <= x <= xb:              # beside the stands the walkway ends in the open
+            wall += [(x, zn), (x, zs)]
+    for x, z in wall:
+        c.set(x, STAND + 1, z, "barrier")
+        c.set(x, STAND + 2, z, "barrier")
+    # Corner posts of the board, up to the walkway, lanterns on top.
+    for x, z in ((x1, BZ - 1), (x2, BZ - 1), (x1, BZ + 8 * SQ), (x2, BZ + 8 * SQ)):
+        c.box(x, G + 1, z, x, STAND + 2, z, "spruce_log[axis=y]")
+        c.set(x, STAND + 3, z, "lantern[hanging=false]")
 
 
 def forest():
@@ -191,6 +223,7 @@ def build():
     board()
     stand(north=True)
     stand(north=False)
+    bridge()
     forest()
 
 
