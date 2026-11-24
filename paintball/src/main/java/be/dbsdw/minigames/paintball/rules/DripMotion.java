@@ -15,6 +15,8 @@ public final class DripMotion {
     public static final int STEP = 2;
     /** A run never takes longer than this (ticks); a long one runs a little faster to make it. */
     public static final int MAX_TICKS = 300;
+    /** Gravity in blocks per tick squared (9.81 m/s^2 at 20 ticks a second). */
+    public static final double GRAVITY = 9.81 / 400;
 
     /** Where the drop is: {@code distance} in blocks from the start. */
     public record Frame(double distance) {
@@ -61,5 +63,21 @@ public final class DripMotion {
             }
         }
         return frames;
+    }
+
+    /**
+     * A drop that has let go of the bottom edge of a wall, falling {@code height} blocks: distances
+     * fallen, one frame per {@link #STEP} ticks, from 0 to {@code height} (which it hits between
+     * the last two frames' times or on the last one).
+     */
+    public static List<Double> fall(double height) {
+        List<Double> frames = new ArrayList<>();
+        for (int t = 0; ; t += STEP) {
+            double d = Math.min(height, GRAVITY * t * t / 2);
+            frames.add(d);
+            if (d >= height) {
+                return frames;
+            }
+        }
     }
 }

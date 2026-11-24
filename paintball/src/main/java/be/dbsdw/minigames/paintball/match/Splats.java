@@ -1,14 +1,17 @@
 package be.dbsdw.minigames.paintball.match;
 
 import be.dbsdw.minigames.core.pack.PackItems;
+import be.dbsdw.minigames.paintball.Gun;
 import be.dbsdw.minigames.paintball.PackAssets;
 import be.dbsdw.minigames.paintball.rules.DripMotion;
 import be.dbsdw.minigames.paintball.rules.DripPath;
+import be.dbsdw.minigames.paintball.rules.PartialFace;
 import be.dbsdw.minigames.paintball.rules.PuddleFade;
 import be.dbsdw.minigames.paintball.rules.SplatFade;
 import be.dbsdw.minigames.paintball.rules.SplatPlacement;
 import be.dbsdw.minigames.paintball.rules.SplatQueue;
 import java.util.ArrayDeque;
+import java.util.ArrayList;
 import java.util.Deque;
 import java.util.Iterator;
 import java.util.List;
@@ -18,6 +21,7 @@ import org.bukkit.Color;
 import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.Particle;
+import org.bukkit.Tag;
 import org.bukkit.block.Block;
 import org.bukkit.block.BlockFace;
 import org.bukkit.block.BlockSupport;
@@ -44,6 +48,10 @@ final class Splats {
     private static final int SHAPES = 3;
     /** Longest run of paint down a wall, in blocks; a higher hit dries up on the way down. */
     private static final double MAX_DRIP = 8;
+    /** Highest fall of a drop off the bottom edge of a wall that still reaches the ground, in blocks. */
+    private static final int MAX_FALL = 16;
+    /** Ticks a drop hangs from the bottom edge before it lets go. */
+    private static final int HANG = 8;
     /** Share of wall splats that have enough paint to run: 1 in 4. */
     private static final double DRIP_CHANCE = 0.25;
     /** Trail and drop sprites come in this many shapes. */
@@ -75,15 +83,19 @@ final class Splats {
         final long startAt;
         /** The floor block the paint lands on, or null when it dries up on the wall. */
         final Block floor;
+        /** The ground the drop falls onto from the bottom edge of the wall, or null. */
+        final Block ground;
         /** The wall's face the paint runs down (the puddle pools against it). */
         final BlockFace face;
-        /** World x and z where the run ends. */
+        /** Where the run ends (world coordinates). */
         final double footX;
+        final double footY;
         final double footZ;
         boolean ended;
 
         Drip(ItemDisplay body, ItemDisplay head, Quaternionf turn, Vector3f dir, float scale, int variant,
-             List<DripMotion.Frame> frames, long startAt, Block floor, BlockFace face, double footX, double footZ) {
+             List<DripMotion.Frame> frames, long startAt, Block floor, Block ground, BlockFace face, double footX,
+             double footY, double footZ) {
             this.body = body;
             this.head = head;
             this.turn = turn;
@@ -93,8 +105,10 @@ final class Splats {
             this.frames = frames;
             this.startAt = startAt;
             this.floor = floor;
+            this.ground = ground;
             this.face = face;
             this.footX = footX;
+            this.footY = footY;
             this.footZ = footZ;
         }
 
@@ -114,6 +128,30 @@ final class Splats {
             if (head != null) {
                 head.remove();
             }
+        }
+    }
+
+    /** A drop falling from the bottom edge of a wall: a small paintball that falls with gravity. */
+    private static final class Fall {
+        final ItemDisplay display;
+        final long born;
+        final List<Double> frames;
+        final Block ground;
+        final BlockFace face;
+        final double x;
+        final double z;
+        final int team;
+
+        Fall(ItemDisplay display, long born, List<Double> frames, Block ground, BlockFace face, double x, double z,
+             int team) {
+            this.display = display;
+            this.born = born;
+            this.frames = frames;
+            this.ground = ground;
+            this.face = face;
+            this.x = x;
+            this.z = z;
+            this.team = team;
         }
     }
 
@@ -165,6 +203,7 @@ final class Splats {
     private final SplatQueue<Splat> queue;
     private final long lifetime;
     private final Deque<Puddle> puddles = new ArrayDeque<>();
+    private final List<Fall> falls = new ArrayList<>();
     private final int puddleCap;
 
     Splats(int cap, long lifetime) {
@@ -177,7 +216,8 @@ final class Splats {
      * A splat where {@code ball} hit {@code face} of {@code block}. It sits exactly where the ball
      * hit and may run across the seam onto neighbouring blocks of the same flat surface, but never
      * hangs over an edge (top of a wall, a corner, a covered face). On slabs, stairs and other
-     * partial blocks it stays on that block's own face.
+     * partial blocks it stays on the part of the block it hit (a stair's side is an L, not a
+     * square). Fences, gates, panes and bars get no paint: they are mostly gaps.
      */
     void add(Block block, BlockFace face, Entity ball, int team, long now) {
         if (face == null || !face.isCartesian() || !carriesPaint(block)) {
@@ -197,17 +237,24 @@ final class Splats {
         if (full) {
             plane = origin[axis] + (n > 0 ? 1 : 0);
         } else {
-            BoundingBox box = block.getBoundingBox();
-            double[] min = {box.getMinX(), box.getMinY(), box.getMinZ()};
-            double[] max = {box.getMaxX(), box.getMaxY(), box.getMaxZ()};
-            plane = n > 0 ? max[axis] : min[axis];
-            lo = new double[] {min[ua] - origin[ua], min[va] - origin[va]};
-            hi = new double[] {max[ua] - origin[ua], max[va] - origin[va]};
-            double room = Math.min(hi[0] - lo[0], hi[1] - lo[1]);
-            if (room < 0.25) {
-                return; // fence, wall post, rod: too thin for paint
+            if (mostlyGaps(block)) {
+                return;
             }
-            h = Math.min(h, room / 2 * 0.95);
+            List<double[]> boxes = new ArrayList<>();
+            for (BoundingBox b : block.getCollisionShape().getBoundingBoxes()) {
+                boxes.add(new double[] {b.getMinX(), b.getMinY(), b.getMinZ(), b.getMaxX(), b.getMaxY(), b.getMaxZ()});
+            }
+            PartialFace.Part part = PartialFace.pick(boxes, axis, n, ua, va, at -> {
+                double[] w = hitPoint(ball, axis, origin[axis] + at);
+                return new double[] {w[ua] - origin[ua], w[va] - origin[va]};
+            });
+            if (part == null || part.room() < 0.25) {
+                return; // wall post, rod: too thin for paint
+            }
+            plane = origin[axis] + part.plane();
+            lo = new double[] {part.loU(), part.loV()};
+            hi = new double[] {part.hiU(), part.hiV()};
+            h = Math.min(h, part.room() / 2 * 0.95);
         }
         double[] hit = hitPoint(ball, axis, plane);
         double u = hit[ua] - origin[ua];
@@ -273,8 +320,11 @@ final class Splats {
         }
         DripPath.Run run = DripPath.run(sv - dv, MAX_DRIP, k -> below(start, face, k));
         boolean landed = run.landed();
-        // a drop that dries up on the wall stops a little higher, so it never hangs over the edge
-        double length = landed ? run.length() : run.length() - scale * 0.75;
+        Block ground = run.falls() ? groundUnder(start.getRelative(0, -run.level(), 0).getRelative(face)) : null;
+        boolean moving = landed || ground != null;
+        // a drop that dries up on the wall stops a little higher, so it never hangs over the edge;
+        // one that falls off runs right to the bottom edge and hangs there for a moment
+        double length = moving ? run.length() : run.length() - scale * 0.75;
         if (length < 0.15) {
             return null;
         }
@@ -292,14 +342,28 @@ final class Splats {
         p[ua] = origin[ua] + su;
         p[1] = origin[1] + sv;
         Location top = new Location(block.getWorld(), p[0], p[1], p[2]);
-        List<DripMotion.Frame> frames = DripMotion.plan(length, landed, rnd);
+        List<DripMotion.Frame> frames = DripMotion.plan(length, moving, rnd);
         int variant = rnd.nextInt(DRIP_VARIANTS);
         ItemDisplay body = spawnFlat(top, dripItem(team, 0, 0, variant), trail(turn, dir, scale, 0.02));
         Location headAt = top.clone().add(out.x * 0.0005, 0, out.z * 0.0005);
         ItemDisplay head = spawnFlat(headAt, dripItem(team, 1, 0, variant), drop(turn, dir, scale, 0.02));
         Block floor = landed ? start.getRelative(0, -run.level(), 0).getRelative(face) : null;
-        return new Drip(body, head, turn, dir, scale, variant, frames, now + START_DELAY, floor, face,
-                p[0] + dir.x * length, p[2] + dir.z * length);
+        return new Drip(body, head, turn, dir, scale, variant, frames, now + START_DELAY, floor, ground, face,
+                p[0] + dir.x * length, p[1] + dir.y * length, p[2] + dir.z * length);
+    }
+
+    /** The first block a drop falling from {@code open} (open air) down lands on, or null if none near. */
+    private static Block groundUnder(Block open) {
+        for (int j = 1; j <= MAX_FALL; j++) {
+            Block b = open.getRelative(0, -j, 0);
+            if (b.isLiquid()) {
+                return null;
+            }
+            if (!b.isPassable()) {
+                return b;
+            }
+        }
+        return null;
     }
 
     /** What is {@code k} blocks under the drip's start block on this wall (see {@link DripPath}). */
@@ -310,7 +374,10 @@ final class Splats {
             return carriesPaint(front) && front.getBlockData().isFaceSturdy(BlockFace.UP, BlockSupport.FULL)
                     ? DripPath.Cell.FLOOR : DripPath.Cell.END;
         }
-        return wall(wall, face) ? DripPath.Cell.WALL : DripPath.Cell.END;
+        if (wall(wall, face)) {
+            return DripPath.Cell.WALL;
+        }
+        return wall.isPassable() ? DripPath.Cell.OPEN : DripPath.Cell.END;
     }
 
     private static boolean wall(Block cell, BlockFace face) {
@@ -359,12 +426,13 @@ final class Splats {
     }
 
     /**
-     * A puddle on top of {@code floor} where paint running down the wall (facing {@code face}) at
-     * (x, z) lands. It pools against the foot of the wall: centred on the line where wall and floor
-     * meet, so the wall hides half of it.
+     * A puddle on top of {@code floor} where paint from the wall (facing {@code face}) at (x, z)
+     * lands. Paint that ran down the wall ({@code atWall}) pools against its foot: centred on the
+     * line where wall and floor meet, so the wall hides half of it. A drop that fell lies free.
      */
-    private void puddle(Block floor, BlockFace face, double x, double z, int team, long now) {
-        if (!carriesPaint(floor) || !floor.getRelative(BlockFace.UP).isPassable()) {
+    private void puddle(Block floor, BlockFace face, double x, double z, int team, long now, boolean atWall) {
+        if (!carriesPaint(floor) || !floor.getBlockData().isFaceSturdy(BlockFace.UP, BlockSupport.FULL)
+                || !floor.getRelative(BlockFace.UP).isPassable()) {
             return;
         }
         ThreadLocalRandom rnd = ThreadLocalRandom.current();
@@ -372,7 +440,7 @@ final class Splats {
         int fx = face.getModX();
         int fz = face.getModZ();
         // the wall's own block on the floor's level: it has to be solid to hide half the puddle
-        boolean against = floor.getRelative(face.getOppositeFace()).getType().isOccluding();
+        boolean against = atWall && floor.getRelative(face.getOppositeFace()).getType().isOccluding();
         double[] c = SplatPlacement.place(x - floor.getX(), z - floor.getZ(), h, (du, dv) ->
                 (against && (du == -fx && fx != 0 || dv == -fz && fz != 0)) || paintable(floor, BlockFace.UP, 0, 2, du, dv));
         if (against) {
@@ -427,6 +495,13 @@ final class Splats {
                 && cell.getRelative(face).isPassable();
     }
 
+    /** Fences, gates, glass panes and iron bars: rails and gaps, no surface for a splat. */
+    private static boolean mostlyGaps(Block block) {
+        Material type = block.getType();
+        return Tag.FENCES.isTagged(type) || Tag.FENCE_GATES.isTagged(type) || type == Material.IRON_BARS
+                || type.name().endsWith("_PANE");
+    }
+
     /** Solid and visible: barriers (the invisible arena walls) never get paint. */
     private static boolean carriesPaint(Block block) {
         Material type = block.getType();
@@ -460,6 +535,7 @@ final class Splats {
                 tick(drip, splat.team, now);
             }
         }
+        tickFalls(now);
         tickPuddles(now);
     }
 
@@ -478,15 +554,70 @@ final class Splats {
                 }
             }
         }
-        if (!drip.ended && now >= drip.endsAt()) {
+        if (!drip.ended && now >= drip.endsAt() && drip.floor != null) {
+            // the drop runs into the floor and becomes the puddle
             drip.ended = true;
-            if (drip.floor != null) {
-                // the drop runs into the floor and becomes the puddle
-                if (drip.head != null) {
-                    drip.head.remove();
-                    drip.head = null;
-                }
-                puddle(drip.floor, drip.face, drip.footX, drip.footZ, team, now);
+            removeHead(drip);
+            puddle(drip.floor, drip.face, drip.footX, drip.footZ, team, now, true);
+        }
+        if (!drip.ended && now >= drip.endsAt() + HANG && drip.ground != null) {
+            // it has hung from the bottom edge for a moment and lets go
+            drip.ended = true;
+            removeHead(drip);
+            fall(drip, team, now);
+        }
+    }
+
+    private static void removeHead(Drip drip) {
+        if (drip.head != null) {
+            drip.head.remove();
+            drip.head = null;
+        }
+    }
+
+    /** The drop at the end of {@code drip} lets go of the bottom edge and falls to the ground. */
+    private void fall(Drip drip, int team, long now) {
+        Vector3f out = new Vector3f(drip.face.getModX(), 0, drip.face.getModZ());
+        Location at = new Location(drip.ground.getWorld(), drip.footX + out.x * 0.08,
+                drip.footY - drip.scale * 0.45, drip.footZ + out.z * 0.08);
+        double height = at.getY() - drip.ground.getBoundingBox().getMaxY();
+        if (height <= 0) {
+            return;
+        }
+        float size = drip.scale * 0.5f;
+        ItemDisplay display = at.getWorld().spawn(at, ItemDisplay.class, d -> {
+            d.setPersistent(false);
+            d.setItemStack(Gun.ball(team));
+            d.setItemDisplayTransform(ItemDisplay.ItemDisplayTransform.FIXED);
+            d.setBillboard(Display.Billboard.CENTER);
+            d.setBrightness(new Display.Brightness(15, 15));
+            d.setTransformation(dropped(size, 0));
+            d.setViewRange(0.6f);
+        });
+        falls.add(new Fall(display, now, DripMotion.fall(height), drip.ground, drip.face, at.getX(), at.getZ(), team));
+    }
+
+    private static Transformation dropped(float size, double fallen) {
+        return new Transformation(new Vector3f(0, (float) -fallen, 0), NO_TURN, new Vector3f(size, size, size), NO_TURN);
+    }
+
+    private void tickFalls(long now) {
+        for (Iterator<Fall> it = falls.iterator(); it.hasNext(); ) {
+            Fall fall = it.next();
+            long age = now - fall.born;
+            if (age > 0 && age % DripMotion.STEP == 0 && age / DripMotion.STEP < fall.frames.size()
+                    && fall.display.isValid()) {
+                float size = fall.display.getTransformation().getScale().x;
+                glide(fall.display, dropped(size, fall.frames.get((int) (age / DripMotion.STEP))), DripMotion.STEP);
+            }
+            if (age >= (long) fall.frames.size() * DripMotion.STEP) {
+                fall.display.remove();
+                it.remove();
+                puddle(fall.ground, fall.face, fall.x, fall.z, fall.team, now, false);
+                Location at = new Location(fall.ground.getWorld(), fall.x, fall.ground.getBoundingBox().getMaxY() + 0.05,
+                        fall.z);
+                at.getWorld().spawnParticle(Particle.DUST, at, 5, 0.1, 0.02, 0.1, 0,
+                        new Particle.DustOptions(Color.fromRGB(PackAssets.teamRgb(fall.team)), 0.7f));
             }
         }
     }
@@ -520,6 +651,8 @@ final class Splats {
         queue.clear().forEach(Splat::remove);
         puddles.forEach(p -> p.display.remove());
         puddles.clear();
+        falls.forEach(f -> f.display.remove());
+        falls.clear();
     }
 
     private static ItemStack item(int team, int shape, int stage) {

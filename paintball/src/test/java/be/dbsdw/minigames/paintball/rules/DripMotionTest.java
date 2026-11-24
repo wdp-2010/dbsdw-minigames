@@ -80,4 +80,14 @@ class DripMotionTest {
         int n = f.size();
         assertTrue(step(f, n - 2) > 0.01, "the last full step still moves"); // the last frame may be a partial step
     }
+
+    @Test
+    void aFallingDropSpeedsUpWithGravityAndStopsAtTheGround() {
+        List<Double> f = DripMotion.fall(3);
+        assertEquals(0, f.get(0), 1e-9);
+        assertEquals(3, f.get(f.size() - 1), 1e-9);
+        assertTrue(f.get(2) - f.get(1) > f.get(1) - f.get(0), "it speeds up");
+        // 3 blocks (3 m) take about 0.78 s = 15.6 ticks: 9 frames of 2 ticks
+        assertEquals(9, f.size());
+    }
 }

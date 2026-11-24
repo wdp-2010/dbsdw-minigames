@@ -2,6 +2,7 @@ package be.dbsdw.minigames.paintball.rules;
 
 import static be.dbsdw.minigames.paintball.rules.DripPath.Cell.END;
 import static be.dbsdw.minigames.paintball.rules.DripPath.Cell.FLOOR;
+import static be.dbsdw.minigames.paintball.rules.DripPath.Cell.OPEN;
 import static be.dbsdw.minigames.paintball.rules.DripPath.Cell.WALL;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -36,6 +37,23 @@ class DripPathTest {
         DripPath.Run run = DripPath.run(0.5, 8, column(WALL, END));
         assertFalse(run.landed());
         assertEquals(1.5, run.length(), 1e-9);
+    }
+
+    @Test
+    void fallsOffTheBottomOfAFloatingBlock() {
+        DripPath.Run run = DripPath.run(0.4, 8, column(OPEN));
+        assertTrue(run.falls());
+        assertFalse(run.landed());
+        assertEquals(0.4, run.length(), 1e-9);
+        assertEquals(1, run.level());
+    }
+
+    @Test
+    void fallsOffAnOverhangAfterRunningDownIt() {
+        DripPath.Run run = DripPath.run(0.5, 8, column(WALL, WALL, OPEN));
+        assertTrue(run.falls());
+        assertEquals(2.5, run.length(), 1e-9);
+        assertEquals(3, run.level());
     }
 
     @Test
