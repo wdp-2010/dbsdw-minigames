@@ -149,8 +149,9 @@ Leaving the arena bounds also counts as out, without a point for anyone.
 - **Power-ups** spawn at the arena's power-up points (`/mg arena addpowerup`) and refill 30 s after
   a pickup: rapid fire, triple shot, speed, shield (next hit absorbed), repair (one hit removed).
 - **Paint splats** appear on blocks that are hit, vanish after 20 s, at most 300 per match, all
-  removed at the end. Paint on a wall runs down it (at most 8 blocks) to the floor, where it forms
-  a puddle that soaks away after about 8 s. The world itself is never changed.
+  removed at the end. Paint on a wall sometimes (1 splat in 4) runs down it (at most 8 blocks) to
+  the floor, where it forms a puddle that soaks away after about 8 s. The world itself is never
+  changed.
 
 All values are in `plugins/Paintball/config.yml`; keys added by a newer version are written into
 an existing file on start. Invalid values disable the plugin with one log line naming the key.

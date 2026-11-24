@@ -44,6 +44,8 @@ final class Splats {
     private static final int SHAPES = 3;
     /** Longest run of paint down a wall, in blocks; a higher hit dries up on the way down. */
     private static final double MAX_DRIP = 8;
+    /** Share of wall splats that have enough paint to run: 1 in 4. */
+    private static final double DRIP_CHANCE = 0.25;
     /** Trail and drop sprites come in this many shapes. */
     private static final int DRIP_VARIANTS = 3;
     /** Half the widest part of the trail and drop sprites, as a share of their size (8.5 of 32 px). */
@@ -238,7 +240,7 @@ final class Splats {
             d.setViewRange(0.6f);
         });
         Splat splat = new Splat(display, m, team, shape);
-        if (full && face.getModY() == 0 && puddleCap > 0) {
+        if (full && face.getModY() == 0 && puddleCap > 0 && rnd.nextDouble() < DRIP_CHANCE) {
             Drip drip = drip(block, face, axis, ua, origin, plane, c, h, team, now);
             if (drip != null) {
                 splat.drips = List.of(drip);
