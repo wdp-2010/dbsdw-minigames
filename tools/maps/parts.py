@@ -158,11 +158,14 @@ def watchtower(c: Canvas, x, y, z, height=7, wood="spruce", ladder_side="west"):
     for dx in (0, 3):
         for dz in (0, 3):
             c.column(x + dx, z + dz, y, y + height + 3, log)
-    # cross braces on two levels
+    # cross braces on two levels; the low brace on the side next to the ladder stays open as a
+    # doorway (north side for a west ladder, south side for an east ladder), or nobody gets in
+    door_z = z if ladder_side == "west" else z + 3
     for lvl in (1, 4):
         for dx in (1, 2):
-            c.set(x + dx, y + lvl, z, f"{wood}_fence")
-            c.set(x + dx, y + lvl, z + 3, f"{wood}_fence")
+            for bz in (z, z + 3):
+                if not (lvl == 1 and bz == door_z):
+                    c.set(x + dx, y + lvl, bz, f"{wood}_fence")
             c.set(x, y + lvl, z + dx, f"{wood}_fence")
             c.set(x + 3, y + lvl, z + dx, f"{wood}_fence")
     # platform (with a ladder hole)
@@ -228,16 +231,19 @@ def camo_net(c: Canvas, x1, z1, x2, z2, y, posts=True, seed=0):
                 c.set(x, y, z, "spruce_slab[type=top]")
                 c.set(x, y + 1, z, pal)
     if posts:
+        # fence posts carry a full block (a slab on top would hang half a block above the fence)
         for (px, pz) in ((x1, z1), (x1, z2), (x2, z1), (x2, z2)):
             for j in range(y - 4, y):
                 c.set(px, j, pz, "spruce_fence")
+            c.set(px, y, pz, "stripped_spruce_log[axis=y]")
+            c.set(px, y + 1, pz, pal)
 
 
 def lamp_post(c: Canvas, x, y, z, height=4):
     for j in range(height):
         c.set(x, y + j, z, "spruce_fence")
     c.set(x, y + height, z, "spruce_fence")
-    c.set(x, y + height + 1, z, "spruce_slab[type=bottom]")
+    c.set(x, y + height + 1, z, "stripped_spruce_log[axis=y]")   # a post carries a full block
     c.set(x + 1, y + height, z, "spruce_fence")
     c.set(x + 1, y + height - 1, z, "lantern[hanging=true]")
 

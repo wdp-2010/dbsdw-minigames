@@ -4,7 +4,9 @@
   on it), and whether the other team's spawns and flag are reachable;
 - spawn safety: can a player standing at a spawn see the enemy spawns or the middle of the map;
 - cover: how much of the floor has full cover (2 high) within a few blocks;
-- sightlines: how often two random floor spots far apart can see each other.
+- sightlines: how often two random floor spots far apart can see each other;
+- build faults: ladders whose foot nobody can reach, and fence/wall posts with a slab or carpet on
+  top instead of a full block (a top slab hangs half a block above the post).
 """
 from __future__ import annotations
 
@@ -113,4 +115,23 @@ def report(c: Canvas, spawns: dict[int, list], flags: dict[int, tuple], seed=5):
             longest = max(longest, d)
     lines.append(f"far pairs (30+ blocks) that see each other: {100 * open_far // max(1, far)}% "
                  f"(aim 5-25), longest seen {longest:.0f}")
+    lines += build_faults(c, area)
     return lines, area
+
+
+def build_faults(c: Canvas, area):
+    """Ladders that cannot be reached from the walkable floor, and slab/carpet-capped posts."""
+    unreachable, capped = [], []
+    for (x, y, z), st in c.b.items():
+        name = parse(st)[0]
+        if name == "ladder" and parse(c.b.get((x, y - 1, z), "air"))[0] != "ladder":
+            near = ((x + dx, y + dy, z + dz) for dx, dz in ((0, 0), (1, 0), (-1, 0), (0, 1), (0, -1))
+                    for dy in (-1, 0, 1))
+            if not any(p in area for p in near):
+                unreachable.append((x, y, z))
+        elif name.endswith("_fence") or name.endswith("_wall"):
+            above = parse(c.b.get((x, y + 1, z), "air"))[0]
+            if above.endswith("_slab") or above.endswith("_carpet"):
+                capped.append((x, y, z))
+    return [f"ladders nobody can reach: {len(unreachable)} {sorted(unreachable)[:6]}",
+            f"fence/wall posts with a slab or carpet on top: {len(capped)} {sorted(capped)[:6]}"]
