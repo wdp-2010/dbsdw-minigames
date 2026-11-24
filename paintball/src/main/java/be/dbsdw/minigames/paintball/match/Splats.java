@@ -9,7 +9,6 @@ import be.dbsdw.minigames.paintball.rules.SplatFade;
 import be.dbsdw.minigames.paintball.rules.SplatPlacement;
 import be.dbsdw.minigames.paintball.rules.SplatQueue;
 import java.util.ArrayDeque;
-import java.util.ArrayList;
 import java.util.Deque;
 import java.util.Iterator;
 import java.util.List;
@@ -51,8 +50,6 @@ final class Splats {
     private static final double DRIP_HALF_WIDTH = 8.5 / 32;
     /** At most this tilt off straight down (radians), as a wall is never perfectly smooth. */
     private static final double MAX_TILT = 0.05;
-    /** Chance of a second, short run next to the first that dries up on the wall. */
-    private static final double SECOND_DRIP = 0.4;
     /** How far a splat shrinks as paint drains out of it, and how fast (ticks). */
     private static final float DRAINED = 0.84f;
     private static final int DRAIN_TICKS = 40;
@@ -242,20 +239,10 @@ final class Splats {
         });
         Splat splat = new Splat(display, m, team, shape);
         if (full && face.getModY() == 0 && puddleCap > 0) {
-            // one run that goes as far as the wall lets it, sometimes a short one next to it
-            List<Drip> drips = new ArrayList<>(2);
-            Drip main = drip(block, face, axis, ua, origin, plane, c, h, team, now, MAX_DRIP, true);
-            if (main != null) {
-                drips.add(main);
+            Drip drip = drip(block, face, axis, ua, origin, plane, c, h, team, now);
+            if (drip != null) {
+                splat.drips = List.of(drip);
             }
-            if (rnd.nextDouble() < SECOND_DRIP) {
-                Drip second = drip(block, face, axis, ua, origin, plane, c, h * 0.75, team, now,
-                        0.3 + rnd.nextDouble() * 0.9, false);
-                if (second != null) {
-                    drips.add(second);
-                }
-            }
-            splat.drips = drips;
         }
         queue.add(splat, now).forEach(Splat::remove);
         PackItems.play(at, PackAssets.SOUND_SPLAT, 0.5f, 0.9f + rnd.nextFloat() * 0.2f);
@@ -263,11 +250,10 @@ final class Splats {
 
     /**
      * Paint running down the wall from under the splat at {@code c} (face coordinates of the hit
-     * {@code block}), at most {@code max} blocks, or null when there is no wall under it to run
-     * down. When {@code mayLand} is false the run always dries up on the wall.
+     * {@code block}), or null when there is no wall under it to run down.
      */
     private Drip drip(Block block, BlockFace face, int axis, int ua, double[] origin, double plane, double[] c,
-                      double h, int team, long now, double max, boolean mayLand) {
+                      double h, int team, long now) {
         ThreadLocalRandom rnd = ThreadLocalRandom.current();
         float scale = (float) h;
         double half = scale * DRIP_HALF_WIDTH;
@@ -283,8 +269,8 @@ final class Splats {
         if (!wall(start, face) || !start.getRelative(face).isPassable()) {
             return null;
         }
-        DripPath.Run run = DripPath.run(sv - dv, max, k -> below(start, face, k));
-        boolean landed = run.landed() && mayLand;
+        DripPath.Run run = DripPath.run(sv - dv, MAX_DRIP, k -> below(start, face, k));
+        boolean landed = run.landed();
         // a drop that dries up on the wall stops a little higher, so it never hangs over the edge
         double length = landed ? run.length() : run.length() - scale * 0.75;
         if (length < 0.15) {
@@ -308,8 +294,7 @@ final class Splats {
         int variant = rnd.nextInt(DRIP_VARIANTS);
         ItemDisplay body = spawnFlat(top, dripItem(team, 0, 0, variant), trail(turn, dir, scale, 0.02));
         Location headAt = top.clone().add(out.x * 0.0005, 0, out.z * 0.0005);
-        float firstSize = (float) frames.get(0).size();
-        ItemDisplay head = spawnFlat(headAt, dripItem(team, 1, 0, variant), drop(turn, dir, scale * firstSize, 0.02));
+        ItemDisplay head = spawnFlat(headAt, dripItem(team, 1, 0, variant), drop(turn, dir, scale, 0.02));
         Block floor = landed ? start.getRelative(0, -run.level(), 0).getRelative(face) : null;
         return new Drip(body, head, turn, dir, scale, variant, frames, now + START_DELAY, floor, face,
                 p[0] + dir.x * length, p[2] + dir.z * length);
@@ -487,8 +472,7 @@ final class Splats {
                     glide(drip.body, trail(drip.turn, drip.dir, drip.scale, length), DripMotion.STEP);
                 }
                 if (drip.head != null && drip.head.isValid()) {
-                    float size = (float) (drip.scale * frame.size());
-                    glide(drip.head, drop(drip.turn, drip.dir, size, length), DripMotion.STEP);
+                    glide(drip.head, drop(drip.turn, drip.dir, drip.scale, length), DripMotion.STEP);
                 }
             }
         }

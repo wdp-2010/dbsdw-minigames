@@ -83,40 +83,37 @@ DRIP_VARIANTS = 3
 
 
 def drip_body_shape(variant: int) -> tuple:
-    """Mask of the trail a running drop leaves, top (at the splat) to bottom (at the drop).
+    """Mask of the trail a running drop leaves, top (at the splat) to bottom (at the drop), and the
+    wet highlight along it.
 
-    Real paint runs are fed from the splat, so the trail is widest at the top and thins towards
-    the drop; it wanders a little with the wall's roughness and has a lump here and there where
-    the drop stalled. The plugin stretches it lengthwise to the length of the run.
+    The plugin stretches it lengthwise as the drop runs, so it only has features that look the
+    same at any length: it narrows evenly from the splat (which feeds it) to the neck of the drop,
+    one edge leaning in more than the other. No lumps or bends along it: those would stretch.
     """
-    rng = random.Random(2000 + variant)
-    size = 32
-    m = mask((size, size))
-    phase = rng.uniform(0, math.tau)
-    waves = rng.uniform(0.7, 1.3)
-    drift = rng.uniform(-1.0, 1.0)
-    lumps = [(rng.uniform(6, 26), rng.uniform(0.8, 1.4)) for _ in range(1 + variant % 2)]
-    for y in range(size):
-        t = y / (size - 1)
-        cx = 15.5 + 1.4 * math.sin(phase + t * math.tau * waves) * (0.3 + 0.7 * t) + drift * t
-        half = 4.6 - 2.2 * t
-        for ly, extra in lumps:
-            half += extra * math.exp(-((y - ly) / 1.6) ** 2)
-        for x in range(size):
-            if abs(x + 0.5 - cx) <= half:
+    top_left, top_right = ((4.2, 3.0), (3.2, 4.4), (3.8, 3.6))[variant]
+    bottom = 2.4  # half the width of the drop's neck
+    m = mask((32, 32))
+    shine = mask((32, 32))
+    for y in range(32):
+        t = y / 31
+        left = 15.5 - (top_left + (bottom - top_left) * t)
+        right = 15.5 + (top_right + (bottom - top_right) * t)
+        for x in range(32):
+            if left <= x + 0.5 <= right:
                 m.putpixel((x, y), 255)
-    return m
+        shine.putpixel((int(left + (right - left) * 0.3), y), 255)
+    return m, shine
 
 
 def drip_body(variant: int, stage: int) -> Canvas:
-    """The trail, lit on its left edge and shaded on its right; the first rows thin out so it
-    starts softly under the splat."""
+    """The trail, shaded on its right edge with a highlight left of centre; the first rows thin out
+    so it starts softly under the splat."""
     a = FADE_ALPHA[stage]
-    m = drip_body_shape(variant)
+    m, shine = drip_body_shape(variant)
     c = Canvas(32)
     c.fill(m, GREY_BASE, a)
     c.fill(subtract(m, shift(m, -1, 0)), GREY_SHADE, a)
-    c.fill(subtract(m, shift(m, 1, 0)), WHITE, a)
+    c.fill(intersect(shine, erode(m, 1)), WHITE, a)
     for y in range(3):
         for x in range(32):
             if m.getpixel((x, y)):
