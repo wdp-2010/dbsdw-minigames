@@ -2,6 +2,7 @@ package be.dbsdw.minigames.core.room;
 
 import be.dbsdw.minigames.core.api.ModeSpec;
 import be.dbsdw.minigames.core.arena.ArenaDefinition;
+import be.dbsdw.minigames.core.voice.VoiceRule;
 import java.util.List;
 import java.util.UUID;
 import java.util.function.IntConsumer;
@@ -11,10 +12,10 @@ import org.bukkit.inventory.ItemStack;
 /** What rooms need from the match side; implemented by the match manager. */
 public interface RoomHooks {
     /**
-     * Starts the room's match with these teams on the reserved arena. Returns false when it could
-     * not start; the arena is then released.
+     * Starts the room's match with these teams and voice rule on the reserved arena. Returns false
+     * when it could not start; the arena is then released.
      */
-    boolean launch(int roomId, ModeSpec mode, ArenaDefinition arena, List<List<UUID>> teams);
+    boolean launch(int roomId, ModeSpec mode, ArenaDefinition arena, List<List<UUID>> teams, VoiceRule voice);
 
     boolean inMatch(UUID player);
 

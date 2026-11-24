@@ -14,6 +14,9 @@ import be.dbsdw.minigames.core.stats.StatsStore;
 import be.dbsdw.minigames.core.queue.QueueBook;
 import be.dbsdw.minigames.core.queue.QueueTimings;
 import be.dbsdw.minigames.core.room.RoomCommand;
+import be.dbsdw.minigames.core.voice.MatchVoice;
+import be.dbsdw.minigames.core.voice.VoiceRule;
+import be.dbsdw.minigames.core.voice.VoicechatBridge;
 import be.dbsdw.minigames.core.solo.SoloCommand;
 import java.io.IOException;
 import java.util.List;
@@ -94,7 +97,7 @@ public final class MinigameCorePlugin extends JavaPlugin {
             getLogger().warning("[lobby] lobby spawn not set — use /mg setlobby");
         }
         MatchManager manager = new MatchManager(this, games, pool, queues, lobby, messages,
-                getConfig().getInt("match.results-seconds") * 20, rnd, stats);
+                getConfig().getInt("match.results-seconds") * 20, rnd, stats, loadVoice(), voiceRule());
         matches = manager;
         getServer().getServicesManager().register(MatchStarter.class, manager, this, ServicePriority.Normal);
         GameNpc npc = new GameNpc(games::game, manager::openModes);
@@ -147,6 +150,28 @@ public final class MinigameCorePlugin extends JavaPlugin {
         if (stats != null) {
             stats.close();
         }
+    }
+
+    /** Team voice groups when Simple Voice Chat is installed; otherwise nothing happens. */
+    private MatchVoice loadVoice() {
+        if (getServer().getPluginManager().getPlugin("voicechat") == null) {
+            getLogger().info("[voice] Simple Voice Chat not installed: no voice groups in matches");
+            return MatchVoice.NONE;
+        }
+        try {
+            return VoicechatBridge.create(this);
+        } catch (LinkageError | RuntimeException e) {
+            getLogger().log(java.util.logging.Level.WARNING, "[voice] could not hook into Simple Voice Chat", e);
+            return MatchVoice.NONE;
+        }
+    }
+
+    private VoiceRule voiceRule() {
+        String value = getConfig().getString("voice.rule", "team");
+        return VoiceRule.parse(value).orElseGet(() -> {
+            getLogger().warning("[voice] voice.rule '" + value + "' is not team, all or nearby; using team");
+            return VoiceRule.TEAM;
+        });
     }
 
     /**

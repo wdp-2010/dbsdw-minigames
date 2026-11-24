@@ -10,6 +10,7 @@ import be.dbsdw.minigames.core.arena.ArenaDefinition;
 import be.dbsdw.minigames.core.arena.ArenaPool;
 import be.dbsdw.minigames.core.arena.Pos;
 import be.dbsdw.minigames.core.room.RoomBook.Outcome;
+import be.dbsdw.minigames.core.voice.VoiceRule;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
@@ -204,6 +205,28 @@ class RoomBookTest {
         RoomEvent.Start start = (RoomEvent.Start) events.stream()
                 .filter(e -> e instanceof RoomEvent.Start).findFirst().orElseThrow();
         assertEquals(List.of(List.of(), List.of(p.get(0))), start.teams());
+    }
+
+    @Test
+    void voiceIsPerTeamByDefaultAndOnlyTheHostChangesIt() {
+        room(1);
+        assertEquals(VoiceRule.TEAM, view().voice());
+        assertEquals(Outcome.NOT_HOST, book.cycleVoice(p.get(1)));
+        assertEquals(Outcome.OK, book.cycleVoice(p.get(0)));
+        assertEquals(VoiceRule.ALL, view().voice());
+        assertEquals(Outcome.OK, book.start(p.get(0)));
+        assertEquals(Outcome.COUNTING, book.cycleVoice(p.get(0)));
+        RoomEvent.Start start = (RoomEvent.Start) ticks(RoomBook.COUNTDOWN_SECONDS * 20).stream()
+                .filter(e -> e instanceof RoomEvent.Start).findFirst().orElseThrow();
+        assertEquals(VoiceRule.ALL, start.voice());
+        assertEquals(Outcome.PLAYING, book.cycleVoice(p.get(0)));
+    }
+
+    @Test
+    void roomsStartWithTheConfiguredVoiceRule() {
+        book = new RoomBook(pool, new Random(1), VoiceRule.NEARBY);
+        room();
+        assertEquals(VoiceRule.NEARBY, view().voice());
     }
 
     @Test

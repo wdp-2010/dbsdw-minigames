@@ -33,6 +33,14 @@ match:
   # How long the results show before everyone returns to the lobby.
   results-seconds: 10
 
+# Simple Voice Chat during matches (only when the voicechat plugin is installed):
+#   team   - every team talks in its own closed group (default)
+#   all    - the whole match in one closed group
+#   nearby - no groups, normal proximity voice chat
+# Public queue matches use this; new rooms start with it and the host can change it in the room menu.
+voice:
+  rule: team
+
 # Required resource pack, served by MinigameCore itself over HTTP.
 # Put the zip at plugins/MinigameCore/<file>. With an empty public-url or no file, players join without a pack.
 pack:

@@ -1,10 +1,14 @@
-walkable floor from the spawn: 10689 blocks
+walkable floor from the spawn: 10652 blocks
   practice range: reachable
   npc: reachable
   hq hall: reachable
   friends' camp: reachable
-  sand table woudfront: reachable
-  sand table duinbasis: reachable
+  valvloer npc: reachable
+  valvloer floor: reachable
+  chess npc: reachable
+  chess board: reachable
+  verstoppertje npc: reachable
+  verstoppertje shed: reachable
   bridge: reachable
   barracks: reachable
   depot: reachable

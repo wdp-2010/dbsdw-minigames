@@ -7,6 +7,7 @@ import be.dbsdw.minigames.core.arena.ArenaPool;
 import be.dbsdw.minigames.core.pack.PackAssets;
 import be.dbsdw.minigames.core.pack.PackItems;
 import be.dbsdw.minigames.core.room.RoomBook.Outcome;
+import be.dbsdw.minigames.core.voice.VoiceRule;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -38,8 +39,9 @@ import org.bukkit.plugin.Plugin;
 /** Private rooms on the Bukkit side: commands, menus, messages and countdowns around a {@link RoomBook}. */
 public final class RoomService {
     private static final int SIZE = 54;
-    /** Row 1: one icon per game (slots 0-5), then the map and the team rule. */
+    /** Row 1: one icon per game (slots 0-5), then the map, the voice rule and the team rule. */
     private static final int MAP_SLOT = 6;
+    private static final int VOICE_SLOT = 7;
     private static final int RULE_SLOT = 8;
     /** Row 2: the modes of the chosen game. */
     private static final int MODE_ROW = 9;
@@ -263,9 +265,10 @@ public final class RoomService {
                 case RoomEvent.CountdownTick(int id, List<UUID> members, int seconds) -> countdown(members, seconds);
                 case RoomEvent.CountdownCancelled(int id, List<UUID> members) ->
                         tell(members, messages.get("room.cancelled"));
-                case RoomEvent.Start(int id, ModeSpec mode, ArenaDefinition arena, List<List<UUID>> teams) -> {
+                case RoomEvent.Start(int id, ModeSpec mode, ArenaDefinition arena, List<List<UUID>> teams,
+                                     VoiceRule voice) -> {
                     log.info("[room] room " + id + " starts " + mode.key() + " on " + arena.name());
-                    if (!hooks.launch(id, mode, arena, teams)) {
+                    if (!hooks.launch(id, mode, arena, teams, voice)) {
                         book.matchEnded(id);
                         book.room(id).ifPresent(r -> tellAll(r, messages.get("room.start-failed")));
                     }
@@ -390,6 +393,15 @@ public final class RoomService {
                 messages.get("room.menu.rule", Placeholder.component("rule", messages.get(ruleKey))),
                 host ? List.of(messages.get("room.menu.host-click")) : List.of()));
         menu.action(RULE_SLOT, p -> act(p, book.cycleRule(p.getUniqueId())));
+
+        String voiceKey = room.voice().name().toLowerCase(Locale.ROOT);
+        List<Component> voiceLore = new ArrayList<>(List.of(messages.get("room.menu.voice-lore-" + voiceKey)));
+        if (host) {
+            voiceLore.add(messages.get("room.menu.host-click"));
+        }
+        inv.setItem(VOICE_SLOT, item(Material.NOTE_BLOCK, messages.get("room.menu.voice",
+                Placeholder.component("voice", messages.get("room.menu.voice-" + voiceKey))), voiceLore));
+        menu.action(VOICE_SLOT, p -> act(p, book.cycleVoice(p.getUniqueId())));
 
         boolean random = room.rule() == RoomTeams.Rule.RANDOM;
         int teams = Math.min(room.mode().teams(), TEAM_ROWS.length);

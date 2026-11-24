@@ -8,4 +8,5 @@ tasks.jar {
 
 dependencies {
     "bundle"(project(":travel"))
+    compileOnly(libs.voicechat.api)
 }

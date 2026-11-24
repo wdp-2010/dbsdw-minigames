@@ -214,14 +214,27 @@ the Paintball practice zone x -8..8, z -9..-39, y -59..-51); two leaderboard pli
 (-10.5, -56, -8.5) and (11.5, -56, -8.5); the paintball HQ to the west (palisade compound,
 command hall, watchtower, flag podium) with the Paintball NPC at (-17.5, -58, 0.5) facing east;
 the friends' camp (private rooms) to the east with a campfire circle, tents and a cabin; to the
-south two sand tables, relief models of Woudfront and Duinbasis built from the arena code itself
-(1:6 across, 1:3 up, team spawns in concrete, flags as banners), then a creek with a bridge and
-the closed camp gate between two watchtowers; barracks (NW), a supply depot with a water tower
+south the games square under a timber arch ("SPELLEN"), one stand per game with its NPC on the
+north side facing the plaza (Valvloer's in the lane between its floor and the chess board,
+facing north-east, because north of its floor it looked straight at the HQ palisade): Valvloer
+(-23.5, -58, 19.5), a patchwork floor of the game's own
+plank and stripped-wood blocks with holes over a hay pit, under a timber gantry; Schaken
+(-13.5, -58, 11.5), a 16 × 16 board of 2 × 2 squares with calcite and blackstone pieces mid-game
+(no two on touching squares, so each reads on its own); Verstoppertje (16.5, -58, 13.5), a timber
+yard with log piles, hay, crates, a shed and a few lone blocks that are "hiders". Way markers at
+the curb gaps of the parade ground name Paintball (west), Vrienden (east) and Spellen (south).
+Then a creek with a bridge and the closed camp gate between two watchtowers; barracks (NW), a supply depot with a water tower
 (NE), a motor pool (SE) and forest on rising hills all round, with barriers at the edge.
 
 Moving the ground from -63 to -59 moved the lobby spawn, the leaderboards and the practice
 zone and dummies up by 4; the values are in `out/basiskamp/lobby.txt` and in the repo's Paintball
 `config.yml`. Backup of the old lobby on node1: `/root/server5-lobby-backup-20261122/`.
+
+2026-11-23: the sand tables (arena maquettes) made way for the games square, so the lobby no
+longer reads as paintball only. The NPCs are summoned by the `entities` function (`npc_cmd`, one
+gear string per game in `GEAR`); no plugin config moved. The only in-game edit found in a world
+diff before deploying (walkway planks over the HQ gate taken out) is now in the code. Backup on
+node1: `/root/server5-lobby-backup-20261123/` (region, entities, poi).
 
 ## Sources
 

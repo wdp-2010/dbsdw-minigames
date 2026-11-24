@@ -5,6 +5,7 @@ authme = "6.0.1"
 viaversion = "5.12.2"
 # Floodgate publishes no releases; this timestamped snapshot is immutable.
 floodgate = "2.2.5-20260917.145236-21"
+voicechat-api = "2.6.25"
 
 [libraries]
 paper-api = { module = "io.papermc.paper:paper-api", version.ref = "paper-api" }
@@ -14,3 +15,4 @@ junit-platform-launcher = { module = "org.junit.platform:junit-platform-launcher
 authme-core = { module = "fr.xephi:authme-core", version.ref = "authme" }
 viaversion-api = { module = "com.viaversion:viaversion-api", version.ref = "viaversion" }
 floodgate-api = { module = "org.geysermc.floodgate:api", version.ref = "floodgate" }
+voicechat-api = { module = "de.maxhenkel.voicechat:voicechat-api", version.ref = "voicechat-api" }

@@ -23,6 +23,7 @@ COLORS = {
     "mossy_stone_bricks": (115, 121, 105), "cracked_stone_bricks": (118, 117, 118),
     "andesite": (136, 136, 136), "polished_andesite": (132, 135, 134), "tuff": (108, 109, 102),
     "diorite": (188, 188, 188), "granite": (149, 103, 85), "calcite": (223, 224, 220),
+    "smooth_quartz": (235, 229, 222), "chiseled_quartz_block": (231, 226, 218), "quartz_block": (235, 229, 222),
     "moss_block": (89, 109, 45), "moss_carpet": (89, 109, 45), "clay": (160, 166, 179),
     "water": (63, 118, 228), "oak_log": (109, 85, 50), "oak_wood": (109, 85, 50),
     "stripped_oak_log": (177, 144, 86), "oak_planks": (162, 130, 78), "spruce_log": (58, 37, 16),

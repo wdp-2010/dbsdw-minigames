@@ -49,6 +49,8 @@ import org.bukkit.event.server.ServerLoadEvent;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.plugin.Plugin;
 import be.dbsdw.minigames.core.stats.StatsStore;
+import be.dbsdw.minigames.core.voice.MatchVoice;
+import be.dbsdw.minigames.core.voice.VoiceRule;
 
 /** Turns queues into matches and matches back into lobby players. Ticked every server tick. */
 public final class MatchManager implements MenuModel, RoomHooks, Listener, MatchStarter {
@@ -79,11 +81,17 @@ public final class MatchManager implements MenuModel, RoomHooks, Listener, Match
     private final Map<UUID, Integer> barSeconds = new HashMap<>();
     private long tickCount;
     private final ArenaCopier copier;
+    private final MatchVoice voice;
+    /** Voice rule of public queue matches and the start value of new rooms. */
+    private final VoiceRule defaultVoice;
+    private long matchCount;
 
     public MatchManager(Plugin plugin, GameRegistryImpl registry, ArenaPool pool, QueueBook queues,
                         LobbyService lobby, Messages messages, int resultsTicks, RandomGenerator rnd,
-                        StatsStore stats) {
+                        StatsStore stats, MatchVoice voice, VoiceRule defaultVoice) {
         this.plugin = plugin;
+        this.voice = voice;
+        this.defaultVoice = defaultVoice;
         this.registry = registry;
         this.pool = pool;
         this.queues = queues;
@@ -94,7 +102,7 @@ public final class MatchManager implements MenuModel, RoomHooks, Listener, Match
         this.stats = stats;
         this.copier = new ArenaCopier(plugin);
         this.menus = new MenuListener(plugin, this, messages);
-        this.rooms = new RoomService(plugin, new RoomBook(pool, rnd), pool, messages, this);
+        this.rooms = new RoomService(plugin, new RoomBook(pool, rnd, defaultVoice), pool, messages, this);
         this.solo = new SoloMenu(plugin, messages, this::soloModes, this::gameIcon, this::modeIcon, rooms::startSolo);
         registry.onRegister(game -> game.modes().forEach(queues::addMode));
     }
@@ -212,7 +220,7 @@ public final class MatchManager implements MenuModel, RoomHooks, Listener, Match
             plugin.getLogger().info("[queue] " + mode.key() + " start fell through: " + online.size() + " player(s) online");
             return;
         }
-        open(game.get(), mode, arena, world, TeamSplit.split(online, mode.teams(), rnd), null);
+        open(game.get(), mode, arena, world, TeamSplit.split(online, mode.teams(), rnd), null, defaultVoice);
     }
 
     /**
@@ -220,7 +228,7 @@ public final class MatchManager implements MenuModel, RoomHooks, Listener, Match
      * first. False (arena released) if the copy could not be built.
      */
     private boolean open(GameType game, ModeSpec mode, ArenaDefinition arena, World world, List<List<UUID>> teams,
-                         Integer roomId) {
+                         Integer roomId, VoiceRule voiceRule) {
         Optional<ArenaDefinition> template = pool.templateOf(arena.name());
         if (template.isPresent()) {
             try {
@@ -239,7 +247,7 @@ public final class MatchManager implements MenuModel, RoomHooks, Listener, Match
                 teams, resultsTicks, messages, plugin.getLogger(), stats, id -> {
                     queues.remove(id);
                     matchByPlayer.put(id, self[0]);
-                });
+                }, voice, voiceRule, "dbsdw-" + (++matchCount));
         self[0] = match;
         matchesByArena.put(arena.name(), match);
         if (roomId != null) {
@@ -256,7 +264,8 @@ public final class MatchManager implements MenuModel, RoomHooks, Listener, Match
     // RoomHooks
 
     @Override
-    public boolean launch(int roomId, ModeSpec mode, ArenaDefinition arena, List<List<UUID>> teams) {
+    public boolean launch(int roomId, ModeSpec mode, ArenaDefinition arena, List<List<UUID>> teams,
+                          VoiceRule voiceRule) {
         List<List<UUID>> online = teams.stream().map(team -> team.stream()
                 .filter(id -> Bukkit.getPlayer(id) != null && !matchByPlayer.containsKey(id)).toList()).toList();
         Optional<GameType> game = registry.game(mode.gameId());
@@ -288,7 +297,7 @@ public final class MatchManager implements MenuModel, RoomHooks, Listener, Match
             }
         }
         online.forEach(team -> team.forEach(queues::remove));
-        return open(game.get(), mode, arena, world, online, roomId);
+        return open(game.get(), mode, arena, world, online, roomId, voiceRule);
     }
 
     @Override
@@ -334,7 +343,7 @@ public final class MatchManager implements MenuModel, RoomHooks, Listener, Match
         }
         everyone.forEach(queues::remove);
         plugin.getLogger().info("[match] " + mode.key() + " started directly by the game on " + arena.get().name());
-        return open(game.get(), mode, arena.get(), world, teams, null)
+        return open(game.get(), mode, arena.get(), world, teams, null, defaultVoice)
                 ? MatchStarter.Result.STARTED : MatchStarter.Result.NO_ARENA;
     }
 
@@ -389,6 +398,7 @@ public final class MatchManager implements MenuModel, RoomHooks, Listener, Match
             ArenaChunks.release(plugin, match.arena().world(), held);
         }
         matchesByArena.remove(arena);
+        match.releaseVoice();
         matchByPlayer.values().removeIf(m -> m == match);
         pool.release(arena);
         Integer roomId = roomOfMatch.remove(match);

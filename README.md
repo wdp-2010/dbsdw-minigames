@@ -101,11 +101,32 @@ Admin commands need `minigames.admin` (ops have it). Positions are taken from wh
   to the lobby. `/leave` leaves the queue or the match.
 - Private rooms (`/room` or the **Speel met vrienden** lobby item, slot 6): the host invites friends
   (menu button or `/room invite <speler>`, clickable **[Meedoen]**, valid 60 s), picks the game (top row), its mode (second row), map and
-  team rule (players pick / host assigns / random), and presses start from 2 players (1v1 is fine).
+  team rule (players pick / host assigns / random) and voice chat (per team / everyone together /
+  nearby; default per team), and presses start from 2 players (1v1 is fine).
   A 5 s countdown follows; after the match everyone is back in the room. Room matches count for
   stats. A room holds an arena only from start to match end. Players in a room can't use the
   public queue. `/room leave|kick|start`, `/leave` in the lobby also leaves the room. Design:
   `docs/superpowers/specs/2026-11-22-private-rooms-design.md`.
+
+## Voice chat, Plan, anticheat (minigame server)
+
+- **Voice chat** (Simple Voice Chat, optional): with the `voicechat` plugin installed, MinigameCore
+  puts match players in hidden, password-protected, isolated voice groups. `voice.rule` in
+  config.yml: `team` (each team its own group, default), `all` (the whole match in one group) or
+  `nearby` (no groups, normal proximity chat). Public queue matches use it; rooms start with it and
+  the host changes it in the room menu (note block, slot 8). Players who join a group of their own
+  are kept in their match group; a found hider in Verstoppertje moves to the seekers' group; at the
+  end everyone is back on proximity chat and the groups are removed. Voice chat runs on UDP of the
+  server's second allocation (the pack server uses TCP of the same port).
+- **Plan**: the minigame server's Plan uses the survival server's MariaDB database
+  (`survival_plan`, own user `minigames` with rights on that database only), with
+  `Server.ServerName: Minigames` and its own webserver off (`Webserver.Disable_Webserver: true`).
+  The survival Plan webserver (plan.dbsdw.com) shows both servers. Never copy
+  `plugins/Plan/ServerInfoFile.yml` between servers.
+- **Anticheat**: the same Vulcan as survival, with a lenient config made from the survival one by
+  `tools/server/vulcan_lenient.py`: punishments only kick (never a ban), every `max-violations` is
+  doubled, `settings.server-name: Minigames`. The survival config holds a Discord webhook URL, so
+  neither file goes into this repository.
 
 Games register through `be.dbsdw.minigames.core.api.GameRegistry` (a Bukkit service);
 `testgame/` is the smallest example.

@@ -69,6 +69,10 @@ match:
   # The game stopped without a result, to be continued later (e.g. a saved chess game).
   paused: "<#FFB52E><bold>Gepauzeerd"
   paused-sub: "<gray>Geen uitslag · je speelt later verder."
+  voice-team: "<#9CC05A>♪</#9CC05A> <gray>Voicechat: je hoort alleen je eigen team."
+  voice-all: "<#9CC05A>♪</#9CC05A> <gray>Voicechat: iedereen in dit spel hoort elkaar."
+  voice-nearby: "<#9CC05A>♪</#9CC05A> <gray>Voicechat: je hoort wie dichtbij is."
+  voice-group-all: "Iedereen"
 
 # Resource pack
 pack:
@@ -152,6 +156,13 @@ room:
     rule-pick: "Spelers kiezen"
     rule-host: "Host verdeelt"
     rule-random: "Willekeurig"
+    voice: "<#D9C78F>Voicechat: <white><voice>"
+    voice-team: "Per team"
+    voice-all: "Iedereen samen"
+    voice-nearby: "In de buurt"
+    voice-lore-team: "<gray>Elk team praat in een eigen groep"
+    voice-lore-all: "<gray>Alle spelers in één groep"
+    voice-lore-nearby: "<gray>Gewone voicechat: wie dichtbij is"
     host-click: "<gray>Klik om te wisselen (host)"
     team-count: "<gray><count>/<max> spelers"
     team-click: "<#9CC05A>Klik om in dit team te gaan"

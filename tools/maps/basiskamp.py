@@ -1,4 +1,4 @@
-"""Basiskamp: the minigame server's lobby, a woodland army camp in the style of Woudfront.
+"""Basiskamp: the minigame server's lobby, a woodland camp in the style of Woudfront.
 
 The player arrives on the parade ground in the middle (world 0, 0) facing north, where the
 practice range runs into the trees. Around the parade ground:
@@ -6,7 +6,10 @@ practice range runs into the trees. Around the parade ground:
   north      practice range (log palisade lanes, firing shed, earth berm), two leaderboard plinths
   west       paintball HQ: a palisade compound with a command hall, watchtower and the game NPC
   east       friends' camp (private rooms): campfire circle, tents and a cabin
-  south      sand tables: relief models of the arenas, built from the arena code itself
+  south      the games square under a timber arch, one stand per game with its NPC:
+             Valvloer (a tile floor with holes over a hay pit, under a gantry), Schaken (a
+             giant chess board with pieces mid-game), Verstoppertje (a timber yard full of
+             hiding places)
   further    a creek with a bridge, the camp gate between two towers, barracks (NW), a supply
              depot with a water tower (NE), a motor pool (SE), forest and hills all round
 
@@ -15,7 +18,6 @@ World = local - 56 in x and z.
 """
 from __future__ import annotations
 
-import importlib
 import json
 import math
 
@@ -41,8 +43,18 @@ HQ = (12, 45, 34, 67)
 HQ_GATE = (54, 58)                # z range of the east gate
 NPC = (38.5, G + 1, 56.5, -90.0)  # in front of the HQ gate, facing the parade ground
 FRIENDS = (90, 56)
-TABLES = {"woudfront": (23, 72), "duinbasis": (65, 72)}   # north-west corner of each model
-SCALE = 6
+# the games square: one stand per game, each with its NPC on the north side facing the plaza
+VALVLOER = (14, 72, 30, 87)
+CHESS = (34, 70, 51, 87)          # 16 x 16 board inside a log border
+HIDE = (63, 72, 90, 87)
+GAME_NPCS = {                     # game id -> (x, y, z, yaw); yaw 180 faces north, -135 north-east
+    # in the lane between the Valvloer floor and the chess board, looking out over the plaza
+    # (north of the floor it stood against the HQ palisade)
+    "valvloer": (32.5, G + 1, 75.5, -125.0),
+    "chess": (42.5, G + 1, 67.5, 180.0),
+    "verstoppertje": (72.5, G + 1, 69.5, 180.0),
+}
+ARCH_Z = 66                       # timber arch over the road into the games square
 BARRACKS = (10, 9, 42, 38)
 DEPOT = (70, 9, 103, 38)
 MOTOR = (72, 101, 98, 106)
@@ -52,6 +64,8 @@ BOARDS = [(45, 47), (67, 47)]     # leaderboard plinths (centre blocks)
 PATHS = [
     [(46, 56), (36, 56)],                       # parade ground -> HQ gate
     [(66, 56), (82, 56)],                       # -> friends' camp
+    [(50, 63), (42, 66)],                       # -> chess
+    [(48, 61), (40, 66), (32, 71)],             # -> valvloer
     [(49, 50), (44, 44), (34, 39), (28, 30)],   # -> barracks
     [(63, 50), (68, 44), (78, 39), (86, 30)],   # -> depot
     [(64, 62), (74, 68), (90, 70), (92, 92)],   # -> creek path east
@@ -84,10 +98,9 @@ def plaza_d(x, z):
 
 
 def built_rects():
-    t = TABLES
-    out = [RANGE, HQ, BARRACKS, DEPOT, MOTOR, (78, 46, 102, 67)]
-    for x, z in t.values():
-        out.append((x - 2, z - 2, x + 150 // SCALE + 1, z + 100 // SCALE + 1))
+    out = [RANGE, HQ, BARRACKS, DEPOT, MOTOR, (78, 46, 102, 67), VALVLOER, CHESS, HIDE]
+    for (x, _, z, _) in GAME_NPCS.values():
+        out.append((int(x) - 2, int(z) - 2, int(x) + 2, int(z) + 2))
     out.append((44, 100, 68, 110))
     return out
 
@@ -382,7 +395,8 @@ def hq(c: Canvas):
         c.set(x2 + 2, G + 2, z, "lantern[hanging=false]")
     # walkway behind the gate wall
     for z in range(z1 + 1, z2):
-        c.set(x2 - 1, G + 3, z, "spruce_planks")
+        if not HQ_GATE[0] <= z <= HQ_GATE[1]:   # open over the gate (owner's in-game edit)
+            c.set(x2 - 1, G + 3, z, "spruce_planks")
     for lz in (z1 + 2, z2 - 2):
         c.column(x2 - 1, lz, G + 1, G + 2, "spruce_planks")
         c.column(x2 - 2, lz, G + 1, G + 3, "ladder[facing=west]")
@@ -412,13 +426,7 @@ def hq(c: Canvas):
     c.set(fx - 1, G + 7, fz, "blue_wall_banner[facing=west]")
     c.set(fx, G + 8, fz, "waxed_lightning_rod[facing=up,powered=false,waterlogged=false]")
     # NPC stand outside the gate: a small plank platform
-    nx, nz = int(NPC[0]), int(NPC[2])
-    for x in range(nx - 1, nx + 2):
-        for z in range(nz - 1, nz + 2):
-            c.set(x, G, z, "spruce_planks")
-    for z in (nz - 2, nz + 2):
-        c.set(nx, G + 1, z, "spruce_fence")
-        c.set(nx, G + 2, z, "lantern[hanging=false]")
+    npc_stand(c, int(NPC[0]), int(NPC[2]), "z")
 
 
 # --------------------------------------------------------------------------- friends' camp
@@ -472,89 +480,272 @@ def friends(c: Canvas):
             c.set(fx + 8, G + 2, z, "oak_log[axis=z]")
 
 
-# --------------------------------------------------------------------------- sand tables
+# --------------------------------------------------------------------------- games square
 
 
-def _surface(m: Canvas, x, z):
-    y = m.top(x, z)
-    while y >= 0:
-        s = m.get(x, y, z)
-        if s == "water" or is_full(s):
-            return y, s
-        y -= 1
-    return -1, "stone"
+def npc_stand(c: Canvas, x, z, axis="x"):
+    """A plank platform for a game NPC with a lantern post on either side (along `axis`)."""
+    for px in range(x - 1, x + 2):
+        for pz in range(z - 1, z + 2):
+            c.set(px, G, pz, "spruce_planks")
+            for y in range(G + 1, G + 4):
+                c.set(px, y, pz, "air")
+    for d in (-2, 2):
+        px, pz = (x + d, z) if axis == "x" else (x, z + d)
+        c.set(px, G + 1, pz, "spruce_fence")
+        c.set(px, G + 2, pz, "lantern[hanging=false]")
 
 
-def sand_table(c: Canvas, name, x0, z0):
-    """A relief model of an arena (1:6 across, 1:3 up), built from the arena's own code."""
-    mod = importlib.import_module(name)
-    mod.build()
-    m = mod.CANVAS
-    nx, nz = m.sx // SCALE, m.sz // SCALE
-    base = G + 1
-    sub = "coarse_dirt" if name == "woudfront" else "sandstone"
-    # frame and legs
-    for x in range(x0 - 1, x0 + nx + 1):
-        for z in range(z0 - 1, z0 + nz + 1):
-            c.set(x, G, z, "spruce_planks")
-            for y in range(G + 1, G + 8):
+def curb(c: Canvas, x1, z1, x2, z2, y=G):
+    """Log curb around a rectangle (logs lie along the edge), dark posts in the corners."""
+    for x in range(x1, x2 + 1):
+        for z in range(z1, z2 + 1):
+            if x in (x1, x2) and z in (z1, z2):
+                c.set(x, y, z, "stripped_dark_oak_log[axis=y]")
+            elif z in (z1, z2):
+                c.set(x, y, z, "spruce_log[axis=x]")
+            elif x in (x1, x2):
+                c.set(x, y, z, "spruce_log[axis=z]")
+
+
+def clear_above(c: Canvas, x1, z1, x2, z2, h=10):
+    for x in range(x1, x2 + 1):
+        for z in range(z1, z2 + 1):
+            for y in range(G + 1, G + h):
                 c.set(x, y, z, "air")
-            if x in (x0 - 1, x0 + nx) or z in (z0 - 1, z0 + nz):
-                ax = "x" if z in (z0 - 1, z0 + nz) else "z"
-                c.set(x, base, z, f"stripped_spruce_log[axis={ax}]")
-    for x in range(x0 - 2, x0 + nx + 2):
-        for z in (z0 - 2, z0 + nz + 1):
-            c.set(x, G, z, "spruce_planks")
-    for z in range(z0 - 2, z0 + nz + 2):
-        for x in (x0 - 2, x0 + nx + 1):
-            c.set(x, G, z, "spruce_planks")
-    for (x, z) in ((x0 - 1, z0 - 1), (x0 + nx, z0 - 1), (x0 - 1, z0 + nz), (x0 + nx, z0 + nz)):
-        c.set(x, base, z, "stripped_dark_oak_log[axis=y]")
-        c.set(x, base + 1, z, "lantern[hanging=false]")
-    for i in range(nx):
-        for k in range(nz):
-            cells = []
-            for dx in range(SCALE):
-                for dz in range(SCALE):
-                    cells.append(_surface(m, i * SCALE + dx, k * SCALE + dz))
-            water = sum(1 for _, s in cells if s == "water")
-            x, z = x0 + i, z0 + k
-            if water * 3 >= len(cells):
-                c.set(x, base, z, "water")
-                continue
-            land = sorted((y, s) for y, s in cells if s != "water")
-            y, s = land[int(len(land) * 0.7)]
-            lvl = max(0, min(5, round((y - mod.G) / 3)))
-            for j in range(lvl):
-                c.set(x, base + j, z, sub)
-            if s.startswith("barrier"):
-                s = "stone"
-            c.set(x, base + lvl, z, s)
-    # team bases: a concrete block under each spawn and a banner on each flag
-    for t, spawns in mod.SPAWNS.items():
-        col = "red" if t == 0 else "blue"
-        for p in spawns[:2]:
-            i, k = int(p[0]) // SCALE, int(p[2]) // SCALE
-            y = c.top_solid(x0 + i, z0 + k)
-            c.set(x0 + i, y, z0 + k, f"{col}_concrete")
-        f = mod.FLAGS[t]
-        i, k = min(nx - 1, int(f[0]) // SCALE), min(nz - 1, int(f[2]) // SCALE)
-        y = c.top_solid(x0 + i, z0 + k)
-        c.set(x0 + i, y + 1, z0 + k, f"{col}_banner[rotation={4 if t == 0 else 12}]")
-    return nx, nz
 
 
-def tables(c: Canvas):
-    out = {}
-    for name, (x0, z0) in TABLES.items():
-        out[name] = sand_table(c, name, x0, z0)
-    # a timber shelter over the road between the tables: two posts each side, a sign beam
-    for z in (75, 85):
-        for x in (ROAD[0] - 1, ROAD[1] + 1):
-            c.column(x, z, G + 1, G + 4, "spruce_log[axis=y]")
-            c.set(x, G + 5, z, "spruce_slab[type=bottom]")
-    return out
+def gantry(c: Canvas, x1, z1, x2, z2, top):
+    """Timber frame: corner posts, beams round the top with knee braces, a middle beam with lanterns."""
+    for (x, z) in ((x1, z1), (x1, z2), (x2, z1), (x2, z2)):
+        c.column(x, z, G + 1, top, "stripped_dark_oak_log[axis=y]")
+    for x in range(x1 + 1, x2):
+        c.set(x, top, z1, "spruce_log[axis=x]")
+        c.set(x, top, z2, "spruce_log[axis=x]")
+    for z in range(z1 + 1, z2):
+        c.set(x1, top, z, "spruce_log[axis=z]")
+        c.set(x2, top, z, "spruce_log[axis=z]")
+    # knee braces: upside-down stairs under the beams next to each post
+    for (x, z) in ((x1, z1), (x1, z2), (x2, z1), (x2, z2)):
+        sx = 1 if x == x1 else -1
+        sz = 1 if z == z1 else -1
+        c.set(x + sx, top - 1, z, f"spruce_stairs[facing={'west' if sx == 1 else 'east'},half=top,shape=straight]")
+        c.set(x, top - 1, z + sz, f"spruce_stairs[facing={'north' if sz == 1 else 'south'},half=top,shape=straight]")
+    zm = (z1 + z2) // 2
+    for x in range(x1 + 1, x2):
+        c.set(x, top + 1, zm, "spruce_log[axis=x]")
+    for x in (x1, x2):
+        c.set(x, top + 1, zm, "stripped_dark_oak_log[axis=y]")
+    for x in range(x1 + 3, x2 - 1, 4):
+        c.set(x, top, zm, "iron_chain[axis=y]")
+        c.set(x, top - 1, zm, "lantern[hanging=true]")
+    # plank cap along the top beams
+    for x in range(x1, x2 + 1):
+        for z in (z1, z2):
+            c.set(x, top + 1, z, "spruce_slab[type=bottom]")
+    for z in range(z1 + 1, z2):
+        if z != zm:
+            for x in (x1, x2):
+                c.set(x, top + 1, z, "spruce_slab[type=bottom]")
 
+
+VALVLOER_TILES = ["birch_planks", "stripped_birch_wood", "oak_planks", "stripped_oak_wood",
+                  "jungle_planks", "stripped_jungle_wood", "mangrove_planks", "stripped_mangrove_wood"]
+
+
+def valvloer(c: Canvas):
+    """A patchwork floor of the game's own blocks, with holes where a player ran, over a hay pit."""
+    x1, z1, x2, z2 = VALVLOER
+    clear_above(c, x1, z1, x2, z2)
+    curb(c, x1, z1, x2, z2)
+    trail = [(16, 85), (19, 81), (23, 82), (26, 78), (25, 75)]
+    for x in range(x1 + 1, x2):
+        for z in range(z1 + 1, z2):
+            i, k = (x - x1 - 1) // 2, (z - z1 - 1) // 2
+            tile = VALVLOER_TILES[int(h3(i, 1, k, 130) * len(VALVLOER_TILES))]
+            hole = poly_dist(x, z, trail) < 0.75 or h3(x, 2, z, 131) < 0.05
+            c.set(x, G - 1, z, "hay_block[axis=y]")
+            c.set(x, G, z, "air" if hole else tile)
+    gantry(c, x1, z1, x2, z2, G + 6)
+
+
+CHESS_LIGHT = Pal(("pale_oak_planks", 3), ("birch_planks", 1), seed=140)
+CHESS_DARK = Pal(("dark_oak_planks", 3), ("stripped_dark_oak_wood", 1), seed=141)
+WHITE = Pal(("calcite", 3), ("smooth_quartz", 1), seed=142)
+BLACK = Pal(("polished_blackstone", 3), ("blackstone", 1), seed=143)
+
+
+def chess_piece(c: Canvas, i, k, kind, white):
+    """A 2 x 2 piece on square (file i, rank k): height and cap tell the kind."""
+    x0, z0 = CHESS[0] + 1 + 2 * i, CHESS[1] + 1 + 2 * k
+    m = WHITE if white else BLACK
+    cap = "chiseled_quartz_block" if white else "chiseled_polished_blackstone"
+    slab = "smooth_quartz_slab[type=bottom]" if white else "polished_blackstone_slab[type=bottom]"
+    body = {"pawn": 1, "rook": 2, "knight": 2, "bishop": 2, "queen": 3, "king": 3}[kind]
+    cells = [(x0, z0), (x0 + 1, z0), (x0, z0 + 1), (x0 + 1, z0 + 1)]
+    for (x, z) in cells:
+        for y in range(G + 1, G + 1 + body):
+            c.set(x, y, z, m)
+    top = G + 1 + body
+    if kind == "pawn" or kind == "bishop":
+        for (x, z) in cells:
+            c.set(x, top, z, slab)
+    elif kind == "rook":
+        for (x, z) in cells:
+            c.set(x, top - 1, z, cap)
+            c.set(x, top, z, slab)
+    elif kind == "knight":   # the head leans towards the other side
+        d = -1 if white else 1
+        hz = z0 if white else z0 + 1
+        for x in (x0, x0 + 1):
+            c.set(x, top, hz, m)
+            c.set(x, top + 1, hz, slab)
+            c.set(x, top, hz - d, f"{'smooth_quartz' if white else 'polished_blackstone'}_stairs"
+                  f"[facing={'south' if white else 'north'},half=bottom,shape=straight]")
+    elif kind == "queen":
+        for (x, z) in cells:
+            c.set(x, top - 1, z, cap)
+            c.set(x, top, z, slab)
+    elif kind == "king":
+        for (x, z) in cells:
+            c.set(x, top - 1, z, cap)
+            c.set(x, top, z, m)
+            c.set(x, top + 1, z, slab)
+
+
+def chess(c: Canvas):
+    """A giant 16 x 16 board (2 x 2 squares) with pieces in the middle of a game."""
+    x1, z1, x2, z2 = CHESS
+    clear_above(c, x1, z1, x2, z2)
+    curb(c, x1, z1, x2, z2)
+    for x in range(x1 + 1, x2):
+        for z in range(z1 + 1, z2):
+            i, k = (x - x1 - 1) // 2, (z - z1 - 1) // 2
+            c.set(x, G, z, CHESS_LIGHT if (i + k) % 2 == 0 else CHESS_DARK)
+    for (x, z) in ((x1, z1), (x1, z2), (x2, z1), (x2, z2)):
+        c.column(x, z, G + 1, G + 2, "stripped_dark_oak_log[axis=y]")
+        c.set(x, G + 3, z, "lantern[hanging=false]")
+    # white plays from the south (rank 7), black from the north (rank 0)
+    # an open middle game; no two pieces on touching squares, so each one reads on its own
+    white = [("king", 6, 7), ("rook", 4, 7), ("pawn", 0, 6), ("pawn", 2, 6), ("knight", 5, 5),
+             ("bishop", 0, 3), ("queen", 3, 4), ("pawn", 7, 5)]
+    black = [("king", 2, 0), ("rook", 4, 0), ("pawn", 6, 1), ("pawn", 0, 1), ("knight", 6, 3),
+             ("bishop", 2, 2), ("pawn", 4, 2)]
+    for kind, i, k in white:
+        chess_piece(c, i, k, kind, True)
+    for kind, i, k in black:
+        chess_piece(c, i, k, kind, False)
+    # taken pieces wait beside the board: a pawn and a knight on each side
+    for (x, z, white_side) in ((x2 + 2, z2 - 3, True), (x2 + 2, z1 + 2, False)):
+        m = WHITE if white_side else BLACK
+        c.set(x, G, z, "spruce_planks")
+        c.set(x, G + 1, z, m)
+        c.set(x, G + 2, z, "smooth_quartz_slab[type=bottom]" if white_side else "polished_blackstone_slab[type=bottom]")
+
+
+YARD = Pal(("coarse_dirt", 3), ("dirt_path", 2), ("packed_mud", 1), (GRASS, 2), ("gravel", 1), seed=150, scale=2)
+
+
+def log_pile(c: Canvas, x, z, length=5, axis="x", kind="spruce"):
+    """Stacked logs: three wide at the bottom, two, then one."""
+    for row, w in enumerate((3, 2, 1)):
+        for j in range(w):
+            for i in range(length):
+                px, pz = (x + i, z + j + row * 0.5) if axis == "x" else (x + j + row * 0.5, z + i)
+                c.set(int(px), G + 1 + row, int(pz), f"{kind}_log[axis={axis}]")
+
+
+def hide_yard(c: Canvas):
+    """Verstoppertje: a timber yard full of things to hide among (and a few that are hiders)."""
+    x1, z1, x2, z2 = HIDE
+    clear_above(c, x1, z1, x2, z2)
+    for x in range(x1, x2 + 1):
+        for z in range(z1, z2 + 1):
+            c.set(x, G, z, YARD)
+    # rail fence along the east and south sides, open to the plaza and the road
+    for x in range(x1 + 4, x2 + 1):
+        c.set(x, G + 1, z2, "spruce_fence")
+    for z in range(z1, z2 + 1):
+        c.set(x2, G + 1, z, "spruce_fence")
+    for (x, z) in ((x2, z1), (x2, z2), (x1 + 4, z2)):
+        c.column(x, z, G + 1, G + 2, "spruce_log[axis=y]")
+    # an open-fronted shed along the south fence: log back wall, posts, slab roof with overhang
+    sx1, sx2, sz1, sz2 = x1 + 12, x1 + 22, z2 - 5, z2 - 1
+    for x in range(sx1, sx2 + 1):
+        for y in range(G + 1, G + 4):
+            c.set(x, y, sz2, "spruce_log[axis=x]" if y > G + 1 else "cobblestone")
+    for z in range(sz1, sz2 + 1):
+        for x in (sx1, sx2):
+            for y in range(G + 1, G + 4):
+                c.set(x, y, z, "spruce_log[axis=z]" if y > G + 1 else "cobblestone")
+    for x in (sx1, sx2):
+        c.column(x, sz1, G + 1, G + 3, "stripped_dark_oak_log[axis=y]")
+    for x in range(sx1 + 1, sx2):
+        c.set(x, G + 1, sz1, "air")
+        c.set(x, G + 2, sz1, "air")
+        c.set(x, G + 3, sz1, "spruce_log[axis=x]")
+    for x in range(sx1 - 1, sx2 + 2):
+        for z in range(sz1 - 1, sz2 + 2):
+            edge = x in (sx1 - 1, sx2 + 1) or z in (sz1 - 1, sz2 + 1)
+            c.set(x, G + 4, z, "dark_oak_slab[type=bottom]" if edge else "dark_oak_planks")
+    for x in range(sx1 + 2, sx2 - 1, 4):
+        c.set(x, G + 3, sz1 + 2, "lantern[hanging=true]")
+    # shed contents: barrels, crates, a workbench
+    for x in range(sx1 + 1, sx1 + 4):
+        c.set(x, G + 1, sz2 - 1, "barrel[facing=up,open=false]")
+    c.set(sx1 + 1, G + 2, sz2 - 1, "barrel[facing=up,open=false]")
+    P.crate_stack(c, sx2 - 3, G + 1, sz2 - 2, w=2, d=1, h=2, seed=151)
+    c.set(sx1 + 5, G + 1, sz2 - 1, "crafting_table")
+    c.set(sx1 + 6, G + 1, sz2 - 1, "smithing_table")
+    # log piles, hay, crates and barrels around the yard
+    log_pile(c, x1 + 2, z1 + 3, length=6, axis="x")
+    log_pile(c, x1 + 2, z1 + 9, length=5, axis="x", kind="oak")
+    log_pile(c, x2 - 5, z1 + 2, length=6, axis="z", kind="birch")
+    for (x, z) in ((x1 + 11, z1 + 3), (x1 + 12, z1 + 3), (x1 + 11, z1 + 4)):
+        c.set(x, G + 1, z, "hay_block[axis=y]")
+    c.set(x1 + 11, G + 2, z1 + 3, "hay_block[axis=x]")
+    P.crate_stack(c, x1 + 16, G + 1, z1 + 2, w=2, d=2, h=2, seed=152)
+    P.crate_stack(c, x1 + 18, G + 1, z1 + 8, w=1, d=2, h=1, seed=153)
+    P.bush(c, x1 + 8, G + 1, z1 + 8, r=1.3, seed=154)
+    P.bush(c, x2 - 3, G + 1, z2 - 3, r=1.2, seed=155)
+    P.oak(c, x1 + 8, G + 1, z2 - 4, height=5, r=2.3, seed=156)
+    # the hiders: odd blocks standing on their own in the open
+    for (x, z, s) in ((x1 + 7, z1 + 5, "barrel[facing=up,open=false]"), (x1 + 14, z1 + 7, "hay_block[axis=y]"),
+                      (x1 + 21, z1 + 5, "spruce_planks"), (x1 + 5, z2 - 3, "barrel[facing=up,open=false]"),
+                      (x1 + 3, z2 - 1, "potted_fern")):
+        if s == "potted_fern":
+            c.set(x, G + 1, z, "spruce_planks")
+            c.set(x, G + 2, z, s)
+        else:
+            c.set(x, G + 1, z, s)
+
+
+def arch(c: Canvas):
+    """Timber arch over the road where the games square starts."""
+    z = ARCH_Z
+    a, b = ROAD[0] - 2, ROAD[1] + 2
+    for x in (a, b):
+        c.column(x, z, G + 1, G + 6, "dark_oak_log[axis=y]")
+        c.set(x, G, z, "cobblestone")
+    for x in range(a - 1, b + 2):
+        c.set(x, G + 7, z, "dark_oak_log[axis=x]")
+        c.set(x, G + 8, z, "spruce_slab[type=bottom]" if x % 2 else "spruce_planks")
+    c.set(a + 1, G + 6, z, "spruce_stairs[facing=west,half=top,shape=straight]")
+    c.set(b - 1, G + 6, z, "spruce_stairs[facing=east,half=top,shape=straight]")
+    for x in (a + 2, b - 2):
+        c.set(x, G + 6, z, "lantern[hanging=true]")
+    for x in (a, b):
+        for dz in (-1, 1):
+            c.set(x, G + 1, z + dz, "barrel[facing=up,open=false]")
+
+
+def games_square(c: Canvas):
+    valvloer(c)
+    chess(c)
+    hide_yard(c)
+    arch(c)
+    for game, (x, _, z, _) in GAME_NPCS.items():
+        npc_stand(c, int(x), int(z), "z" if game == "valvloer" else "x")
 
 # --------------------------------------------------------------------------- creek, gate, south
 
@@ -808,7 +999,7 @@ def border(c: Canvas):
 
 def clear_spawn(c: Canvas):
     """Nothing in the way where people stand: spawn, NPC, leaderboards."""
-    for (x, y, z) in ((SPAWN[0], SPAWN[1], SPAWN[2]), (NPC[0], NPC[1], NPC[2])):
+    for (x, y, z) in [SPAWN[:3], NPC[:3]] + [p[:3] for p in GAME_NPCS.values()]:
         for dy in range(0, 3):
             c.set(int(x), int(y) + dy, int(z), "air")
 
@@ -852,24 +1043,63 @@ def entity_cmds():
         text(FRIENDS[0] + 0.5, G + 5.5, FRIENDS[1] + 0.5, "SPEEL MET VRIENDEN",
              "/room of het item in je hotbar", 1.8),
     ]
-    for name, (x0, z0) in TABLES.items():
-        cmds.append(text(x0 + 12.5, G + 3.2, z0 - 1.5, name.upper(), "Maquette van de arena", 1.4))
     cmds.append(text(C + 0.5, G + 9.5, GATE_Z - 0.5, "BASISKAMP", None, 2.6))
-    nx, ny, nz = w(*NPC[:3])
-    npc = ("summon minecraft:mannequin {} {} {} {{Tags:[\"dbsdw_lobby\"],Rotation:[{}f,0f],"
-           "CustomName:{{text:\"Paintball\",color:\"#D9C78F\",bold:true}},CustomNameVisible:1b,"
-           "Invulnerable:1b,NoGravity:1b,Silent:1b,PersistenceRequired:1b,immovable:1b,"
-           "description:{{text:\"Klik om te spelen\",color:\"gray\"}},"
-           "equipment:{{mainhand:{{id:\"minecraft:crossbow\",count:1,components:{{"
-           "\"minecraft:charged_projectiles\":[{{id:\"minecraft:arrow\",count:1}}],"
-           "\"minecraft:item_model\":\"dbsdw:gun\",\"minecraft:custom_model_data\":{{colors:[16726832]}}}}}},"
-           "head:{{id:\"minecraft:leather_helmet\",count:1,components:{{\"minecraft:dyed_color\":5462314}}}},"
-           "chest:{{id:\"minecraft:leather_chestplate\",count:1,components:{{\"minecraft:dyed_color\":5462314}}}},"
-           "legs:{{id:\"minecraft:leather_leggings\",count:1,components:{{\"minecraft:dyed_color\":4211248}}}},"
-           "feet:{{id:\"minecraft:leather_boots\",count:1,components:{{\"minecraft:dyed_color\":3355443}}}}}},"
-           "BukkitValues:{{\"dbsdw:game_npc\":\"paintball\"}}}}").format(nx, ny, nz, NPC[3])
-    cmds.append(npc)
+    cmds.append(text(C + 0.5, G + 10.2, ARCH_Z + 0.5, "SPELLEN", "Valvloer · Schaken · Verstoppertje", 2.2))
+    # way markers at the curb gaps of the parade ground
+    cmds.append(text(C - 10 + 0.5, G + 3.0, C + 0.5, "PAINTBALL", None, 1.2))
+    cmds.append(text(C + 10 + 0.5, G + 3.0, C + 0.5, "VRIENDEN", None, 1.2))
+    cmds.append(text(C + 0.5, G + 3.0, C + 10 + 0.5, "SPELLEN", None, 1.2))
+    for game, (x, z, title, sub) in {
+        "valvloer": ((VALVLOER[0] + VALVLOER[2]) / 2 + 0.5, VALVLOER[1] + 0.5, "VALVLOER",
+                     "De vloer valt weg onder je voeten"),
+        "chess": ((CHESS[0] + CHESS[2]) / 2 + 0.5, CHESS[1] + 0.5, "SCHAKEN", "Schaak op een reuzenbord"),
+        "verstoppertje": ((HIDE[0] + HIDE[2]) / 2 + 0.5, HIDE[1] + 0.5, "VERSTOPPERTJE",
+                          "Verstop je als een blok"),
+    }.items():
+        cmds.append(text(x, G + 6.5 if game != "valvloer" else G + 9.0, z, title, sub, 1.8))
+    cmds.append(npc_cmd("paintball", "Paintball", NPC, PAINTBALL_GEAR))
+    for game, name in (("valvloer", "Valvloer"), ("chess", "Schaken"), ("verstoppertje", "Verstoppertje")):
+        cmds.append(npc_cmd(game, name, GAME_NPCS[game], GEAR[game]))
     return cmds
+
+
+def _leather(slot, color):
+    return f'{slot}:{{id:"minecraft:leather_{slot_item(slot)}",count:1,components:{{"minecraft:dyed_color":{color}}}}}'
+
+
+def slot_item(slot):
+    return {"head": "helmet", "chest": "chestplate", "legs": "leggings", "feet": "boots"}[slot]
+
+
+def outfit(head, chest, legs, feet):
+    return ",".join(_leather(s, col) for s, col in (("head", head), ("chest", chest), ("legs", legs), ("feet", feet))
+                    if col is not None)
+
+
+PAINTBALL_GEAR = ('mainhand:{id:"minecraft:crossbow",count:1,components:{'
+                  '"minecraft:charged_projectiles":[{id:"minecraft:arrow",count:1}],'
+                  '"minecraft:item_model":"dbsdw:gun","minecraft:custom_model_data":{colors:[16726832]}}},'
+                  + outfit(5462314, 5462314, 4211248, 3355443))
+GEAR = {
+    # a plank from the floor in hand, overalls in the floor's warm wood colours
+    "valvloer": 'mainhand:{id:"minecraft:mangrove_planks",count:1},' + outfit(None, 12884526, 9131330, 3355443),
+    # a chess clock and a black and white suit
+    "chess": 'mainhand:{id:"minecraft:clock",count:1},' + outfit(None, 1908001, 15790320, 1908001),
+    # a barrel over the head (the disguise) and a spyglass for the seeker
+    "verstoppertje": ('head:{id:"minecraft:barrel",count:1},mainhand:{id:"minecraft:spyglass",count:1},'
+                      + outfit(None, 6192150, 4211248, 3355443)),
+}
+
+
+def npc_cmd(game, name, pos, gear):
+    """A game NPC: a Mannequin with the dbsdw:game_npc tag GameNpc listens for."""
+    x, y, z = w(*pos[:3])
+    return ("summon minecraft:mannequin {} {} {} {{Tags:[\"dbsdw_lobby\"],Rotation:[{}f,0f],"
+            "CustomName:{{text:\"{}\",color:\"#D9C78F\",bold:true}},CustomNameVisible:1b,"
+            "Invulnerable:1b,NoGravity:1b,Silent:1b,PersistenceRequired:1b,immovable:1b,"
+            "description:{{text:\"Klik om te spelen\",color:\"gray\"}},"
+            "equipment:{{{}}},"
+            "BukkitValues:{{\"dbsdw:game_npc\":\"{}\"}}}}").format(x, y, z, pos[3], name, gear, game)
 
 
 # world positions the plugins need (written to lobby.txt by build.py)
@@ -889,6 +1119,8 @@ def config_notes():
         lines.append(f"  {p}")
     p = w(*NPC[:3])
     lines.append(f"paintball NPC: {p} yaw {NPC[3]}")
+    for game, pos in GAME_NPCS.items():
+        lines.append(f"{game} NPC: {w(*pos[:3])} yaw {pos[3]}")
     return lines
 
 
@@ -898,8 +1130,12 @@ POINTS = {
     "npc": (int(NPC[0]), G + 1, int(NPC[2])),
     "hq hall": (HQ[0] + 8, G + 1, 56),
     "friends' camp": (FRIENDS[0] - 3, G + 1, FRIENDS[1]),
-    "sand table woudfront": (35, G + 1, 70),
-    "sand table duinbasis": (77, G + 1, 70),
+    "valvloer npc": (int(GAME_NPCS["valvloer"][0]), G + 1, int(GAME_NPCS["valvloer"][2])),
+    "valvloer floor": (20, G + 1, 76),
+    "chess npc": (int(GAME_NPCS["chess"][0]), G + 1, int(GAME_NPCS["chess"][2])),
+    "chess board": (42, G + 1, 80),
+    "verstoppertje npc": (int(GAME_NPCS["verstoppertje"][0]), G + 1, int(GAME_NPCS["verstoppertje"][2])),
+    "verstoppertje shed": (80, G + 1, 84),
     "bridge": (56, G + 2, 97),
     "barracks": (26, G + 1, 25),
     "depot": (86, G + 1, 30),
@@ -915,7 +1151,7 @@ def build():
     practice_range(c)
     hq(c)
     friends(c)
-    tables(c)
+    games_square(c)
     bridge(c)
     barracks(c)
     depot(c)
@@ -929,5 +1165,5 @@ def build():
     border(c)
     c.fix_connections()
 
-CLOSEUPS = {"centre": (36, 14, 76, 70), "hq": (8, 40, 44, 72), "tables": (18, 64, 94, 112),
+CLOSEUPS = {"centre": (36, 14, 76, 70), "hq": (8, 40, 44, 72), "games": (10, 60, 94, 92), "valvloer": (10, 62, 34, 90), "chess": (30, 60, 60, 90), "hide": (58, 62, 94, 90),
             "friends": (72, 40, 108, 72), "north": (6, 4, 108, 44)}

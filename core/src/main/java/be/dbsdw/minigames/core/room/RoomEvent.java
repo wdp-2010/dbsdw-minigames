@@ -2,6 +2,7 @@ package be.dbsdw.minigames.core.room;
 
 import be.dbsdw.minigames.core.api.ModeSpec;
 import be.dbsdw.minigames.core.arena.ArenaDefinition;
+import be.dbsdw.minigames.core.voice.VoiceRule;
 import java.util.List;
 import java.util.UUID;
 
@@ -20,7 +21,8 @@ public sealed interface RoomEvent {
     }
 
     /** The room's match starts on the arena, which stays reserved until the match closes. */
-    record Start(int roomId, ModeSpec mode, ArenaDefinition arena, List<List<UUID>> teams) implements RoomEvent {
+    record Start(int roomId, ModeSpec mode, ArenaDefinition arena, List<List<UUID>> teams, VoiceRule voice)
+            implements RoomEvent {
         public Start {
             teams = teams.stream().map(List::copyOf).toList();
         }

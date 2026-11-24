@@ -11,6 +11,8 @@ import be.dbsdw.minigames.core.lobby.LobbyService;
 import be.dbsdw.minigames.core.pack.PackAssets;
 import be.dbsdw.minigames.core.pack.PackItems;
 import be.dbsdw.minigames.core.stats.StatsStore;
+import be.dbsdw.minigames.core.voice.MatchVoice;
+import be.dbsdw.minigames.core.voice.VoiceRule;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -24,6 +26,7 @@ import java.util.logging.Logger;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.minimessage.tag.resolver.Placeholder;
 import net.kyori.adventure.text.minimessage.tag.resolver.TagResolver;
+import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
 import net.kyori.adventure.title.Title;
 import org.bukkit.Bukkit;
 import org.bukkit.GameMode;
@@ -46,11 +49,22 @@ final class RunningMatch implements MatchContext {
     private boolean failed;
     private boolean statsSaved;
     private final Consumer<UUID> onRejoin;
+    private final MatchVoice voice;
+    private final VoiceRule voiceRule;
+    /** Unique per match: the prefix of its voice group keys. */
+    private final String voiceKey;
 
-    /** {@code onRejoin} is told about a player taken back in by {@link #rejoin}. */
+    /**
+     * {@code onRejoin} is told about a player taken back in by {@link #rejoin}. Players are put in
+     * voice groups by {@code voiceRule}, under the unique {@code voiceKey}.
+     */
     RunningMatch(GameType game, ModeSpec mode, ArenaView arena, List<List<UUID>> teams, int resultsTicks,
-                 Messages messages, Logger log, StatsStore stats, Consumer<UUID> onRejoin) {
+                 Messages messages, Logger log, StatsStore stats, Consumer<UUID> onRejoin,
+                 MatchVoice voice, VoiceRule voiceRule, String voiceKey) {
         this.onRejoin = onRejoin;
+        this.voice = voice;
+        this.voiceRule = voiceRule;
+        this.voiceKey = voiceKey;
         this.game = game;
         this.mode = mode;
         this.arena = arena;
@@ -91,9 +105,14 @@ final class RunningMatch implements MatchContext {
                 player.showTitle(Title.title(text("match.start"),
                         text("match.start-team", Placeholder.component("team", teamName(team)))));
                 PackItems.play(player, PackAssets.SOUND_START, 0.9f, 1f);
+                joinVoice(player);
+                if (voice.connected(player.getUniqueId())) {
+                    player.sendMessage(messages.get("match.voice-" + voiceRule.name().toLowerCase(java.util.Locale.ROOT)));
+                }
             }
         }
-        log.info("[match] " + mode.key() + " on " + arena.name() + " started: " + state.everyone().size() + " players");
+        log.info("[match] " + mode.key() + " on " + arena.name() + " started: " + state.everyone().size() + " players"
+                + " (voice: " + voiceRule.name().toLowerCase(java.util.Locale.ROOT) + ")");
         guarded(() -> {
             handler = game.newMatch(this);
             handler.start();
@@ -128,6 +147,7 @@ final class RunningMatch implements MatchContext {
         if (team.isEmpty()) {
             return;
         }
+        voice.clear(player.getUniqueId());
         boolean wasRunning = state.phase() == MatchState.Phase.RUNNING;
         MatchState.LeaveResult result = state.leave(player.getUniqueId());
         if (wasRunning && handler != null) {
@@ -180,6 +200,7 @@ final class RunningMatch implements MatchContext {
         }
         names.put(player.getUniqueId(), player.getName());
         LobbyService.locatorBar(player, false);
+        joinVoice(player);
         onRejoin.accept(player.getUniqueId());
         log.info("[match] " + player.getName() + " rejoined " + mode.key() + " on " + arena.name());
         return true;
@@ -348,9 +369,28 @@ final class RunningMatch implements MatchContext {
     public boolean moveToTeam(Player player, int team) {
         boolean moved = state.move(player.getUniqueId(), team);
         if (moved) {
+            joinVoice(player);
             log.info("[match] " + player.getName() + " moved to team " + team + " in " + mode.key());
         }
         return moved;
+    }
+
+    /** Puts the player in their team's (or the match's) voice group, or none under {@link VoiceRule#NEARBY}. */
+    private void joinVoice(Player player) {
+        OptionalInt team = state.teamOf(player.getUniqueId());
+        if (team.isEmpty()) {
+            return;
+        }
+        voiceRule.groupKey(voiceKey, team.getAsInt()).ifPresentOrElse(key -> {
+            Component name = voiceRule == VoiceRule.ALL ? messages.get("match.voice-group-all") : teamName(team.getAsInt());
+            voice.put(player.getUniqueId(), key, PlainTextComponentSerializer.plainText().serialize(name));
+        }, () -> voice.clear(player.getUniqueId()));
+    }
+
+    /** The match is closed: everyone back to proximity voice chat, its groups removed. */
+    void releaseVoice() {
+        state.everyone().forEach(voice::clear);
+        voice.removeGroups(voiceKey);
     }
 
     @Override

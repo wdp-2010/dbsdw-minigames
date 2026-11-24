@@ -3,6 +3,7 @@ package be.dbsdw.minigames.core.room;
 import be.dbsdw.minigames.core.api.ModeSpec;
 import be.dbsdw.minigames.core.arena.ArenaDefinition;
 import be.dbsdw.minigames.core.arena.ArenaPool;
+import be.dbsdw.minigames.core.voice.VoiceRule;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
@@ -15,7 +16,7 @@ import java.util.UUID;
 import java.util.random.RandomGenerator;
 
 /**
- * Private rooms: a host gathers invited players, picks mode, arena and team rule, and starts a match.
+ * Private rooms: a host gathers invited players, picks mode, arena, team rule and voice rule, and starts a match.
  * A host alone may start too (a solo test match; bots will fill such rooms later). A player is in at most one room. Call {@link #tick()} once per server tick.
  */
 public final class RoomBook {
@@ -34,6 +35,7 @@ public final class RoomBook {
 
     private final ArenaPool pool;
     private final RandomGenerator rnd;
+    private final VoiceRule defaultVoice;
     private final Map<Integer, Room> rooms = new LinkedHashMap<>();
     private final Map<UUID, Room> roomByMember = new HashMap<>();
     /** Invites per invited player: room id to the tick it expires. */
@@ -43,8 +45,14 @@ public final class RoomBook {
     private long now;
 
     public RoomBook(ArenaPool pool, RandomGenerator rnd) {
+        this(pool, rnd, VoiceRule.TEAM);
+    }
+
+    /** New rooms start with {@code defaultVoice}; the host may change it. */
+    public RoomBook(ArenaPool pool, RandomGenerator rnd, VoiceRule defaultVoice) {
         this.pool = pool;
         this.rnd = rnd;
+        this.defaultVoice = defaultVoice;
     }
 
     public Outcome create(UUID host, ModeSpec mode) {
@@ -181,6 +189,17 @@ public final class RoomBook {
         return Outcome.OK;
     }
 
+    /** The host switches the voice rule: per team, everyone together, nearby only. */
+    public Outcome cycleVoice(UUID host) {
+        Outcome check = hostCheck(host);
+        if (check != Outcome.OK) {
+            return check;
+        }
+        Room room = roomByMember.get(host);
+        room.voice = room.voice.next();
+        return Outcome.OK;
+    }
+
     /** The player picks a team (empty: no team). Only under {@link RoomTeams.Rule#PICK}. */
     public Outcome pick(UUID player, OptionalInt team) {
         Room room = roomByMember.get(player);
@@ -306,7 +325,7 @@ public final class RoomBook {
                         ? soloTeams(room.host, room.soloTeam.getAsInt(), room.mode.teams())
                         : RoomTeams.build(List.copyOf(room.members), room.picks, room.rule, room.mode.teams(), rnd);
                 room.soloTeam = OptionalInt.empty();
-                events.add(new RoomEvent.Start(room.id, room.mode, room.reserved, teams));
+                events.add(new RoomEvent.Start(room.id, room.mode, room.reserved, teams, room.voice));
                 room.reserved = null;
                 room.playing = true;
             } else if (room.ticksLeft % TICKS_PER_SECOND == 0) {
@@ -362,6 +381,7 @@ public final class RoomBook {
         ModeSpec mode;
         Optional<String> arena = Optional.empty();
         RoomTeams.Rule rule = RoomTeams.Rule.PICK;
+        VoiceRule voice = defaultVoice;
         ArenaDefinition reserved;
         int ticksLeft;
         /** Members when the countdown began. */
@@ -435,7 +455,7 @@ public final class RoomBook {
         RoomView view() {
             OptionalInt seconds = reserved == null ? OptionalInt.empty()
                     : OptionalInt.of((ticksLeft + TICKS_PER_SECOND - 1) / TICKS_PER_SECOND);
-            return new RoomView(id, host, List.copyOf(members), mode, arena, rule, picks, seconds, playing);
+            return new RoomView(id, host, List.copyOf(members), mode, arena, rule, picks, seconds, playing, voice);
         }
     }
 }

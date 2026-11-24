@@ -19,6 +19,10 @@ dependencyResolutionManagement {
             filter { includeGroup("com.viaversion") }
         }
         exclusiveContent {
+            forRepository { maven("https://maven.maxhenkel.de/repository/public/") { name = "maxhenkel" } }
+            filter { includeGroup("de.maxhenkel.voicechat") }
+        }
+        exclusiveContent {
             forRepository { maven("https://repo.opencollab.dev/main/") { name = "opencollab" } }
             filter { includeGroupAndSubgroups("org.geysermc") }
         }
