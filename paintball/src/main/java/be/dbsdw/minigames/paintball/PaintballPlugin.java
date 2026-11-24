@@ -121,7 +121,8 @@ public final class PaintballPlugin extends JavaPlugin {
                 seconds(c, "splats.lifetime-seconds"),
                 c.getInt("splats.max-per-arena"),
                 c.getDouble("gun.gravity"),
-                c.getDouble("gun.scope-spread-degrees"));
+                c.getDouble("gun.scope-spread-degrees"),
+                seconds(c, "ctf.respawn-seconds"));
     }
 
     private static ModeRules mode(FileConfiguration c, String key, String winKey) {

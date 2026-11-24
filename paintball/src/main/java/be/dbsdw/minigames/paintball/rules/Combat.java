@@ -36,11 +36,17 @@ public final class Combat {
     }
 
     private final Settings settings;
+    private final long respawnTicks;
     private final Map<UUID, State> players = new LinkedHashMap<>();
 
     /** {@code teams}: player to team index, in join order. */
     public Combat(Map<UUID, Integer> teams, Settings settings) {
+        this(teams, settings, settings.respawnTicks());
+    }
+
+    public Combat(Map<UUID, Integer> teams, Settings settings, long respawnTicks) {
         this.settings = settings;
+        this.respawnTicks = respawnTicks;
         teams.forEach((id, team) -> players.put(id, new State(team, settings.hitsToOut())));
     }
 
@@ -177,6 +183,6 @@ public final class Combat {
     private void goOut(State s, long now) {
         s.out = true;
         s.shield = false;
-        s.respawnAt = now + settings.respawnTicks();
+        s.respawnAt = now + respawnTicks;
     }
 }

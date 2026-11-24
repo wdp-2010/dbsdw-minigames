@@ -109,6 +109,19 @@ public final class PaintballGame implements GameType {
         return true;
     }
 
+    /** A room's host pressed start with others in the room: offer bots to fill the teams, or start without. */
+    @Override
+    public boolean startWithBots(Player host, ModeSpec mode, Runnable start) {
+        BotMenu.openForRoom(host, this, mode, choice -> {
+            botSetups.put(host.getUniqueId(), new BotSetup(choice.level(), choice.perTeam(), -1));
+            start.run();
+        }, () -> {
+            botSetups.remove(host.getUniqueId());
+            start.run();
+        });
+        return true;
+    }
+
     /** The bots a player chose for their next match, once; null when they did not. */
     public BotSetup takeBots(UUID player) {
         return botSetups.remove(player);

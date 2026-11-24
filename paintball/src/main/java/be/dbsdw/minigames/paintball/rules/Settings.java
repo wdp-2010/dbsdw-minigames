@@ -7,7 +7,7 @@ package be.dbsdw.minigames.paintball.rules;
 public record Settings(ModeRules tdm, ModeRules ctf, int hitsToOut, long respawnTicks, long protectionTicks,
                        int shotIntervalTicks, double speed, double spreadDegrees, long ballLifetimeTicks,
                        long flagReturnTicks, PowerupSettings powerups, long splatLifetimeTicks, int splatCap,
-                       double ballGravity, double scopeSpreadDegrees) {
+                       double ballGravity, double scopeSpreadDegrees, long ctfRespawnTicks) {
     public Settings {
         require(hitsToOut >= 1, "player.hits-to-out must be >= 1");
         require(respawnTicks >= 0, "player.respawn-seconds must be >= 0");
@@ -16,6 +16,7 @@ public record Settings(ModeRules tdm, ModeRules ctf, int hitsToOut, long respawn
         require(speed > 0 && speed <= 10, "gun.speed must be > 0 and <= 10");
         require(spreadDegrees >= 0 && spreadDegrees <= 45, "gun.spread-degrees must be between 0 and 45");
         require(ballLifetimeTicks >= 1, "gun.ball-lifetime-ticks must be >= 1");
+        require(ctfRespawnTicks >= 0, "ctf.respawn-seconds must be >= 0");
         require(flagReturnTicks >= 20, "ctf.flag-return-seconds must be >= 1");
         require(splatLifetimeTicks >= 1, "splats.lifetime-seconds must be > 0");
         require(splatCap >= 0, "splats.max-per-arena must be >= 0");
@@ -26,7 +27,7 @@ public record Settings(ModeRules tdm, ModeRules ctf, int hitsToOut, long respawn
     /** The spec's defaults. */
     public static Settings defaults() {
         return new Settings(new ModeRules("tdm", 2, 8, 30, 10, 10 * 60 * 20), new ModeRules("ctf", 2, 8, 3, 0, 12 * 60 * 20),
-                3, 3 * 20, 2 * 20, 5, 3.0, 1.0, 60, 30 * 20, PowerupSettings.defaults(), 20 * 20, 300, 0.5, 0.2);
+                3, 3 * 20, 2 * 20, 5, 3.0, 1.0, 60, 30 * 20, PowerupSettings.defaults(), 20 * 20, 300, 0.5, 0.2, 7 * 20);
     }
 
     static void require(boolean ok, String message) {

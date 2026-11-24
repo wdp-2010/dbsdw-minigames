@@ -233,6 +233,17 @@ public final class RoomService {
             log.info("[room] " + host.getName() + " pressed start alone; " + room.get().mode().key() + " takes over");
             return;
         }
+        if (room.isPresent() && !room.get().counting() && !room.get().playing() && room.get().members().size() > 1
+                && room.get().host().equals(host.getUniqueId()) && hooks.startWithBots(host, room.get().mode(), () -> startRoom(host))) {
+            log.info("[room] " + host.getName() + " pressed start; " + room.get().mode().key() + " offers bots");
+            return;
+        }
+        startRoom(host);
+    }
+
+    /** Starts the room's countdown, or cancels a running one. */
+    private void startRoom(Player host) {
+        Optional<RoomView> room = book.roomOf(host.getUniqueId());
         Outcome out = room.isPresent() && room.get().counting()
                 ? book.cancel(host.getUniqueId())
                 : book.start(host.getUniqueId());

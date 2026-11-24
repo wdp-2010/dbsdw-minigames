@@ -20,6 +20,8 @@ ctf:
   time-limit-minutes: 12
   # A dropped flag goes home by itself after this.
   flag-return-seconds: 30
+  # Respawn wait in capture the flag (player.respawn-seconds is for team deathmatch).
+  respawn-seconds: 7
 
 player:
   hits-to-out: 3

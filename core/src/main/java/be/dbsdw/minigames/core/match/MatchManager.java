@@ -314,6 +314,20 @@ public final class MatchManager implements MenuModel, RoomHooks, Listener, Match
         }
     }
 
+    @Override
+    public boolean startWithBots(Player host, ModeSpec mode, Runnable start) {
+        Optional<GameType> game = registry.game(mode.gameId());
+        if (game.isEmpty()) {
+            return false;
+        }
+        try {
+            return game.get().startWithBots(host, mode, start);
+        } catch (RuntimeException e) {
+            plugin.getLogger().log(java.util.logging.Level.WARNING, "[room] startWithBots of " + game.get().id() + " failed", e);
+            return false;
+        }
+    }
+
     // MatchStarter
 
     @Override

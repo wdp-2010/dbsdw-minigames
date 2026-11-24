@@ -86,6 +86,15 @@ public interface GameType {
         return false;
     }
 
+    /**
+     * The host of a private room with other players in it pressed start. Return true when the game takes
+     * this over (e.g. opens a menu to add bots to fill the teams); it then calls {@code start} to start
+     * the room's countdown as usual. Return false (the default) to start the room as usual.
+     */
+    default boolean startWithBots(Player host, ModeSpec mode, Runnable start) {
+        return false;
+    }
+
     /** A new handler for one match; called when the match starts. */
     MatchHandler newMatch(MatchContext context);
 }

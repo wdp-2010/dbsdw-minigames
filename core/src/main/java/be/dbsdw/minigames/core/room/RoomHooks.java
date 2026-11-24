@@ -30,6 +30,9 @@ public interface RoomHooks {
     /** See {@link be.dbsdw.minigames.core.api.GameType#startAlone}; false when the game does not take over. */
     boolean startAlone(Player host, ModeSpec mode, IntConsumer startOnTeam);
 
+    /** See {@link be.dbsdw.minigames.core.api.GameType#startWithBots}; false when the game does not take over. */
+    boolean startWithBots(Player host, ModeSpec mode, Runnable start);
+
     /** A game's icon as in the games menu, named after the game. */
     ItemStack gameIcon(String gameId);
 }

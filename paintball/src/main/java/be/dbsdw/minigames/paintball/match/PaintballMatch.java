@@ -137,7 +137,7 @@ public final class PaintballMatch implements MatchHandler {
         int[] size = new int[2];
         teams.values().forEach(t -> size[t]++);
         score = new TeamScore(2, rules.winScoreFor(Math.max(size[0], size[1])));
-        combat = new Combat(teams, settings);
+        combat = new Combat(teams, settings, mode == Mode.CTF ? settings.ctfRespawnTicks() : settings.respawnTicks());
         combat.start(0);
         if (mode == Mode.CTF) {
             flags = new Flags(2, settings.flagReturnTicks());
@@ -967,17 +967,23 @@ public final class PaintballMatch implements MatchHandler {
             game.plugin().getLogger().warning("[paintball] no walkable floor for bots in " + ctx.arena().name());
             return;
         }
-        int hostTeam = teams.getOrDefault(host.getUniqueId(), setup.team());
+        int[] humans = new int[2];
+        for (Player p : online()) {
+            Integer t = teams.get(p.getUniqueId());
+            if (t != null && t >= 0 && t < 2) {
+                humans[t]++;
+            }
+        }
         List<String> pool = new ArrayList<>(BOT_NAMES);
         java.util.Collections.shuffle(pool);
         Component levelName = messages.get("bot.description",
                 Placeholder.component("level", messages.get("bot.level." + setup.level().id())));
         int n = 0;
         for (int team = 0; team < 2; team++) {
-            int count = team == hostTeam ? setup.perTeam() - 1 : setup.perTeam();
+            int count = Math.max(0, setup.perTeam() - humans[team]);
             List<Location> spawns = ctx.arena().spawns(team);
             for (int i = 0; i < count; i++) {
-                Location at = spawns.get((i + 1) % spawns.size()).clone();
+                Location at = spawns.get((humans[team] + i) % spawns.size()).clone();
                 String name = "Bot " + pool.get(n++ % pool.size());
                 PaintBot bot = PaintBot.spawn(at, name, team, i, setup.level(), nav, settings, messages, levelName,
                         ThreadLocalRandom.current());
