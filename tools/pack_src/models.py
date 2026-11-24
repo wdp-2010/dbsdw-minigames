@@ -379,13 +379,21 @@ def main(out: Path) -> None:
                 "parent": "dbsdw:item/splat_base",
                 "textures": {"splat": f"dbsdw:item/splat_{shape}_{stage}"}})
     write_json(items / "splat.json", splat_definition())
-    # Paint drips: the same flat square as the splat, with their own sprites.
+    # Paint drips: the same flat square as the splat, but the sprite flipped top to bottom. The
+    # plugin turns the square so its +z runs down the wall, and the up face maps the top of a
+    # sprite to +z; flipped, the top of the sprite (the splat end of the trail, the neck of the
+    # drop) is at the top on the wall.
+    write_json(models / "drip_base.json", {
+        "textures": {"particle": "#drip"},
+        "elements": [{"from": [0, 8, 0], "to": [16, 8, 16], "shade": False,
+                      "faces": {"up": {"uv": [0, 16, 16, 0], "texture": "#drip", "tintindex": 0}}}],
+    })
     for part in ("body", "head"):
         for variant in range(DRIP_VARIANTS):
             for stage in range(4):
                 name = f"drip_{part}_{variant}_{stage}"
                 write_json(models / f"{name}.json", {
-                    "parent": "dbsdw:item/splat_base", "textures": {"splat": f"dbsdw:item/{name}"}})
+                    "parent": "dbsdw:item/drip_base", "textures": {"drip": f"dbsdw:item/{name}"}})
     write_json(items / "drip.json", drip_definition())
 
     for name in SPRITES:
