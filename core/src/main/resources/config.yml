@@ -53,3 +53,20 @@ pack:
 
 # Lobby leaderboards, managed with /mg leaderboard add|remove.
 leaderboards: []
+
+# Levels. XP comes from finished matches and is kept per game and for all games together.
+# Reaching level n takes round(base * (n - 1) ^ exponent) XP in total.
+progress:
+  curve:
+    base: 100
+    exponent: 1.5
+    max-level: 100
+  xp:
+    # For finishing a match, and extra for a win or a draw.
+    played: 20
+    win: 20
+    draw: 10
+    # Matches shorter than this give no XP.
+    min-seconds: 60
+    # Multiplier for matches with bots (0 to 1).
+    bot-factor: 0.25

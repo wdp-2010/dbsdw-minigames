@@ -3,9 +3,11 @@ package be.dbsdw.minigames.core.menu;
 import be.dbsdw.minigames.core.Messages;
 import be.dbsdw.minigames.core.api.GameType;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import org.bukkit.Bukkit;
+import org.bukkit.Material;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.InventoryHolder;
@@ -16,6 +18,8 @@ import org.bukkit.inventory.meta.ItemMeta;
 public final class GamesMenu implements InventoryHolder {
     private static final int SIZE = 27;
     private static final int FIRST_SLOT = 10;
+    /** The progress button, bottom middle. */
+    private static final int PROGRESS_SLOT = 22;
 
     private final Inventory inventory;
     private final Map<Integer, String> gameBySlot = new HashMap<>();
@@ -35,10 +39,20 @@ public final class GamesMenu implements InventoryHolder {
             gameBySlot.put(slot, game.id());
             slot++;
         }
+        ItemStack progress = ItemStack.of(Material.EXPERIENCE_BOTTLE);
+        progress.editMeta(m -> {
+            m.itemName(messages.get("menu.games.progress"));
+            m.lore(List.of(messages.get("menu.games.progress-lore")));
+        });
+        inventory.setItem(PROGRESS_SLOT, progress);
     }
 
     public static void open(Player player, MenuModel model, Messages messages) {
         player.openInventory(new GamesMenu(model, messages).inventory);
+    }
+
+    boolean isProgress(int slot) {
+        return slot == PROGRESS_SLOT;
     }
 
     Optional<String> gameAt(int slot) {

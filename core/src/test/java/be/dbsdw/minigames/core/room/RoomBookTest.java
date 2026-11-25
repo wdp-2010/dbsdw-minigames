@@ -382,4 +382,78 @@ class RoomBookTest {
         assertEquals(Outcome.OK, book.invite(p.get(0), p.get(2)));
         assertEquals(Outcome.OK, book.join(p.get(2), p.get(0)));
     }
+
+    private RoomEvent.Start startNow() {
+        assertEquals(Outcome.OK, book.start(p.get(0)));
+        return (RoomEvent.Start) ticks(RoomBook.COUNTDOWN_SECONDS * 20).stream()
+                .filter(e -> e instanceof RoomEvent.Start).findFirst().orElseThrow();
+    }
+
+    @Test
+    void hostAddsBotsToTeamsAndTheyTakeSlots() {
+        room(1);
+        assertEquals(Outcome.NOT_HOST, book.addBot(p.get(1), 0));
+        assertEquals(Outcome.NOT_ALLOWED, book.addBot(p.get(0), 2));
+        assertEquals(Outcome.OK, book.pick(p.get(0), OptionalInt.of(0)));
+        assertEquals(Outcome.OK, book.addBot(p.get(0), 0));
+        // team 0: host + bot = 2 = full
+        assertEquals(Outcome.TEAM_FULL, book.addBot(p.get(0), 0));
+        assertEquals(Outcome.TEAM_FULL, book.pick(p.get(1), OptionalInt.of(0)));
+        assertEquals(Outcome.OK, book.addBot(p.get(0), 1));
+        assertEquals(List.of(1, 1), view().bots());
+        assertEquals(4, view().headcount());
+        // full room: nobody else joins
+        assertEquals(Outcome.OK, book.invite(p.get(0), p.get(2)));
+        assertEquals(Outcome.FULL, book.join(p.get(2), p.get(0)));
+        RoomEvent.Start start = startNow();
+        assertEquals(List.of(1, 1), start.bots());
+        // p1 had no team: joins team 1, the only one with room
+        assertEquals(List.of(List.of(p.get(0)), List.of(p.get(1))), start.teams());
+    }
+
+    @Test
+    void botsAloneMakeAFullMatchAndFillTheEmptyTeam() {
+        room();
+        assertEquals(Outcome.OK, book.addBot(p.get(0), 1));
+        assertFalse(RoomBook.shortHanded(view().headcount(), M));
+        RoomEvent.Start start = startNow();
+        assertEquals(List.of(List.of(p.get(0)), List.of()), start.teams());
+        assertEquals(List.of(0, 1), start.bots());
+        assertEquals(RoomBook.DEFAULT_BOT_LEVEL, start.botLevel());
+    }
+
+    @Test
+    void aTeamWithOnlyBotsIsNotEmpty() {
+        room(1);
+        book.pick(p.get(0), OptionalInt.of(0));
+        book.pick(p.get(1), OptionalInt.of(0));
+        assertEquals(Outcome.EMPTY_TEAM, book.start(p.get(0)));
+        assertEquals(Outcome.OK, book.addBot(p.get(0), 1));
+        assertEquals(List.of(List.of(p.get(0), p.get(1)), List.of()), startNow().teams());
+    }
+
+    @Test
+    void hostRemovesBotsAndCyclesTheLevel() {
+        room();
+        assertEquals(Outcome.NOT_ALLOWED, book.removeBot(p.get(0), 0));
+        book.addBot(p.get(0), 0);
+        assertEquals(Outcome.OK, book.removeBot(p.get(0), 0));
+        assertEquals(0, view().botCount());
+        assertEquals(Outcome.OK, book.cycleBotLevel(p.get(0), 4));
+        assertEquals(2, view().botLevel());
+        book.cycleBotLevel(p.get(0), 4);
+        book.cycleBotLevel(p.get(0), 4);
+        assertEquals(0, view().botLevel());
+    }
+
+    @Test
+    void anotherGameDropsTheBots() {
+        room();
+        book.addBot(p.get(0), 1);
+        assertEquals(Outcome.OK, book.setMode(p.get(0), N));
+        // same game, teams of 1: the bot still fits team 1
+        assertEquals(List.of(0, 1), view().bots());
+        assertEquals(Outcome.OK, book.setMode(p.get(0), new ModeSpec("other", "x", "X", 2, 2, 2, Set.of())));
+        assertEquals(0, view().botCount());
+    }
 }

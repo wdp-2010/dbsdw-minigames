@@ -58,7 +58,10 @@ public final class ModesMenu implements InventoryHolder {
             ItemMeta meta = icon.getItemMeta();
             meta.itemName(MiniMessage.miniMessage().deserialize(mode.displayName()));
             List<Component> lore = new ArrayList<>();
-            if (!model.anyArena(mode)) {
+            Component locked = model.lockLore(viewer, mode);
+            if (locked != null) {
+                lore.add(locked);
+            } else if (!model.anyArena(mode)) {
                 lore.add(messages.get("menu.mode.no-arena"));
             } else {
                 lore.add(messages.get("menu.mode.queued",
@@ -73,7 +76,7 @@ public final class ModesMenu implements InventoryHolder {
                         ? "menu.mode.click-leave" : "menu.mode.click-join"));
             }
             meta.lore(lore);
-            meta.setEnchantmentGlintOverride(model.isQueued(viewer.getUniqueId(), mode.key()));
+            meta.setEnchantmentGlintOverride(locked == null && model.isQueued(viewer.getUniqueId(), mode.key()));
             icon.setItemMeta(meta);
             inventory.setItem(slot, icon);
             modeBySlot.put(slot, mode.key());

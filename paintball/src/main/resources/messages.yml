@@ -1,7 +1,7 @@
 # Paintball player messages (MiniMessage format).
 # Raise "version" when texts change: servers with an older file get it backed up and replaced.
 # Colours: khaki #D9C78F (headings), field green #9CC05A (good news), amber #FFB52E (alerts, numbers).
-version: 6
+version: 7
 
 game:
   name: "<#D9C78F><bold>Paintball"
@@ -10,9 +10,13 @@ game:
 mode:
   tdm: "<#D9C78F>Teamgevecht"
   ctf: "<#D9C78F>Vlagroof"
+  tdm_shop: "<#D9C78F>Teamgevecht <#FFB52E>met winkel"
+  ctf_shop: "<#D9C78F>Vlagroof <#FFB52E>met winkel"
+  bomb: "<#D9C78F>Verfbom <#FFB52E>· rondes"
 
 item:
   gun: "<#D9C78F><bold>Paintgeweer</bold></#D9C78F> <gray>· rechtsklik om te vuren"
+  shop: "<#FFB52E><bold>Winkel</bold></#FFB52E> <gray>· rechtsklik om te openen"
   practice-gun: "<#D9C78F><bold>Oefengeweer</bold></#D9C78F> <gray>· rechtsklik om te vuren"
 
 # Icons come from the resource pack font dbsdw:hud: \uE000 paint drop (used in code), \uE001 shield,
@@ -26,6 +30,9 @@ hud:
   protected: " <font:dbsdw:hud><white>\uE007</white></font> <aqua>Beschermd"
   shield: " <font:dbsdw:hud><white>\uE001</white></font>"
   buff: " <icon> <white><seconds>s"
+  # Shop modes: the player's cash; bomb mode: shown to whoever carries the bomb.
+  cash: " <#9CC05A>⛁ <cash>"
+  bomb: " <red><bold>[BOM]"
   # Under the crosshair (subtitle) for the shooter.
   marker: "<font:dbsdw:hud><white>\uE006</white></font> <white><bold>RAAK!"
   marker-shield: "<font:dbsdw:hud><white>\uE001</white></font> <aqua><bold>SCHILD KAPOT!"
@@ -82,8 +89,12 @@ stat:
   shots: "Schoten"
   captures: "Vlaggen veroverd"
   returns: "Vlaggen gered"
+  rounds: "Rondes gewonnen"
+  plants: "Bommen gelegd"
+  defuses: "Bommen ontmanteld"
 
 result:
+  score-bomb: "<#D9C78F><bold>Rondes</bold></#D9C78F> <red_team> <white><bold><red></bold></white> <dark_gray>-</dark_gray> <white><bold><blue></bold></white> <blue_team>"
   score: "<#D9C78F><bold>Eindstand</bold></#D9C78F> <red_team> <white><bold><red></bold></white> <dark_gray>-</dark_gray> <white><bold><blue></bold></white> <blue_team>"
   score-ctf: "<#D9C78F><bold>Vlaggen</bold></#D9C78F> <red_team> <white><bold><red></bold></white> <dark_gray>-</dark_gray> <white><bold><blue></bold></white> <blue_team>"
   mvp: "<#FFB52E><bold>MVP</bold></#FFB52E> <name> <dark_gray>·</dark_gray> <white><count></white> <gray>uitgeschakeld, <white><hits></white> <gray>treffers"
@@ -98,7 +109,106 @@ practice:
   hint: "<gray>Rechtsklik om te vuren · sluip om te richten · scroll om te zoomen"
   down: "<font:dbsdw:hud><white>\uE006</white></font> <#FFB52E><bold>DOELWIT NEER!"
 
-# Playing against bots (/solo, or start alone in a room).
+# Playing against bots (/solo, start alone in a room, or bots the room's host adds to the teams).
+# The shop of the shop modes and the bomb mode. Cash is per match: <cash> and <price> are amounts.
+shop:
+  title: "<#D9C78F>Winkel"
+  cash: "<#9CC05A><bold>⛁ <cash>"
+  cash-lore: "<gray>Verdien geld met uitschakelen en doelen"
+  # Buy phase of the bomb mode, under the cash.
+  buy-time: "<#FFB52E>Koopfase: nog <white><seconds></white>s"
+  price: "<gray>Prijs <#9CC05A>⛁ <price>"
+  owned: "<gray>In bezit <white><owned></white><dark_gray>/<max>"
+  earned: "<#9CC05A>+⛁ <amount></#9CC05A> <gray><reason>"
+  reason:
+    elimination: "uitschakeling"
+    capture: "vlag veroverd"
+    return: "vlag gered"
+    round-win: "ronde gewonnen"
+    round-loss: "ronde verloren"
+    plant: "bom gelegd"
+    defuse: "bom ontmanteld"
+  bought: "<#9CC05A>Gekocht:</#9CC05A> <item>"
+  closed-bomb: "<red>De winkel is alleen open in de koopfase"
+  check:
+    ok: "<#9CC05A>Klik om te kopen"
+    too_poor: "<red>Niet genoeg geld"
+    maxed: "<#FFB52E>Je hebt er al genoeg"
+    closed: "<red>De winkel is nu dicht"
+    not_for_you: "<red>Alleen voor de verdedigers van de bom"
+    not_needed: "<#FFB52E>Je bent niet geraakt"
+  item:
+    vest:
+      name: "<#D9C78F><bold>Verfvest"
+      lore: "<gray>Vangt de volgende treffer op"
+      use: "<gray>Gedragen · vangt één treffer op"
+    repair:
+      name: "<#9CC05A><bold>EHBO-kit"
+      lore: "<gray>Haalt meteen één treffer weg"
+      use: "<gray>Meteen gebruikt"
+    boots:
+      name: "<#2EE6E0><bold>Sprintschoenen"
+      lore: "<gray>Sneller lopen tot je geraakt bent"
+      use: "<gray>Gedragen · sneller lopen"
+    rapid_cartridge:
+      name: "<#FF8A1F><bold>Snelvuurpatroon"
+      lore: "<gray>Rechtsklik: 10 seconden dubbel zo snel schieten"
+      use: "<gray>Rechtsklik om te gebruiken"
+    triple_cartridge:
+      name: "<#D93BE8><bold>Driedubbel patroon"
+      lore: "<gray>Rechtsklik: 8 seconden drie ballen per schot"
+      use: "<gray>Rechtsklik om te gebruiken"
+    paint_grenade:
+      name: "<#FF3B30><bold>Verfgranaat"
+      lore: "<gray>Gooi hem: één treffer voor iedereen in de buurt"
+      use: "<gray>Rechtsklik om te gooien"
+    smoke_grenade:
+      name: "<#A0A498><bold>Rookgranaat"
+      lore: "<gray>Gooi hem: een dikke rookwolk van 9 seconden"
+      use: "<gray>Rechtsklik om te gooien"
+    defuse_kit:
+      name: "<#FFC21A><bold>Ontmantelset"
+      lore: "<gray>Verdedigers: ontmantel de bom in de helft van de tijd"
+      use: "<gray>Gedragen · sneller ontmantelen"
+
+# The bomb mode: attackers plant the paint bomb on the defenders' site, defenders stop or defuse it.
+bomb:
+  item: "<red><bold>Verfbom</bold></red> <gray>· sluip op de bomplek om te leggen"
+  item-lore: "<gray>Houd hem vast en sluip op de bomplek"
+  site: "<#FFC21A><bold>BOMPLEK"
+  timer: "<red><bold><seconds></bold></red>"
+  attack: "<red><bold>AANVALLEN"
+  defend: "<aqua><bold>VERDEDIGEN"
+  attack-hint: "<gray>Leg de bom op de plek van <team>"
+  defend-hint: "<gray>Houd <team> weg van je bomplek"
+  round-title: "<#D9C78F><bold>RONDE <round></bold></#D9C78F><dark_gray>/<max>"
+  go: "<#9CC05A><bold>GO!"
+  swap: "<#FFB52E><bold>WISSEL!</bold></#FFB52E> <gray>De teams ruilen van kant · geld terug op ⛁ <cash>"
+  carrier: "<#FFB52E>»</#FFB52E> <player> <gray>heeft de bom"
+  dropped: "<#FFB52E>»</#FFB52E> <red>De bom ligt op de grond!"
+  picked: "<#FFB52E>»</#FFB52E> <player> <gray>pakt de bom op"
+  planting: "<red><bold>BOM LEGGEN</bold></red> <bar>"
+  defusing: "<aqua><bold>ONTMANTELEN</bold></aqua> <bar>"
+  planted: "<red><bold>DE BOM LIGT!</bold></red> <gray>Nog <white><seconds></white>s"
+  planted-by: "<#FFB52E>»</#FFB52E> <player> <red>legt de bom!"
+  defused-by: "<#FFB52E>»</#FFB52E> <player> <aqua>ontmantelt de bom!"
+  hint-plant: "<gray>Sluip met de bom in je hand op de <#FFC21A>bomplek"
+  hint-kit: "<gray>Sluip bij de bom om hem te ontmantelen"
+  out-title: "<red><bold>UIT"
+  out-subtitle: "<gray>Kijk mee tot de volgende ronde"
+  won-title: "<team> <#D9C78F><bold>WINT DE RONDE"
+  end:
+    elimination: "<gray>Alle tegenstanders uitgeschakeld"
+    exploded: "<red>De bom is ontploft"
+    defused: "<aqua>De bom is ontmanteld"
+    time: "<gray>De tijd is op"
+  bossbar:
+    buy: "<#FFB52E>Koopfase</#FFB52E> <gray>· ronde <round>/<max> · nog <white><time>"
+    live: "<#D9C78F>Ronde <round>/<max></#D9C78F> <gray>· nog <white><time>"
+    planted: "<red><bold>BOM GELEGD</bold></red> <gray>· nog <white><time>"
+    post: "<gray>Volgende ronde over <white><time>"
+  hud-title: "<#D9C78F><bold>PAINTBALL</bold> <gray>· Verfbom"
+
 bot:
   # Shown under a bot's name.
   description: "<gray>Bot · <level>"
@@ -117,9 +227,6 @@ bot:
     size: "<white><n> tegen <n>"
     size-lore-alone: "<gray>Jij alleen tegen 1 bot"
     size-lore: "<gray>Jij + <allies> bots tegen <enemies> bots"
-    size-lore-room: "<gray>Teams van <n>: bots vullen de teams aan"
-    no-bots: "<red><bold>Zonder bots"
-    no-bots-lore: "<gray>Start de kamer met alleen spelers"
     chosen: "<#9CC05A>✔ Gekozen"
     click: "<gray>Klik om te kiezen"
     start: "<#9CC05A><bold>Start"

@@ -28,19 +28,21 @@ public final class LobbyListener implements Listener {
     private final Messages messages;
     private final Consumer<Player> openGames;
     private final Consumer<Player> openStats;
+    private final Consumer<Player> openProgress;
     private final Consumer<Player> openRoom;
     private final Consumer<Player> onQuit;
     private final Logger log;
 
     /** {@code travel} is null when the ticket secret is invalid. */
     public LobbyListener(LobbyService lobby, CoreTravel travel, Messages messages, Consumer<Player> openGames,
-                         Consumer<Player> openStats, Consumer<Player> openRoom,
-                         Consumer<Player> onQuit, Logger log) {
+                         Consumer<Player> openStats, Consumer<Player> openProgress,
+                         Consumer<Player> openRoom, Consumer<Player> onQuit, Logger log) {
         this.lobby = lobby;
         this.travel = travel;
         this.messages = messages;
         this.openGames = openGames;
         this.openStats = openStats;
+        this.openProgress = openProgress;
         this.openRoom = openRoom;
         this.onQuit = onQuit;
         this.log = log;
@@ -72,6 +74,7 @@ public final class LobbyListener implements Listener {
         switch (item.get()) {
             case GAMES -> openGames.accept(player);
             case STATS -> openStats.accept(player);
+            case PROGRESS -> openProgress.accept(player);
             case ROOM -> openRoom.accept(player);
             case SURVIVAL -> {
                 if (travel == null) {

@@ -32,7 +32,10 @@ def arena_yaml(m, origin):
     def pos(p, yaw):
         return f"{{x: {ox + p[0]}, y: {oy + p[1]}.0, z: {oz + p[2]}, yaw: {yaw}, pitch: 0.0}}"
 
-    modes = getattr(m, "MODES", ["paintball:tdm", "paintball:ctf"])
+    # Paintball maps (they all have flags) host every paintball mode: the shop variants play on the
+    # same arenas, and the bomb mode uses each team's flag spot as that team's bomb site.
+    modes = getattr(m, "MODES", ["paintball:tdm", "paintball:ctf", "paintball:tdm_shop", "paintball:ctf_shop",
+                                 "paintball:bomb"])
     out = [f"world: {m.WORLD}", "modes: [" + ", ".join(modes) + "]",
            f"corner1: {{x: {ox}, y: {oy - 1}, z: {oz}}}",
            f"corner2: {{x: {ox + c.sx - 1}, y: {oy + c.sy - 1}, z: {oz + c.sz - 1}}}", "spawns:"]

@@ -50,6 +50,7 @@ public final class RoomService {
     private static final int NONE_SLOT = 36;
     private static final int NONE_LAST = 44;
     private static final int INVITE_SLOT = 45;
+    private static final int BOT_LEVEL_SLOT = 47;
     private static final int LEAVE_SLOT = 49;
     private static final int START_SLOT = 53;
     private static final int INVITE_BACK_SLOT = 49;
@@ -112,6 +113,12 @@ public final class RoomService {
     public void startSolo(Player player, ModeSpec mode) {
         UUID id = player.getUniqueId();
         if (hooks.inMatch(id)) {
+            return;
+        }
+        // Refuse before a room is made or changed: a locked mode must not leave the player stuck in a room.
+        Component locked = hooks.lockReason(player, mode);
+        if (locked != null) {
+            player.sendMessage(locked);
             return;
         }
         Optional<RoomView> room = book.roomOf(id);
@@ -227,23 +234,21 @@ public final class RoomService {
     /** The start button and {@code /room start}: starts, or cancels a running countdown. */
     public void start(Player host) {
         Optional<RoomView> room = book.roomOf(host.getUniqueId());
+        // A host below the mode's level cannot start it; cancelling a countdown is always fine.
+        if (room.isPresent() && !room.get().counting() && room.get().host().equals(host.getUniqueId())) {
+            Component locked = hooks.lockReason(host, room.get().mode());
+            if (locked != null) {
+                host.sendMessage(locked);
+                return;
+            }
+        }
+        // Alone without bots in the room: the game may take over (e.g. pick a chess bot or paintball bots).
         if (room.isPresent() && !room.get().counting() && !room.get().playing() && room.get().members().size() == 1
-                && room.get().host().equals(host.getUniqueId())
+                && room.get().botCount() == 0 && room.get().host().equals(host.getUniqueId())
                 && hooks.startAlone(host, room.get().mode(), team -> startAlone(host, team))) {
             log.info("[room] " + host.getName() + " pressed start alone; " + room.get().mode().key() + " takes over");
             return;
         }
-        if (room.isPresent() && !room.get().counting() && !room.get().playing() && room.get().members().size() > 1
-                && room.get().host().equals(host.getUniqueId()) && hooks.startWithBots(host, room.get().mode(), () -> startRoom(host))) {
-            log.info("[room] " + host.getName() + " pressed start; " + room.get().mode().key() + " offers bots");
-            return;
-        }
-        startRoom(host);
-    }
-
-    /** Starts the room's countdown, or cancels a running one. */
-    private void startRoom(Player host) {
-        Optional<RoomView> room = book.roomOf(host.getUniqueId());
         Outcome out = room.isPresent() && room.get().counting()
                 ? book.cancel(host.getUniqueId())
                 : book.start(host.getUniqueId());
@@ -251,8 +256,9 @@ public final class RoomService {
             error(host, out);
         } else if (room.isPresent()) {
             boolean cancelled = room.get().counting();
-            log.info("[room] " + host.getName() + (cancelled ? " cancelled the start" : " pressed start"));
-            if (!cancelled && RoomBook.shortHanded(room.get().members().size(), room.get().mode())) {
+            log.info("[room] " + host.getName() + (cancelled ? " cancelled the start" : " pressed start")
+                    + (cancelled || room.get().botCount() == 0 ? "" : " with bots " + room.get().bots()));
+            if (!cancelled && RoomBook.shortHanded(room.get().headcount(), room.get().mode())) {
                 tellAll(room.get(), messages.get("room.short-warning"));
             }
         }
@@ -277,9 +283,10 @@ public final class RoomService {
                 case RoomEvent.CountdownCancelled(int id, List<UUID> members) ->
                         tell(members, messages.get("room.cancelled"));
                 case RoomEvent.Start(int id, ModeSpec mode, ArenaDefinition arena, List<List<UUID>> teams,
-                                     VoiceRule voice) -> {
-                    log.info("[room] room " + id + " starts " + mode.key() + " on " + arena.name());
-                    if (!hooks.launch(id, mode, arena, teams, voice)) {
+                                     VoiceRule voice, List<Integer> bots, int botLevel) -> {
+                    log.info("[room] room " + id + " starts " + mode.key() + " on " + arena.name()
+                            + (bots.stream().allMatch(b -> b == 0) ? "" : " with bots " + bots));
+                    if (!hooks.launch(id, mode, arena, teams, voice, bots, botLevel)) {
                         book.matchEnded(id);
                         book.room(id).ifPresent(r -> tellAll(r, messages.get("room.start-failed")));
                     }
@@ -415,6 +422,7 @@ public final class RoomService {
         menu.action(VOICE_SLOT, p -> act(p, book.cycleVoice(p.getUniqueId())));
 
         boolean random = room.rule() == RoomTeams.Rule.RANDOM;
+        List<Component> botLevels = hooks.botLevels(room.mode());
         int teams = Math.min(room.mode().teams(), TEAM_ROWS.length);
         for (int team = 0; team < teams; team++) {
             int header = TEAM_ROWS[team];
@@ -422,7 +430,8 @@ public final class RoomService {
             List<UUID> members = random ? List.of()
                     : room.members().stream().filter(m -> room.teamOf(m).equals(OptionalInt.of(t))).toList();
             List<Component> lore = new ArrayList<>();
-            lore.add(messages.get("room.menu.team-count", Placeholder.unparsed("count", String.valueOf(members.size())),
+            int filled = members.size() + room.botsIn(t);
+            lore.add(messages.get("room.menu.team-count", Placeholder.unparsed("count", String.valueOf(filled)),
                     Placeholder.unparsed("max", String.valueOf(room.mode().maxPerTeam()))));
             lore.add(messages.get(switch (room.rule()) {
                 case PICK -> "room.menu.team-click";
@@ -431,7 +440,25 @@ public final class RoomService {
             }));
             inv.setItem(header, item(TEAM_WOOL[team], messages.get("team." + team), lore));
             menu.action(header, p -> act(p, book.pick(p.getUniqueId(), OptionalInt.of(t))));
-            heads(menu, inv, room, viewer, members, header + 1, header + 8);
+            int last = header + 8;
+            int next = heads(menu, inv, room, viewer, members, header + 1, last);
+            next = botHeads(menu, inv, room, host, botLevels, t, next, last);
+            boolean full = random ? room.botsIn(t) >= room.mode().maxPerTeam() : filled >= room.mode().maxPerTeam();
+            if (host && !botLevels.isEmpty() && !full && next <= last && room.headcount() < room.mode().maximum()) {
+                inv.setItem(next, item(Material.LIGHT_GRAY_STAINED_GLASS_PANE, messages.get("room.menu.add-bot"),
+                        List.of(messages.get("room.menu.add-bot-lore",
+                                Placeholder.component("level", level(botLevels, room))))));
+                menu.action(next, p -> act(p, book.addBot(p.getUniqueId(), t)));
+            }
+        }
+        if (!botLevels.isEmpty()) {
+            List<Component> levelLore = new ArrayList<>(List.of(messages.get("room.menu.bot-level-lore")));
+            if (host) {
+                levelLore.add(messages.get("room.menu.host-click"));
+            }
+            inv.setItem(BOT_LEVEL_SLOT, item(Material.ZOMBIE_HEAD, messages.get("room.menu.bot-level",
+                    Placeholder.component("level", level(botLevels, room))), levelLore));
+            menu.action(BOT_LEVEL_SLOT, p -> act(p, book.cycleBotLevel(p.getUniqueId(), botLevels.size())));
         }
 
         List<UUID> none = random ? room.members()
@@ -471,7 +498,7 @@ public final class RoomService {
             if (!host) {
                 startLore.add(messages.get("room.menu.start-host-only"));
                 startIcon = Material.GRAY_CONCRETE;
-            } else if (RoomBook.shortHanded(room.members().size(), room.mode())) {
+            } else if (RoomBook.shortHanded(room.headcount(), room.mode())) {
                 startLore.add(messages.get("room.menu.start-short"));
                 startIcon = Material.YELLOW_CONCRETE;
             }
@@ -480,7 +507,30 @@ public final class RoomService {
         menu.action(START_SLOT, this::start);
     }
 
-    private void heads(RoomMenu menu, Inventory inv, RoomView room, Player viewer, List<UUID> members, int from, int to) {
+    private static Component level(List<Component> levels, RoomView room) {
+        return levels.get(Math.floorMod(room.botLevel(), levels.size()));
+    }
+
+    /** The team's bots from slot {@code from} on; the host clicks one to take it out. The next free slot. */
+    private int botHeads(RoomMenu menu, Inventory inv, RoomView room, boolean host, List<Component> levels, int team,
+                         int from, int to) {
+        int slot = from;
+        for (int i = 0; i < room.botsIn(team) && slot <= to; i++, slot++) {
+            List<Component> lore = new ArrayList<>();
+            if (!levels.isEmpty()) {
+                lore.add(messages.get("room.menu.bot-lore", Placeholder.component("level", level(levels, room))));
+            }
+            if (host) {
+                lore.add(messages.get("room.menu.bot-remove"));
+                menu.action(slot, p -> act(p, book.removeBot(p.getUniqueId(), team)));
+            }
+            inv.setItem(slot, item(Material.ZOMBIE_HEAD, messages.get("room.menu.bot"), lore));
+        }
+        return slot;
+    }
+
+    /** Member heads from slot {@code from} to {@code to}; the next free slot. */
+    private int heads(RoomMenu menu, Inventory inv, RoomView room, Player viewer, List<UUID> members, int from, int to) {
         boolean hostMoves = room.rule() == RoomTeams.Rule.HOST && room.host().equals(viewer.getUniqueId());
         int slot = from;
         int capacity = to - from + 1;
@@ -492,7 +542,7 @@ public final class RoomService {
                 // more members than slots: the last slot counts the rest
                 inv.setItem(slot, item(Material.PAPER, messages.get("room.menu.more",
                         Placeholder.unparsed("count", String.valueOf(members.size() - capacity + 1))), List.of()));
-                break;
+                return to + 1;
             }
             List<Component> lore = new ArrayList<>();
             if (member.equals(room.host())) {
@@ -505,6 +555,7 @@ public final class RoomService {
             inv.setItem(slot, head(member, lore));
             slot++;
         }
+        return slot;
     }
 
     private void renderInvite(RoomMenu menu, Player host) {

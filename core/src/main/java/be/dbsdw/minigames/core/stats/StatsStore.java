@@ -135,6 +135,25 @@ public final class StatsStore {
         }, db);
     }
 
+    /** One player's total XP per game (game id, or "account" for all games), empty if none yet. */
+    public CompletableFuture<Map<String, Long>> xp(UUID id) {
+        return CompletableFuture.supplyAsync(() -> {
+            try (PreparedStatement q = connection.prepareStatement(
+                    "SELECT game, value FROM stats WHERE uuid = ? AND stat = 'xp'")) {
+                q.setString(1, id.toString());
+                Map<String, Long> xp = new LinkedHashMap<>();
+                try (ResultSet r = q.executeQuery()) {
+                    while (r.next()) {
+                        xp.put(r.getString(1), r.getLong(2));
+                    }
+                }
+                return xp;
+            } catch (SQLException e) {
+                throw new IllegalStateException(e);
+            }
+        }, db);
+    }
+
     /** The top players of one stat. */
     public CompletableFuture<List<Row>> top(String game, String stat, int limit) {
         return CompletableFuture.supplyAsync(() -> {

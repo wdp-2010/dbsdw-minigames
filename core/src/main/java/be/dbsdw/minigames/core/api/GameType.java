@@ -2,6 +2,7 @@ package be.dbsdw.minigames.core.api;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.UUID;
 import java.util.function.Consumer;
 import java.util.function.IntConsumer;
 import net.kyori.adventure.text.Component;
@@ -35,6 +36,19 @@ public interface GameType {
     /** The game's own stat names (the core adds matches, wins, losses, draws), in display order. */
     default List<String> stats() {
         return List.of();
+    }
+
+    /** XP a player earns for each count of this stat in a match (0 for stats that give none). */
+    default int xpPerStat(String stat) {
+        return 0;
+    }
+
+    /**
+     * The level in this game a player needs to play the mode (1 or less: no level needed). The core
+     * keeps players below it out of the queue and out of rooms they host.
+     */
+    default int requiredLevel(ModeSpec mode) {
+        return 0;
     }
 
     /** How a stat of this game is shown in /stats, /top and leaderboards. */
@@ -87,13 +101,19 @@ public interface GameType {
     }
 
     /**
-     * The host of a private room with other players in it pressed start. Return true when the game takes
-     * this over (e.g. opens a menu to add bots to fill the teams); it then calls {@code start} to start
-     * the room's countdown as usual. Return false (the default) to start the room as usual.
+     * The levels of the bots a private room's host can add to the teams of this mode, easiest first.
+     * Empty (the default) when the game has no such bots.
      */
-    default boolean startWithBots(Player host, ModeSpec mode, Runnable start) {
-        return false;
+    default List<Component> roomBotLevels(ModeSpec mode) {
+        return List.of();
     }
+
+    /**
+     * A room match of this game is about to start with bots the host added: {@code perTeam} bots per
+     * team at the level with this index in {@link #roomBotLevels}. {@code players} are the match's
+     * players. Called with only zeros when that start fell through, to forget the bots again.
+     */
+    default void roomBots(List<UUID> players, ModeSpec mode, List<Integer> perTeam, int level) {}
 
     /** A new handler for one match; called when the match starts. */
     MatchHandler newMatch(MatchContext context);

@@ -1,6 +1,7 @@
 package be.dbsdw.minigames.paintball;
 
 import be.dbsdw.minigames.paintball.rules.PowerupType;
+import be.dbsdw.minigames.paintball.rules.ShopItem;
 import net.kyori.adventure.key.Key;
 import net.kyori.adventure.text.format.TextColor;
 
@@ -18,6 +19,16 @@ public final class PackAssets {
     /** Paint running down a wall under a splat: floats[0] part (0 trail, 1 drop), floats[1] fade stage, floats[2] shape. */
     public static final String DRIP = "dbsdw:drip";
     public static final String FLAG = "dbsdw:flag";
+    /** The paint bomb of the bomb mode: held in hand and planted on the site (item display). */
+    public static final String BOMB = "dbsdw:bomb";
+    /** Shop items: 3D grenades and defuse kit, sprite icons for the rest. */
+    public static final String PAINT_GRENADE = "dbsdw:paint_grenade";
+    public static final String SMOKE_GRENADE = "dbsdw:smoke_grenade";
+    public static final String DEFUSE_KIT = "dbsdw:defuse_kit";
+    public static final String SHOP_VEST = "dbsdw:shop_vest";
+    public static final String SHOP_BOOTS = "dbsdw:shop_boots";
+    public static final String SHOP_RAPID = "dbsdw:shop_rapid_cartridge";
+    public static final String SHOP_TRIPLE = "dbsdw:shop_triple_cartridge";
 
     /** Invisible helmet that shows the scope overlay (equippable camera_overlay). */
     public static final String SCOPE = "dbsdw:scope";
@@ -75,6 +86,20 @@ public final class PackAssets {
             case SPEED -> "dbsdw:powerup_speed";
             case SHIELD -> "dbsdw:powerup_shield";
             case REPAIR -> "dbsdw:powerup_repair";
+        };
+    }
+
+    /** The model a shop item shows, in the menu and in the hotbar. */
+    public static String shopItem(ShopItem item) {
+        return switch (item) {
+            case VEST -> SHOP_VEST;
+            case REPAIR -> "dbsdw:powerup_repair";
+            case BOOTS -> SHOP_BOOTS;
+            case RAPID_CARTRIDGE -> SHOP_RAPID;
+            case TRIPLE_CARTRIDGE -> SHOP_TRIPLE;
+            case PAINT_GRENADE -> PAINT_GRENADE;
+            case SMOKE_GRENADE -> SMOKE_GRENADE;
+            case DEFUSE_KIT -> DEFUSE_KIT;
         };
     }
 }

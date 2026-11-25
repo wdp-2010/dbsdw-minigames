@@ -34,8 +34,21 @@ public final class RoomTeams {
      */
     public static List<List<UUID>> build(List<UUID> members, Map<UUID, Integer> picks, Rule rule, int teams,
                                          RandomGenerator rnd) {
-        if (rule == Rule.RANDOM) {
+        return build(members, picks, rule, teams, List.of(), rnd);
+    }
+
+    /**
+     * As above, with bots per team: they count toward a team's size, so members without a team join
+     * the team smallest with its bots. The bots themselves are not in the result.
+     */
+    public static List<List<UUID>> build(List<UUID> members, Map<UUID, Integer> picks, Rule rule, int teams,
+                                         List<Integer> bots, RandomGenerator rnd) {
+        boolean noBots = bots.stream().allMatch(b -> b == 0);
+        if (rule == Rule.RANDOM && noBots) {
             return TeamSplit.split(members, teams, rnd);
+        }
+        if (rule == Rule.RANDOM) {
+            picks = Map.of();
         }
         List<List<UUID>> result = new ArrayList<>();
         for (int i = 0; i < teams; i++) {
@@ -51,15 +64,21 @@ public final class RoomTeams {
             }
         }
         Collections.shuffle(unpicked, Random.from(rnd));
+        int[] size = new int[teams];
+        for (int i = 0; i < teams; i++) {
+            size[i] = result.get(i).size() + (i < bots.size() ? bots.get(i) : 0);
+        }
         for (UUID member : unpicked) {
-            int min = result.stream().mapToInt(List::size).min().orElseThrow();
+            int min = java.util.Arrays.stream(size).min().orElseThrow();
             List<Integer> smallest = new ArrayList<>();
             for (int i = 0; i < teams; i++) {
-                if (result.get(i).size() == min) {
+                if (size[i] == min) {
                     smallest.add(i);
                 }
             }
-            result.get(smallest.get(rnd.nextInt(smallest.size()))).add(member);
+            int team = smallest.get(rnd.nextInt(smallest.size()));
+            result.get(team).add(member);
+            size[team]++;
         }
         return result.stream().map(List::copyOf).toList();
     }

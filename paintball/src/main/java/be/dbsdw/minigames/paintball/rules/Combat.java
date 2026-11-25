@@ -160,6 +160,14 @@ public final class Combat {
         }
     }
 
+    /** Takes a shield away (the bomb mode's side swap resets bought gear). */
+    public void takeShield(UUID id) {
+        State s = players.get(id);
+        if (s != null) {
+            s.shield = false;
+        }
+    }
+
     public boolean hasShield(UUID id) {
         State s = players.get(id);
         return s != null && s.shield;

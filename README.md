@@ -106,7 +106,10 @@ Admin commands need `minigames.admin` (ops have it). Positions are taken from wh
   nearby; default per team), and presses start from 2 players (1v1 is fine).
   A 5 s countdown follows; after the match everyone is back in the room. Room matches count for
   stats. A room holds an arena only from start to match end. Players in a room can't use the
-  public queue. `/room leave|kick|start`, `/leave` in the lobby also leaves the room. Design:
+  public queue. In games with bots (paintball) the host adds bots right in the team rows, next to
+  the players: the grey pane **+ Bot toevoegen** after a team's heads adds one, clicking a bot's head
+  takes it out, the zombie head (slot 47) sets their level. A bot takes a team slot like a player;
+  players without a team fill the team smallest with its bots. `/room leave|kick|start`, `/leave` in the lobby also leaves the room. Design:
   `docs/superpowers/specs/2026-11-22-private-rooms-design.md`.
 
 ## Voice chat, Plan, anticheat (minigame server)
@@ -140,6 +143,15 @@ holding the button fires 4 paintballs per second. Three hits and you are out: hi
 for the respawn delay, then back at a team spawn with a short spawn protection (shooting ends it).
 Leaving the arena bounds also counts as out, without a point for anyone.
 
+- **Shop modes** (`paintball:tdm_shop`, `paintball:ctf_shop`, unlocked at `shop.unlock-level`):
+  TDM and CTF with cash per match (eliminations, captures, returns) and a shop behind the emerald
+  in slot 8: vest, repair kit, sprint boots, rapid/triple cartridges, paint and smoke grenades.
+  Bought items are lost when you go out.
+- **Bomb** (`paintball:bomb`, "Verfbom", unlocked at `bomb.unlock-level`): rounds without respawn.
+  The attackers carry the paint bomb to the defenders' flag spot (the bomb site) and sneak there
+  with it in hand to plant it; defenders sneak next to it to defuse (faster with a defuse kit). A
+  10 s buy phase starts each round; round wins and losses pay cash. Sides swap at half time; first
+  to `bomb.win-rounds` wins. Any arena with flags works once it lists the mode.
 - **TDM:** first team to the elimination target wins; at the time limit the leader wins, equal
   scores are a draw.
 - **CTF:** walk into the enemy flag to take it (you glow and wear it), bring it to your own flag

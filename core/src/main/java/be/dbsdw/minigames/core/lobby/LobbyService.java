@@ -24,6 +24,8 @@ import org.bukkit.potion.PotionEffect;
 public final class LobbyService {
     public enum LobbyItem {
         GAMES(0, Material.COMPASS, "item.games", PackAssets.LOBBY_GAMES),
+        /** Levels and what they unlock; no pack model yet, the plain item shows. */
+        PROGRESS(2, Material.EXPERIENCE_BOTTLE, "item.progress", null),
         STATS(4, Material.BOOK, "item.stats", PackAssets.LOBBY_STATS),
         /** Private rooms; no pack model yet, the plain item shows. */
         ROOM(6, Material.CAKE, "item.room", null),

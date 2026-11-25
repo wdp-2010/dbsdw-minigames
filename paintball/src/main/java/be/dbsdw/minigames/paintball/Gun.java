@@ -26,6 +26,7 @@ public final class Gun {
     private static final String SCOPE = "scope";
     private static final String SPLASH = "splash";
     private static final String DUMMY = "dummy";
+    private static final String SHOP = "shop";
     private static final NamespacedKey PRACTICE = new NamespacedKey("paintball", "practice");
 
     private Gun() {
@@ -48,6 +49,26 @@ public final class Gun {
         meta.getPersistentDataContainer().set(KEY, PersistentDataType.STRING, GUN);
         stack.setItemMeta(meta);
         return stack;
+    }
+
+    /** The item that opens the shop in the shop modes. */
+    public static ItemStack shopItem(Messages messages) {
+        ItemStack stack = ItemStack.of(Material.EMERALD);
+        ItemMeta meta = stack.getItemMeta();
+        meta.itemName(messages.get("item.shop"));
+        meta.getPersistentDataContainer().set(KEY, PersistentDataType.STRING, SHOP);
+        stack.setItemMeta(meta);
+        return stack;
+    }
+
+    public static boolean isShopItem(ItemStack stack) {
+        return stack != null && !stack.isEmpty() && stack.hasItemMeta()
+                && SHOP.equals(stack.getItemMeta().getPersistentDataContainer().get(KEY, PersistentDataType.STRING));
+    }
+
+    /** The gun, the shop item, bought gear and the bomb: they stay in place and cannot be moved or dropped. */
+    public static boolean isKept(ItemStack stack) {
+        return isGun(stack) || isShopItem(stack) || Gear.isGear(stack);
     }
 
     /** The gun handed out on the practice range: a gun, marked so leaving the range takes only it. */

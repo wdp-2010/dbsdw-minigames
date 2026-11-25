@@ -39,11 +39,23 @@ final class PaintballListener implements Listener {
     public void onTrigger(PlayerInteractEvent event) {
         if (event.getHand() != EquipmentSlot.HAND
                 || (event.getAction() != Action.RIGHT_CLICK_AIR && event.getAction() != Action.RIGHT_CLICK_BLOCK)
-                || !Gun.isGun(event.getItem())) {
+                || !Gun.isKept(event.getItem())) {
             return;
         }
         event.setCancelled(true);
         PaintballMatch match = game.players().get(event.getPlayer().getUniqueId());
+        if (Gun.isShopItem(event.getItem())) {
+            if (match != null) {
+                match.openShop(event.getPlayer());
+            }
+            return;
+        }
+        if (Gear.isGear(event.getItem())) {
+            if (match != null) {
+                match.useGear(event.getPlayer(), event.getItem());
+            }
+            return;
+        }
         if (match != null) {
             match.trigger(event.getPlayer());
         } else if (range != null) {
@@ -123,20 +135,28 @@ final class PaintballListener implements Listener {
 
     @EventHandler
     public void onDrop(PlayerDropItemEvent event) {
-        if (Gun.isGun(event.getItemDrop().getItemStack())) {
+        if (Gun.isKept(event.getItemDrop().getItemStack())) {
             event.setCancelled(true);
         }
     }
 
     @EventHandler
     public void onSwap(PlayerSwapHandItemsEvent event) {
-        if (Gun.isGun(event.getMainHandItem()) || Gun.isGun(event.getOffHandItem())) {
+        if (Gun.isKept(event.getMainHandItem()) || Gun.isKept(event.getOffHandItem())) {
             event.setCancelled(true);
         }
     }
 
     @EventHandler
     public void onClick(InventoryClickEvent event) {
+        if (event.getView().getTopInventory().getHolder(false) instanceof ShopMenu menu) {
+            event.setCancelled(true);
+            if (event.getWhoClicked() instanceof Player player
+                    && event.getClickedInventory() == event.getView().getTopInventory()) {
+                menu.click(player, event.getSlot());
+            }
+            return;
+        }
         if (event.getView().getTopInventory().getHolder(false) instanceof BotMenu menu) {
             event.setCancelled(true);
             if (event.getWhoClicked() instanceof Player player
@@ -145,12 +165,12 @@ final class PaintballListener implements Listener {
             }
             return;
         }
-        boolean gun = Gun.isGun(event.getCurrentItem()) || Gun.isGun(event.getCursor());
+        boolean gun = Gun.isKept(event.getCurrentItem()) || Gun.isKept(event.getCursor());
         if (!gun && event.getWhoClicked() instanceof Player player) {
             if (event.getClick() == ClickType.NUMBER_KEY) {
-                gun = Gun.isGun(player.getInventory().getItem(event.getHotbarButton()));
+                gun = Gun.isKept(player.getInventory().getItem(event.getHotbarButton()));
             } else if (event.getClick() == ClickType.SWAP_OFFHAND) {
-                gun = Gun.isGun(player.getInventory().getItemInOffHand());
+                gun = Gun.isKept(player.getInventory().getItemInOffHand());
             }
         }
         if (gun) {
@@ -160,11 +180,12 @@ final class PaintballListener implements Listener {
 
     @EventHandler
     public void onDrag(InventoryDragEvent event) {
-        if (event.getView().getTopInventory().getHolder(false) instanceof BotMenu) {
+        if (event.getView().getTopInventory().getHolder(false) instanceof BotMenu
+                || event.getView().getTopInventory().getHolder(false) instanceof ShopMenu) {
             event.setCancelled(true);
             return;
         }
-        if (Gun.isGun(event.getOldCursor())) {
+        if (Gun.isKept(event.getOldCursor())) {
             event.setCancelled(true);
         }
     }

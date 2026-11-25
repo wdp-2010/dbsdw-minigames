@@ -20,11 +20,15 @@ public sealed interface RoomEvent {
         }
     }
 
-    /** The room's match starts on the arena, which stays reserved until the match closes. */
-    record Start(int roomId, ModeSpec mode, ArenaDefinition arena, List<List<UUID>> teams, VoiceRule voice)
-            implements RoomEvent {
+    /**
+     * The room's match starts on the arena, which stays reserved until the match closes. {@code bots}:
+     * bots per team the game adds (empty or zeros: none), at level {@code botLevel}.
+     */
+    record Start(int roomId, ModeSpec mode, ArenaDefinition arena, List<List<UUID>> teams, VoiceRule voice,
+                 List<Integer> bots, int botLevel) implements RoomEvent {
         public Start {
             teams = teams.stream().map(List::copyOf).toList();
+            bots = List.copyOf(bots);
         }
     }
 }

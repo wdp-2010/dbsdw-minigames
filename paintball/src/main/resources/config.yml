@@ -86,3 +86,37 @@ practice:
   # A dummy sinks into the floor after this many hits and rises again after this long.
   target-hits: 3
   target-down-seconds: 3
+
+# The shop modes (team deathmatch and capture the flag with a shop) unlock at this paintball level.
+shop:
+  unlock-level: 5
+  # Cash in the shop modes and the bomb mode, per match (never saved).
+  cash:
+    start: 800
+    max: 9000
+    elimination: 300
+    capture: 600
+    return: 200
+    # Bomb mode only: every player of the team that won or lost a round, and planting or defusing.
+    round-win: 3000
+    round-loss: 1900
+    objective: 300
+
+# Bomb mode (Verfbom): rounds of attack and defence, like the well-known tactical shooters. The bomb
+# site is the defending team's flag spot, so every capture the flag arena works. No respawns in a
+# round; the shop is open in the buy phase only. Sides swap after half of max-rounds.
+bomb:
+  unlock-level: 10
+  min-per-team: 2
+  max-per-team: 5
+  win-rounds: 5
+  # An even number; 4-4 after the last round is a draw.
+  max-rounds: 8
+  buy-seconds: 10
+  round-seconds: 90
+  round-end-seconds: 5
+  plant-seconds: 4
+  fuse-seconds: 35
+  defuse-seconds: 6
+  kit-defuse-seconds: 3
+  site-radius: 4

@@ -9,6 +9,12 @@ import be.dbsdw.minigames.core.match.MatchManager;
 import be.dbsdw.minigames.core.npc.GameNpc;
 import be.dbsdw.minigames.core.pack.PackHost;
 import be.dbsdw.minigames.core.stats.Leaderboards;
+import be.dbsdw.minigames.core.progress.LevelCommand;
+import be.dbsdw.minigames.core.progress.LevelCurve;
+import be.dbsdw.minigames.core.progress.ProgressListener;
+import be.dbsdw.minigames.core.progress.ProgressMenuListener;
+import be.dbsdw.minigames.core.progress.ProgressService;
+import be.dbsdw.minigames.core.progress.XpRules;
 import be.dbsdw.minigames.core.stats.StatsCommands;
 import be.dbsdw.minigames.core.stats.StatsStore;
 import be.dbsdw.minigames.core.queue.QueueBook;
@@ -96,8 +102,9 @@ public final class MinigameCorePlugin extends JavaPlugin {
         if (lobby.spawn().isEmpty()) {
             getLogger().warning("[lobby] lobby spawn not set — use /mg setlobby");
         }
+        ProgressService progress = new ProgressService(this, stats, loadCurve(), loadXpRules(), messages, getLogger());
         MatchManager manager = new MatchManager(this, games, pool, queues, lobby, messages,
-                getConfig().getInt("match.results-seconds") * 20, rnd, stats, loadVoice(), voiceRule());
+                getConfig().getInt("match.results-seconds") * 20, rnd, stats, progress, loadVoice(), voiceRule());
         matches = manager;
         getServer().getServicesManager().register(MatchStarter.class, manager, this, ServicePriority.Normal);
         GameNpc npc = new GameNpc(games::game, manager::openModes);
@@ -107,11 +114,14 @@ public final class MinigameCorePlugin extends JavaPlugin {
 
         PluginManager plugins = getServer().getPluginManager();
         plugins.registerEvents(new LobbyListener(lobby, travel, messages, manager::openGames,
-                statsCommands.ownStats(), manager.rooms()::openOrCreate, manager::quit,
+                statsCommands.ownStats(), manager::openProgress, manager.rooms()::openOrCreate, manager::quit,
                 getLogger()), this);
         plugins.registerEvents(manager.menuListener(), this);
         plugins.registerEvents(manager.rooms().listener(), this);
         plugins.registerEvents(manager.solo(), this);
+        plugins.registerEvents(new ProgressListener(progress), this);
+        plugins.registerEvents(new ProgressMenuListener(this), this);
+        getServer().getOnlinePlayers().forEach(p -> progress.load(p.getUniqueId()));
         plugins.registerEvents(npc, this);
         plugins.registerEvents(manager, this);
 
@@ -125,12 +135,36 @@ public final class MinigameCorePlugin extends JavaPlugin {
             event.registrar().register("mg", "Minigames beheer", mg);
             event.registrar().register("room", "Speel met je vrienden", new RoomCommand(manager.rooms(), messages));
             event.registrar().register("solo", "Speel alleen tegen een bot", new SoloCommand(manager.solo()::open));
+            event.registrar().register("level", "Bekijk je niveau",
+                    new LevelCommand(this, stats, progress, games, messages, manager::openProgress));
             event.registrar().register("stats", "Bekijk statistieken", statsCommands.statsCommand());
             event.registrar().register("top", "Bekijk de ranglijst", statsCommands.topCommand());
         });
         getServer().getScheduler().runTaskTimer(this, manager::tick, 1, 1);
         getServer().getScheduler().runTaskTimer(this, boards::tick, 1, 1);
         getLogger().info("MinigameCore " + getPluginMeta().getVersion() + " enabled");
+    }
+
+    private LevelCurve loadCurve() {
+        try {
+            return new LevelCurve(getConfig().getDouble("progress.curve.base", 100),
+                    getConfig().getDouble("progress.curve.exponent", 1.5),
+                    getConfig().getInt("progress.curve.max-level", 100));
+        } catch (IllegalArgumentException e) {
+            getLogger().warning("[progress] bad progress.curve in config.yml (" + e.getMessage() + "), using defaults");
+            return LevelCurve.defaults();
+        }
+    }
+
+    private XpRules loadXpRules() {
+        try {
+            return new XpRules(getConfig().getInt("progress.xp.played", 20), getConfig().getInt("progress.xp.win", 20),
+                    getConfig().getInt("progress.xp.draw", 10), getConfig().getInt("progress.xp.min-seconds", 60),
+                    getConfig().getDouble("progress.xp.bot-factor", 0.25));
+        } catch (IllegalArgumentException e) {
+            getLogger().warning("[progress] bad progress.xp in config.yml (" + e.getMessage() + "), using defaults");
+            return XpRules.defaults();
+        }
     }
 
     @Override

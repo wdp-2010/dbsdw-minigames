@@ -44,6 +44,13 @@ public interface MatchContext {
      */
     boolean rejoin(Player player, int team);
 
+    /**
+     * The match has bots in it (e.g. paintball bots added in a room or solo): it gives reduced XP, so
+     * playing bots is no shortcut to a level.
+     */
+    default void markBots() {
+    }
+
     /** Ends the match with this outcome; ignored after the first call. */
     void finish(MatchOutcome outcome);
 }

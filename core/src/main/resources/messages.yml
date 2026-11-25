@@ -19,6 +19,7 @@ team:
 # Lobby items
 item:
   games: "<#D9C78F><bold>Spellen</bold></#D9C78F> <gray>· rechtsklik"
+  progress: "<#D9C78F><bold>Voortgang</bold></#D9C78F> <gray>· rechtsklik"
   stats: "<#D9C78F><bold>Statistieken</bold></#D9C78F> <gray>· rechtsklik"
   survival: "<#9CC05A><bold>Terug naar survival</bold></#9CC05A> <gray>· rechtsklik"
   room: "<#D9C78F><bold>Speel met vrienden</bold></#D9C78F> <gray>· rechtsklik"
@@ -30,6 +31,8 @@ leave:
 # (\uF800 and \uF801 are negative spaces that line it up); keep it at the start of each title.
 menu:
   games:
+    progress: "<#D9C78F>Voortgang"
+    progress-lore: "<gray>Je niveau en wat je vrijspeelt"
     title: "<font:dbsdw:menu><white>\uF800\uE100\uF801</white></font><#D9C78F>Kies je missie"
   modes:
     title: "<font:dbsdw:menu><white>\uF800\uE100\uF801</white></font><game>"
@@ -177,6 +180,14 @@ room:
     none-lore: "<gray>Wie geen team heeft, vult het kleinste team aan"
     member-host: "<#FFB52E>Host"
     member-move: "<gray>Klik om naar een ander team te zetten"
+    # Bots the host adds to a team, next to the players (games with bots, e.g. paintball).
+    add-bot: "<#9CC05A>+ Bot toevoegen"
+    add-bot-lore: "<gray>Klik om een bot (<level><gray>) in dit team te zetten"
+    bot: "<white>Bot"
+    bot-lore: "<gray>Niveau: <level>"
+    bot-remove: "<gray>Klik om deze bot weg te halen"
+    bot-level: "<#D9C78F>Bots: <level>"
+    bot-level-lore: "<gray>Hoe goed de bots spelen"
     invite: "<#9CC05A>Uitnodigen"
     invite-lore: "<gray>Kies een speler die online is"
     leave: "<red>Room verlaten"
@@ -198,3 +209,43 @@ solo:
   game-selected: "<#9CC05A>✔ Gekozen spel <dark_gray>· <gray>kies de modus eronder"
   mode-click: "<gray>Klik om te beginnen"
   leave-room: "<red>Je zit in een room met anderen. Verlaat die eerst met <white>/room leave</white>."
+
+# Levels and XP.
+progress:
+  # Shown after a match: XP earned and the game's level.
+  xp-line: "<#D9C78F>+<xp> XP <dark_gray>· <gray><game> niveau <white><level></white> <dark_gray>(<white><missing></white> tot niveau <next>)"
+  level-up: "<#9CC05A><bold>NIVEAU OMHOOG!</bold> <gray><game> niveau <white><from></white> → <white><to></white>"
+  account-level-up: "<#9CC05A>Je minigames-niveau is nu <white><to></white>"
+  unlocked: "<#FFB52E>★ Vrijgespeeld: <mode>"
+  locked: "<red>Je hebt <game> niveau <white><need></white> nodig voor <mode><red> (jij: <white><have></white>)."
+  locked-lore: "<red>Vergrendeld <dark_gray>· <gray><game> niveau <white><need></white> (jij: <white><have></white>)"
+  title: "<#D9C78F>Niveau van <player>"
+  account: "<gray>Minigames: niveau <white><level></white> <dark_gray>(<xp> XP, nog <white><missing></white> tot <next>)"
+  game: "<gray><game>: niveau <white><level></white> <dark_gray>(<xp> XP, nog <white><missing></white> tot <next>)"
+  max: "max"
+  none: "<gray>Nog geen XP. Speel een spel!"
+  unknown-player: "<red>Die speler heb ik niet gezien."
+  # The progress menu (/level, the lobby bottle and the games menu button).
+  menu:
+    title: "<#D9C78F>Voortgang"
+    title-game: "<#D9C78F>Voortgang <dark_gray>· <game>"
+    back: "<gray>« Terug"
+    account: "<#D9C78F><bold>Minigames</bold> <gray>· niveau <white><level>"
+    account-level: "<gray>Je minigames-niveau: <white><level>"
+    level: "<gray>Niveau <white><level>"
+    bar: "<bar> <dark_gray>· <gray><percent>%"
+    to-next: "<gray><xp> XP <dark_gray>· <gray>nog <white><missing></white> XP tot niveau <white><next>"
+    max: "<#9CC05A>Maximaal niveau bereikt"
+    modes-open: "<gray>Speelbaar: <white><open></white> van <white><total></white> modi"
+    all-open: "<#9CC05A>Alle modi speelbaar"
+    click-game: "<#D9C78F>Klik om te zien wat je vrijspeelt"
+    mode-open: "<#9CC05A>✔ Vanaf het begin speelbaar"
+    mode-unlocked: "<#9CC05A>✔ Vrijgespeeld <dark_gray>· <gray>niveau <white><need>"
+    mode-next: "<#FFB52E>★ Volgende doel <dark_gray>· <gray>niveau <white><need></white>, nog <white><missing></white> XP"
+    mode-next-hint: "<gray>Speel potjes <game> om dit vrij te spelen"
+    mode-locked: "<red>Vergrendeld <dark_gray>· <gray>niveau <white><need></white>, nog <white><missing></white> XP"
+    earn: "<#D9C78F>XP verdienen"
+    earn-base: "<gray>Een potje spelen: <white>+<xp> XP"
+    earn-result: "<gray>Winst: <white>+<win> XP <dark_gray>· <gray>gelijkspel: <white>+<draw> XP"
+    earn-stat: "<gray><stat>: <white>+<xp> XP <dark_gray>per stuk"
+    earn-min: "<dark_gray>Potjes korter dan <seconds> seconden tellen niet mee"

@@ -41,14 +41,15 @@ final class Hud {
     private final Team[] teams = new Team[2];
     private final BossBar bossBar;
 
-    Hud(MatchContext ctx, Messages messages, Settings settings, ModeRules rules, boolean ctf) {
+    /** {@code titleKey}: the sidebar heading, e.g. "hud.title-ctf". */
+    Hud(MatchContext ctx, Messages messages, Settings settings, ModeRules rules, String titleKey) {
         this.ctx = ctx;
         this.messages = messages;
         this.settings = settings;
         this.rules = rules;
         this.board = Bukkit.getScoreboardManager().getNewScoreboard();
         this.objective = board.registerNewObjective("paintball", Criteria.DUMMY,
-                messages.get(ctf ? "hud.title-ctf" : "hud.title-tdm"));
+                messages.get(titleKey));
         objective.setDisplaySlot(DisplaySlot.SIDEBAR);
         objective.numberFormat(NumberFormat.blank());
         for (int i = 0; i < LINES.length; i++) {
@@ -93,6 +94,24 @@ final class Hud {
         objective.getScore("time").customName(messages.get("hud.time", Placeholder.unparsed("time", time)));
         bossBar.name(flagStatus != null ? flagStatus : messages.get("hud.bossbar", Placeholder.unparsed("time", time)));
         bossBar.progress((float) Math.clamp((double) left / rules.timeLimitTicks(), 0.0, 1.0));
+    }
+
+    /**
+     * The bomb mode: round wins on the sidebar, the clock of the current phase ({@code left} of
+     * {@code total} ticks) on the sidebar and in the boss bar, which shows {@code status}.
+     */
+    void refreshRounds(TeamScore score, long left, long total, Component status, boolean alarm) {
+        for (int team = 0; team < 2; team++) {
+            objective.getScore("score" + team).customName(messages.get("hud.score",
+                    Placeholder.component("team", ctx.teamName(team)),
+                    Placeholder.unparsed("score", Integer.toString(score.points(team))),
+                    Placeholder.unparsed("goal", Integer.toString(score.target()))));
+        }
+        objective.getScore("time").customName(messages.get("hud.time",
+                Placeholder.unparsed("time", Clock.format(left))));
+        bossBar.name(status);
+        bossBar.color(alarm ? BossBar.Color.RED : BossBar.Color.WHITE);
+        bossBar.progress((float) Math.clamp((double) left / Math.max(1, total), 0.0, 1.0));
     }
 
     /** Hits left as paint drops in the team colour, then grey drops; then shield, power-ups, protection. */

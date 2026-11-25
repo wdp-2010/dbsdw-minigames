@@ -5,15 +5,20 @@ import be.dbsdw.minigames.core.api.MatchContext;
 import be.dbsdw.minigames.core.api.MatchHandler;
 import be.dbsdw.minigames.core.api.MatchOutcome;
 import be.dbsdw.minigames.core.pack.PackItems;
+import be.dbsdw.minigames.paintball.Gear;
 import be.dbsdw.minigames.paintball.Gun;
 import be.dbsdw.minigames.paintball.PackAssets;
 import be.dbsdw.minigames.paintball.PaintballGame;
+import be.dbsdw.minigames.paintball.ShopMenu;
 import be.dbsdw.minigames.paintball.bot.BotNav;
+import be.dbsdw.minigames.paintball.rules.BombRounds;
+import be.dbsdw.minigames.paintball.rules.BombSettings;
 import be.dbsdw.minigames.paintball.rules.Buffs;
 import be.dbsdw.minigames.paintball.rules.Clock;
 import be.dbsdw.minigames.paintball.rules.Combat;
 import be.dbsdw.minigames.paintball.rules.FireGate;
 import be.dbsdw.minigames.paintball.rules.Flags;
+import be.dbsdw.minigames.paintball.rules.Loadout;
 import be.dbsdw.minigames.paintball.rules.ModeRules;
 import be.dbsdw.minigames.paintball.rules.PowerupDirector;
 import be.dbsdw.minigames.paintball.rules.SpawnPicker;
@@ -23,8 +28,12 @@ import be.dbsdw.minigames.paintball.rules.WalkableArea;
 import be.dbsdw.minigames.paintball.rules.PowerupSpawns;
 import be.dbsdw.minigames.paintball.rules.PowerupType;
 import be.dbsdw.minigames.paintball.rules.Settings;
+import be.dbsdw.minigames.paintball.rules.ShopCash;
+import be.dbsdw.minigames.paintball.rules.ShopItem;
+import be.dbsdw.minigames.paintball.rules.Smokes;
 import be.dbsdw.minigames.paintball.rules.Spread;
 import be.dbsdw.minigames.paintball.rules.TeamScore;
+import be.dbsdw.minigames.paintball.rules.Wallet;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Iterator;
@@ -40,9 +49,11 @@ import net.kyori.adventure.text.format.NamedTextColor;
 import net.kyori.adventure.text.minimessage.tag.resolver.Placeholder;
 import org.bukkit.Bukkit;
 import org.bukkit.Color;
+import org.bukkit.GameMode;
 import org.bukkit.Location;
 import org.bukkit.NamespacedKey;
 import org.bukkit.Particle;
+import org.bukkit.Sound;
 import org.bukkit.attribute.Attribute;
 import org.bukkit.attribute.AttributeInstance;
 import org.bukkit.attribute.AttributeModifier;
@@ -57,11 +68,24 @@ import org.bukkit.potion.PotionEffectType;
 import org.bukkit.util.Vector;
 
 /**
- * One paintball match, team deathmatch or capture the flag: shooting, hits, outs, respawns, bounds,
- * flags, power-ups, splats, HUD and stats. The core calls it on the main thread every tick.
+ * One paintball match, team deathmatch, capture the flag or the bomb mode: shooting, hits, outs,
+ * respawns, bounds, flags, rounds and the bomb, power-ups, the shop and its gear, splats, HUD and
+ * stats. The core calls it on the main thread every tick.
  */
 public final class PaintballMatch implements MatchHandler {
-    public enum Mode { TDM, CTF }
+    public enum Mode { TDM, CTF, BOMB }
+
+    /** No respawn within a bomb round: the round ends first. */
+    private static final long NO_RESPAWN = 1_000_000_000L;
+    private static final double GRENADE_RADIUS = 3.5;
+    private static final double SMOKE_RADIUS = 3.2;
+    private static final long SMOKE_TICKS = 9 * 20;
+    private static final long CARTRIDGE_RAPID_TICKS = 10 * 20;
+    private static final long CARTRIDGE_TRIPLE_TICKS = 8 * 20;
+    private static final double DEFUSE_REACH = 2.0;
+
+    private record Grenade(UUID thrower, int team, ShopItem kind, long thrownAt) {
+    }
 
     private static final NamespacedKey FROZEN = new NamespacedKey("paintball", "frozen");
     private static final double TOUCH_RADIUS = 1.5;
@@ -105,6 +129,28 @@ public final class PaintballMatch implements MatchHandler {
     private final Map<UUID, PaintBot> bots = new LinkedHashMap<>();
     /** Last tick's position of everyone, to tell bots how fast their targets move. */
     private final Map<UUID, double[]> lastPos = new HashMap<>();
+
+    // --- shop (shop modes and the bomb mode) ---
+    private final boolean shopMode;
+    private final ShopCash cash;
+    private final Wallet wallet;
+    private final Loadout loadout = new Loadout();
+    private final Smokes smokes = new Smokes();
+    private final Map<UUID, Grenade> grenades = new HashMap<>();
+    private final ShopMenu.Shop shop = new MatchShop();
+
+    // --- bomb mode ---
+    private final BombSettings bombRules;
+    private BombRounds rounds;
+    private BombView bombView;
+    /** Who carries the bomb (player or bot), or null. */
+    private UUID bombCarrier;
+    private Location bombDropped;
+    private Location bombPlanted;
+    /** Plant or defuse progress in ticks, per player or bot. */
+    private final Map<UUID, Long> holds = new HashMap<>();
+    /** Game mode of players watching as spectators after going out in a round, to give back. */
+    private final Map<UUID, GameMode> watching = new HashMap<>();
     private static final List<String> BOT_NAMES = List.of("Kwast", "Spetter", "Klodder", "Vlek", "Spat",
             "Druppel", "Verfje", "Pip", "Plons", "Sproet", "Kliek", "Smeer");
 
@@ -113,9 +159,22 @@ public final class PaintballMatch implements MatchHandler {
         this.game = game;
         this.mode = mode;
         this.settings = game.settings();
-        this.rules = mode == Mode.CTF ? settings.ctf() : settings.tdm();
+        this.bombRules = game.bombSettings();
+        this.rules = switch (mode) {
+            case CTF -> settings.ctf();
+            case TDM -> settings.tdm();
+            case BOMB -> new ModeRules("bomb", bombRules.minPerTeam(), bombRules.maxPerTeam(), bombRules.winRounds(), 0,
+                    bombRules.longestMatchTicks());
+        };
         this.messages = game.messages();
-        this.hud = new Hud(ctx, messages, settings, rules, mode == Mode.CTF);
+        this.hud = new Hud(ctx, messages, settings, rules, switch (mode) {
+            case CTF -> "hud.title-ctf";
+            case TDM -> "hud.title-tdm";
+            case BOMB -> "bomb.hud-title";
+        });
+        this.shopMode = PaintballGame.isShop(ctx.mode());
+        this.cash = game.shopCash();
+        this.wallet = new Wallet(cash.start(), cash.cap());
         this.splats = new Splats(settings.splatCap(), settings.splatLifetimeTicks());
         this.scope = new Scope(settings, messages);
     }
@@ -129,6 +188,9 @@ public final class PaintballMatch implements MatchHandler {
                 gates.put(p.getUniqueId(), new FireGate());
                 game.players().put(p.getUniqueId(), this);
                 p.getInventory().setItem(0, Gun.gun(messages, team));
+                if (PaintballGame.isShop(ctx.mode())) {
+                    p.getInventory().setItem(8, Gun.shopItem(messages));
+                }
                 p.getInventory().setHeldItemSlot(0);
                 hud.show(p, team);
             }
@@ -137,8 +199,23 @@ public final class PaintballMatch implements MatchHandler {
         int[] size = new int[2];
         teams.values().forEach(t -> size[t]++);
         score = new TeamScore(2, rules.winScoreFor(Math.max(size[0], size[1])));
-        combat = new Combat(teams, settings, mode == Mode.CTF ? settings.ctfRespawnTicks() : settings.respawnTicks());
+        combat = new Combat(teams, settings, switch (mode) {
+            case CTF -> settings.ctfRespawnTicks();
+            case TDM -> settings.respawnTicks();
+            case BOMB -> NO_RESPAWN;
+        });
         combat.start(0);
+        if (mode == Mode.BOMB) {
+            // The bomb sites are the flag spots: each team defends its own.
+            flagHomes = new Location[] {
+                ctx.arena().flag(0).orElseThrow(() -> new IllegalStateException("arena has no flag for team 0")),
+                ctx.arena().flag(1).orElseThrow(() -> new IllegalStateException("arena has no flag for team 1")),
+            };
+            bombView = new BombView(messages);
+            rounds = new BombRounds(bombRules, 0);
+            startRound(0, false);
+            return;
+        }
         if (mode == Mode.CTF) {
             flags = new Flags(2, settings.flagReturnTicks());
             flagHomes = new Location[] {
@@ -162,6 +239,9 @@ public final class PaintballMatch implements MatchHandler {
 
     @Override
     public long ticksLeft() {
+        if (mode == Mode.BOMB) {
+            return -1; // rounds have their own clock, in the HUD
+        }
         return Math.max(0, rules.timeLimitTicks() - ctx.ticks());
     }
 
@@ -169,6 +249,11 @@ public final class PaintballMatch implements MatchHandler {
     public void tick() {
         long now = ctx.ticks();
         if (now >= rules.timeLimitTicks()) {
+            if (mode == Mode.BOMB) {
+                finish(rounds.winner().isPresent() ? MatchOutcome.win(rounds.winner().getAsInt(), resultLines())
+                        : MatchOutcome.draw(resultLines()));
+                return;
+            }
             OptionalInt leader = score.leader();
             finish(leader.isPresent()
                     ? MatchOutcome.win(leader.getAsInt(), resultLines())
@@ -177,7 +262,7 @@ public final class PaintballMatch implements MatchHandler {
         }
         for (Player p : online()) {
             FireGate gate = gates.get(p.getUniqueId());
-            if (gate != null && !combat.isOut(p.getUniqueId()) && gate.pollQueued(now, interval(p, now))) {
+            if (gate != null && !combat.isOut(p.getUniqueId()) && !buyPhase() && gate.pollQueued(now, interval(p, now))) {
                 fire(p, now);
             }
         }
@@ -187,6 +272,14 @@ public final class PaintballMatch implements MatchHandler {
         checkBounds(now);
         if (over) {
             return;
+        }
+        tickGrenades(now);
+        tickSmokes(now);
+        if (mode == Mode.BOMB) {
+            tickBomb(now);
+            if (over) {
+                return;
+            }
         }
         for (UUID id : combat.respawnsDue(now)) {
             PaintBot bot = bots.get(id);
@@ -199,7 +292,9 @@ public final class PaintballMatch implements MatchHandler {
                 respawn(p, now);
             }
         }
-        tickBots(now);
+        if (!buyPhase()) {
+            tickBots(now);
+        }
         if (mode == Mode.CTF) {
             tickFlags(now);
             if (over) {
@@ -209,11 +304,16 @@ public final class PaintballMatch implements MatchHandler {
         tickPowerups(now);
         splats.tick(now);
         if (now % 20 == 0) {
-            hud.refresh(now, score, flagStatus());
+            refreshHud(now);
+            keepBoots();
         }
         for (Player p : online()) {
             UUID id = p.getUniqueId();
-            if (combat.isOut(id)) {
+            if (mode == Mode.BOMB) {
+                if (!combat.isOut(id) && now % 10 == 0 && !holds.containsKey(id)) {
+                    updateBar(p, now);
+                }
+            } else if (combat.isOut(id)) {
                 long left = combat.respawnAt(id) - now;
                 if (left % 20 == 0) {
                     hud.outTitle(p, Clock.secondsLeft(left));
@@ -230,6 +330,11 @@ public final class PaintballMatch implements MatchHandler {
         if (flags != null) {
             dropFlag(player, ctx.ticks());
         }
+        if (mode == Mode.BOMB) {
+            dropBomb(player, false);
+            holds.remove(id);
+        }
+        loadout.clear(id);
         combat.remove(id);
         gates.remove(id);
         buffs.clear(id);
@@ -263,6 +368,11 @@ public final class PaintballMatch implements MatchHandler {
         if (flagView != null) {
             flagView.removeAll();
         }
+        if (bombView != null) {
+            bombView.removeAll();
+        }
+        removeGrenades();
+        smokes.clear();
         if (powerups != null) {
             powerups.removeAll();
         }
@@ -279,7 +389,7 @@ public final class PaintballMatch implements MatchHandler {
             return;
         }
         long now = ctx.ticks();
-        if (combat.isOut(id)) {
+        if (combat.isOut(id) || buyPhase()) {
             if (now - lastDry.getOrDefault(id, Long.MIN_VALUE / 2) >= 6) {
                 lastDry.put(id, now);
                 PackItems.play(p, PackAssets.SOUND_DRY_FIRE, 0.8f, 1f);
@@ -294,6 +404,18 @@ public final class PaintballMatch implements MatchHandler {
     /** A paintball of this match hit something. */
     public void onBallHit(ProjectileHitEvent event) {
         UUID ballId = event.getEntity().getUniqueId();
+        Grenade grenade = grenades.remove(ballId);
+        if (grenade != null) {
+            game.balls().remove(ballId, this);
+            if (!over) {
+                Location at = event.getEntity().getLocation();
+                if (event.getHitBlock() != null && event.getHitBlockFace() != null) {
+                    at = event.getHitBlock().getRelative(event.getHitBlockFace()).getLocation().add(0.5, 0, 0.5);
+                }
+                burst(grenade, at, event, ctx.ticks());
+            }
+            return;
+        }
         Shot shot = balls.get(ballId);
         if (over || shot == null) {
             return;
@@ -317,12 +439,23 @@ public final class PaintballMatch implements MatchHandler {
             return;
         }
         untrack(ballId);
+        afterPlayerHit(victim, shot, result, now);
+    }
+
+    /** What a hit on a player does, whatever hit them (a paintball or a paint grenade). */
+    private void afterPlayerHit(Player victim, Shot shot, Combat.HitResult result, long now) {
         Player shooter = Bukkit.getPlayer(shot.shooter());
         Location at = victim.getLocation();
+        if (result != Combat.HitResult.ABSORBED) {
+            holds.remove(victim.getUniqueId()); // a hit stops planting or defusing
+        }
         switch (result) {
             case ABSORBED -> PackItems.play(at, PackAssets.SOUND_SHIELD_BLOCK, 0.8f, 1f);
             case SHIELDED -> {
                 PackItems.play(at, PackAssets.SOUND_SHIELD_BREAK, 1f, 1f);
+                if (loadout.take(victim.getUniqueId(), ShopItem.VEST)) {
+                    victim.getInventory().setChestplate(null);
+                }
                 updateBar(victim, now);
                 if (shooter != null) {
                     showMarker(shooter, messages.get("hud.marker-shield"), now);
@@ -355,8 +488,15 @@ public final class PaintballMatch implements MatchHandler {
             return;
         }
         untrack(ballId);
+        afterBotHit(bot, shot, result, now);
+    }
+
+    private void afterBotHit(PaintBot bot, Shot shot, Combat.HitResult result, long now) {
         Player shooter = Bukkit.getPlayer(shot.shooter());
         Location at = bot.location();
+        if (result != Combat.HitResult.ABSORBED) {
+            holds.remove(bot.id);
+        }
         switch (result) {
             case ABSORBED -> PackItems.play(at, PackAssets.SOUND_SHIELD_BLOCK, 0.8f, 1f);
             case SHIELDED -> PackItems.play(at, PackAssets.SOUND_SHIELD_BREAK, 1f, 1f);
@@ -394,6 +534,7 @@ public final class PaintballMatch implements MatchHandler {
             ctx.addStat(shooter, "eliminations", 1);
             matchHits.merge(shooter.getUniqueId(), 1, Integer::sum);
             PackItems.play(shooter, PackAssets.SOUND_ELIMINATE, 1f, 1f);
+            pay(shooter, cash.elimination(), "elimination");
             int streak = streaks.eliminated(shooter.getUniqueId());
             if (Streaks.announce(streak)) {
                 showMarker(shooter, messages.get("hud.streak",
@@ -517,6 +658,13 @@ public final class PaintballMatch implements MatchHandler {
         UUID id = victim.getUniqueId();
         ctx.addStat(victim, "outs", 1);
         streaks.out(id);
+        if (mode == Mode.BOMB) {
+            dropBomb(victim, outOfBounds);
+            holds.remove(id);
+        }
+        if (shopMode) {
+            loseGear(victim);
+        }
         if (flags != null) {
             if (outOfBounds) {
                 flags.carriedBy(id).ifPresent(f -> {
@@ -544,13 +692,20 @@ public final class PaintballMatch implements MatchHandler {
                 other.hideEntity(game.plugin(), victim);
             }
         }
-        freeze(victim, true);
         buffs.clear(id);
         victim.removePotionEffect(PotionEffectType.SPEED);
         FireGate gate = gates.get(id);
         if (gate != null) {
             gate.clear();
         }
+        if (mode == Mode.BOMB) {
+            // Out for the rest of the round: watch the others as a spectator.
+            watching.putIfAbsent(id, victim.getGameMode());
+            victim.setGameMode(GameMode.SPECTATOR);
+            hud.bigTitle(victim, messages.get("bomb.out-title"), messages.get("bomb.out-subtitle"));
+            return;
+        }
+        freeze(victim, true);
         hud.outTitle(victim, Clock.secondsLeft(combat.respawnAt(id) - now));
     }
 
@@ -587,6 +742,7 @@ public final class PaintballMatch implements MatchHandler {
                     p.setGlowing(false);
                     if (p instanceof Player player) {
                         ctx.addStat(player, "captures", 1);
+                        pay(player, cash.capture(), "capture");
                     }
                     flagEvent("flag.captured", captured.getAsInt(), p);
                     OptionalInt winner = score.add(team);
@@ -610,6 +766,7 @@ public final class PaintballMatch implements MatchHandler {
             if (flags.state(team) == Flags.State.DROPPED && near(loc, flags.dropPos(team)) && flags.returnHome(team, team)) {
                 if (p instanceof Player player) {
                     ctx.addStat(player, "returns", 1);
+                    pay(player, cash.flagReturn(), "return");
                 }
                 flagEvent("flag.returned", team, p);
             }
@@ -767,8 +924,14 @@ public final class PaintballMatch implements MatchHandler {
         if (combat.isOut(id) || !teams.containsKey(id)) {
             return;
         }
-        hud.actionBar(p, team(p), combat.hitsLeft(id), combat.isProtected(id, now), combat.hasShield(id),
-                buffsText(id, now));
+        Component extra = buffsText(id, now);
+        if (shopMode) {
+            extra = extra.append(messages.get("hud.cash", Placeholder.unparsed("cash", Integer.toString(wallet.cash(id)))));
+        }
+        if (id.equals(bombCarrier)) {
+            extra = extra.append(messages.get("hud.bomb"));
+        }
+        hud.actionBar(p, team(p), combat.hitsLeft(id), combat.isProtected(id, now), combat.hasShield(id), extra);
     }
 
     /** Short feedback under the crosshair (subtitle); not while the player is out (the out title wins). */
@@ -804,10 +967,20 @@ public final class PaintballMatch implements MatchHandler {
         p.setGlowing(false);
         p.removePotionEffect(PotionEffectType.SPEED);
         p.getInventory().setHelmet(null);
+        GameMode before = watching.remove(p.getUniqueId());
+        if (before != null) {
+            p.setGameMode(before);
+        }
         for (int slot = 0; slot < p.getInventory().getSize(); slot++) {
-            if (Gun.isGun(p.getInventory().getItem(slot))) {
+            if (Gun.isKept(p.getInventory().getItem(slot))) {
                 p.getInventory().setItem(slot, null);
             }
+        }
+        if (Gear.isGear(p.getInventory().getChestplate())) {
+            p.getInventory().setChestplate(null);
+        }
+        if (Gear.isGear(p.getInventory().getBoots())) {
+            p.getInventory().setBoots(null);
         }
     }
 
@@ -850,7 +1023,7 @@ public final class PaintballMatch implements MatchHandler {
     @Override
     public List<Component> resultLines() {
         List<Component> lines = new ArrayList<>();
-        lines.add(messages.get(mode == Mode.CTF ? "result.score-ctf" : "result.score",
+        lines.add(messages.get(mode == Mode.BOMB ? "result.score-bomb" : mode == Mode.CTF ? "result.score-ctf" : "result.score",
                 Placeholder.component("red_team", ctx.teamName(0)),
                 Placeholder.unparsed("red", Integer.toString(score.points(0))),
                 Placeholder.component("blue_team", ctx.teamName(1)),
@@ -948,7 +1121,7 @@ public final class PaintballMatch implements MatchHandler {
 
     // --- bots ---
 
-    /** Spawns the bots a player chose before starting alone: teammates and the full enemy team. */
+    /** Spawns the bots chosen for this match (alone, or added to the room's teams by its host). */
     private void spawnBots() {
         PaintballGame.BotSetup setup = null;
         Player host = null;
@@ -974,13 +1147,15 @@ public final class PaintballMatch implements MatchHandler {
                 humans[t]++;
             }
         }
+        ctx.markBots();
+        int maxPerTeam = ctx.mode().maxPerTeam();
         List<String> pool = new ArrayList<>(BOT_NAMES);
         java.util.Collections.shuffle(pool);
         Component levelName = messages.get("bot.description",
                 Placeholder.component("level", messages.get("bot.level." + setup.level().id())));
         int n = 0;
         for (int team = 0; team < 2; team++) {
-            int count = Math.max(0, setup.perTeam() - humans[team]);
+            int count = Math.max(0, Math.min(setup.in(team), maxPerTeam - humans[team]));
             List<Location> spawns = ctx.arena().spawns(team);
             for (int i = 0; i < count; i++) {
                 Location at = spawns.get((humans[team] + i) % spawns.size()).clone();
@@ -993,7 +1168,7 @@ public final class PaintballMatch implements MatchHandler {
             }
         }
         game.plugin().getLogger().info("[paintball] " + host.getName() + " plays against " + bots.size()
-                + " bots (" + setup.level().id() + ", " + setup.perTeam() + " per team)");
+                + " bots (" + setup.level().id() + ", per team " + setup.perTeam() + ")");
     }
 
     private void tickBots(long now) {
@@ -1027,7 +1202,11 @@ public final class PaintballMatch implements MatchHandler {
             if (over) {
                 return;
             }
-            List<PaintBot.Enemy> enemies = everyone.stream().filter(e -> teams.getOrDefault(e.id(), -1) != bot.team).toList();
+            double[] eye = bot.eye();
+            List<PaintBot.Enemy> enemies = everyone.stream()
+                    .filter(e -> teams.getOrDefault(e.id(), -1) != bot.team)
+                    .filter(e -> !smokes.blocks(eye, e.chest(), now))
+                    .toList();
             bot.tick(now, enemies, orders);
         }
     }
@@ -1044,6 +1223,9 @@ public final class PaintballMatch implements MatchHandler {
 
     /** Capture the flag: carry it home, chase the carrier of your flag, pick up a dropped one, attack or defend. */
     private Optional<Location> botObjective(PaintBot bot) {
+        if (mode == Mode.BOMB) {
+            return bombObjective(bot);
+        }
         if (flags == null) {
             return Optional.empty();
         }
@@ -1098,6 +1280,10 @@ public final class PaintballMatch implements MatchHandler {
         if (flags != null) {
             dropFlag(bot.body, now);
         }
+        if (mode == Mode.BOMB) {
+            dropBomb(bot.body, false);
+            holds.remove(bot.id);
+        }
         Location burst = bot.location().add(0, 1, 0);
         burst.getWorld().spawnParticle(Particle.DUST, burst, 80, 0.35, 0.5, 0.35, 0,
                 new Particle.DustOptions(Color.fromRGB(PackAssets.teamRgb(paintTeam)), 2.2f));
@@ -1131,6 +1317,704 @@ public final class PaintballMatch implements MatchHandler {
             return Optional.of(bot.body);
         }
         return Optional.ofNullable(Bukkit.getPlayer(id));
+    }
+
+    // --- shop ---
+
+    /** The bomb mode's buy phase: frozen at spawn, shop open, no shooting. */
+    private boolean buyPhase() {
+        return rounds != null && rounds.phase() == BombRounds.Phase.BUY;
+    }
+
+    /** The emerald was right-clicked: open the shop (in the bomb mode only in the buy phase). */
+    public void openShop(Player p) {
+        if (over || !shopMode || !teams.containsKey(p.getUniqueId())) {
+            return;
+        }
+        if (mode == Mode.BOMB && !buyPhase()) {
+            p.sendActionBar(messages.get("shop.closed-bomb"));
+            return;
+        }
+        ShopMenu.open(p, messages, shop);
+    }
+
+    /** The shop as the menu sees it. */
+    private final class MatchShop implements ShopMenu.Shop {
+        @Override
+        public int cash(Player player) {
+            return wallet.cash(player.getUniqueId());
+        }
+
+        @Override
+        public int owned(Player player, ShopItem item) {
+            return loadout.count(player.getUniqueId(), item);
+        }
+
+        @Override
+        public Loadout.Check check(Player player, ShopItem item) {
+            UUID id = player.getUniqueId();
+            boolean open = !over && teams.containsKey(id) && !combat.isOut(id) && (mode != Mode.BOMB || buyPhase());
+            boolean defender = mode == Mode.BOMB && team(player) == rounds.defenders();
+            boolean damaged = combat.hitsLeft(id) < settings.hitsToOut();
+            return loadout.check(id, item, wallet.cash(id), open, mode == Mode.BOMB, defender, damaged);
+        }
+
+        @Override
+        public Loadout.Check buy(Player player, ShopItem item) {
+            Loadout.Check check = check(player, item);
+            if (check != Loadout.Check.OK || !wallet.spend(player.getUniqueId(), item.price())) {
+                return check == Loadout.Check.OK ? Loadout.Check.TOO_POOR : check;
+            }
+            loadout.add(player.getUniqueId(), item);
+            equip(player, item);
+            player.sendMessage(messages.get("shop.bought",
+                    Placeholder.component("item", messages.get("shop.item." + item.key() + ".name"))));
+            updateBar(player, ctx.ticks());
+            return Loadout.Check.OK;
+        }
+
+        @Override
+        public boolean sells(ShopItem item) {
+            return !item.defendersOnly() || mode == Mode.BOMB;
+        }
+
+        @Override
+        public Component note(Player player) {
+            if (!buyPhase()) {
+                return null;
+            }
+            return messages.get("shop.buy-time", Placeholder.unparsed("seconds",
+                    Long.toString(Clock.secondsLeft(rounds.ticksLeft(ctx.ticks())))));
+        }
+    }
+
+    /** Puts a bought item to work: worn, used at once, or into its hotbar slot. */
+    private void equip(Player p, ShopItem item) {
+        UUID id = p.getUniqueId();
+        switch (item) {
+            case VEST -> {
+                combat.giveShield(id);
+                p.getInventory().setChestplate(Gear.item(messages, item, 1));
+            }
+            case REPAIR -> combat.repair(id);
+            case BOOTS -> {
+                p.getInventory().setBoots(Gear.item(messages, item, 1));
+                p.addPotionEffect(new PotionEffect(PotionEffectType.SPEED, PotionEffect.INFINITE_DURATION, 0, false, false, true));
+            }
+            default -> refreshSlot(p, item);
+        }
+        PackItems.play(p, PackAssets.SOUND_POWERUP, 0.7f, 1.3f);
+    }
+
+    private void refreshSlot(Player p, ShopItem item) {
+        int slot = Gear.slot(item);
+        if (slot < 0) {
+            return;
+        }
+        int n = loadout.count(p.getUniqueId(), item);
+        p.getInventory().setItem(slot, n > 0 ? Gear.item(messages, item, n) : null);
+    }
+
+    /** Going out (or the sides swapping) costs everything bought. */
+    private void loseGear(Player p) {
+        loadout.clear(p.getUniqueId());
+        for (ShopItem item : ShopItem.values()) {
+            refreshSlot(p, item);
+        }
+        if (Gear.isGear(p.getInventory().getChestplate())) {
+            p.getInventory().setChestplate(null);
+        }
+        if (Gear.isGear(p.getInventory().getBoots())) {
+            p.getInventory().setBoots(null);
+        }
+    }
+
+    /** Speed from boots comes back when a speed power-up runs out. */
+    private void keepBoots() {
+        if (!shopMode) {
+            return;
+        }
+        for (Player p : online()) {
+            if (!combat.isOut(p.getUniqueId()) && loadout.has(p.getUniqueId(), ShopItem.BOOTS)
+                    && !p.hasPotionEffect(PotionEffectType.SPEED)) {
+                p.addPotionEffect(new PotionEffect(PotionEffectType.SPEED, PotionEffect.INFINITE_DURATION, 0, false, false, true));
+            }
+        }
+    }
+
+    /** Cash for a player in a shop mode, with a short line saying why. */
+    private void pay(Player p, int amount, String reason) {
+        if (!shopMode || amount <= 0 || p == null || !teams.containsKey(p.getUniqueId())) {
+            return;
+        }
+        int got = wallet.earn(p.getUniqueId(), amount);
+        if (got > 0) {
+            p.sendMessage(messages.get("shop.earned", Placeholder.unparsed("amount", Integer.toString(got)),
+                    Placeholder.component("reason", messages.get("shop.reason." + reason))));
+        }
+    }
+
+    /** A bought item or the bomb was right-clicked. */
+    public void useGear(Player p, ItemStack stack) {
+        UUID id = p.getUniqueId();
+        if (over || !teams.containsKey(id)) {
+            return;
+        }
+        long now = ctx.ticks();
+        if (Gear.isBomb(stack)) {
+            p.sendActionBar(messages.get("bomb.hint-plant"));
+            return;
+        }
+        ShopItem item = Gear.of(stack);
+        if (item == null || combat.isOut(id)) {
+            return;
+        }
+        switch (item) {
+            case RAPID_CARTRIDGE, TRIPLE_CARTRIDGE -> {
+                if (!loadout.take(id, item)) {
+                    return;
+                }
+                PowerupType type = item == ShopItem.RAPID_CARTRIDGE ? PowerupType.RAPID_FIRE : PowerupType.TRIPLE_SHOT;
+                buffs.give(id, type, now, item == ShopItem.RAPID_CARTRIDGE ? CARTRIDGE_RAPID_TICKS : CARTRIDGE_TRIPLE_TICKS);
+                PackItems.play(p, PackAssets.SOUND_POWERUP, 1f, 1f);
+                showMarker(p, messages.get("powerup.picked",
+                        Placeholder.component("powerup", messages.get("powerup." + type.key())),
+                        Placeholder.component("icon", messages.get("powerup.icon." + type.key()))), now);
+            }
+            case PAINT_GRENADE, SMOKE_GRENADE -> {
+                if (buyPhase() || !loadout.take(id, item)) {
+                    return;
+                }
+                throwGrenade(p, item, now);
+            }
+            case DEFUSE_KIT -> p.sendActionBar(messages.get("bomb.hint-kit"));
+            default -> {
+                return;
+            }
+        }
+        refreshSlot(p, item);
+        p.getInventory().setHeldItemSlot(0);
+    }
+
+    // --- grenades and smoke ---
+
+    private void throwGrenade(Player p, ShopItem kind, long now) {
+        Snowball ball = p.launchProjectile(Snowball.class, p.getLocation().getDirection().multiply(1.25));
+        ball.setItem(Gear.thrown(kind));
+        Gun.tagBall(ball);
+        grenades.put(ball.getUniqueId(), new Grenade(p.getUniqueId(), team(p), kind, now));
+        game.balls().put(ball.getUniqueId(), this);
+        p.getWorld().playSound(p.getLocation(), Sound.ENTITY_SNOWBALL_THROW, 1f, 0.6f);
+        p.swingMainHand();
+    }
+
+    /** A grenade landed: paint on every enemy near it, or a cloud of smoke. */
+    private void burst(Grenade g, Location at, ProjectileHitEvent event, long now) {
+        if (g.kind() == ShopItem.SMOKE_GRENADE) {
+            smokes.add(at.getX(), at.getY() + 1, at.getZ(), SMOKE_RADIUS, now + SMOKE_TICKS);
+            at.getWorld().playSound(at, Sound.BLOCK_FIRE_EXTINGUISH, 1.5f, 0.6f);
+            return;
+        }
+        paintBurst(at.clone().add(0, 0.6, 0), g.team(), 160, 2.6f);
+        at.getWorld().spawnParticle(Particle.EXPLOSION, at, 1);
+        PackItems.play(at, PackAssets.SOUND_SPLAT, 1.5f, 0.7f);
+        at.getWorld().playSound(at, Sound.ENTITY_GENERIC_EXPLODE, 0.8f, 1.6f);
+        if (event.getHitBlock() != null && event.getHitBlockFace() != null) {
+            splats.add(event.getHitBlock(), event.getHitBlockFace(), event.getEntity(), g.team(), now);
+        }
+        Shot shot = new Shot(g.thrower(), g.team(), now);
+        double r2 = GRENADE_RADIUS * GRENADE_RADIUS;
+        for (Player victim : online()) {
+            if (teams.getOrDefault(victim.getUniqueId(), g.team()) != g.team() && !combat.isOut(victim.getUniqueId())
+                    && victim.getLocation().distanceSquared(at) <= r2) {
+                Combat.HitResult result = combat.hit(victim.getUniqueId(), g.thrower(), g.team(), now);
+                if (result != Combat.HitResult.PASS_THROUGH) {
+                    afterPlayerHit(victim, shot, result, now);
+                }
+                if (over) {
+                    return;
+                }
+            }
+        }
+        for (PaintBot bot : List.copyOf(bots.values())) {
+            if (bot.team != g.team() && !bot.isOut() && bot.location().distanceSquared(at) <= r2) {
+                Combat.HitResult result = combat.hit(bot.id, g.thrower(), g.team(), now);
+                if (result != Combat.HitResult.PASS_THROUGH) {
+                    afterBotHit(bot, shot, result, now);
+                }
+                if (over) {
+                    return;
+                }
+            }
+        }
+    }
+
+    /** A grenade that never lands (fell out of the world) is dropped after a few seconds. */
+    private void tickGrenades(long now) {
+        Iterator<Map.Entry<UUID, Grenade>> it = grenades.entrySet().iterator();
+        while (it.hasNext()) {
+            Map.Entry<UUID, Grenade> e = it.next();
+            Entity ball = Bukkit.getEntity(e.getKey());
+            if (ball == null || !ball.isValid() || now - e.getValue().thrownAt() > 100) {
+                if (ball != null) {
+                    ball.remove();
+                }
+                it.remove();
+                game.balls().remove(e.getKey(), this);
+            }
+        }
+    }
+
+    private void removeGrenades() {
+        for (UUID id : grenades.keySet()) {
+            Entity ball = Bukkit.getEntity(id);
+            if (ball != null) {
+                ball.remove();
+            }
+            game.balls().remove(id, this);
+        }
+        grenades.clear();
+    }
+
+    /** Thick grey dust and a little rising smoke in every cloud. */
+    private void tickSmokes(long now) {
+        if (now % 2 != 0) {
+            return;
+        }
+        Particle.DustOptions grey = new Particle.DustOptions(Color.fromRGB(0xB8, 0xBC, 0xB0), 4f);
+        Particle.DustOptions dark = new Particle.DustOptions(Color.fromRGB(0x8A, 0x8E, 0x84), 4f);
+        for (Smokes.Cloud c : smokes.active(now)) {
+            Location at = new Location(ctx.arena().world(), c.x(), c.y(), c.z());
+            double spread = c.radius() * 0.55;
+            at.getWorld().spawnParticle(Particle.DUST, at, 26, spread, spread * 0.7, spread, 0, grey, true);
+            at.getWorld().spawnParticle(Particle.DUST, at, 12, spread, spread * 0.7, spread, 0, dark, true);
+            if (now % 6 == 0) {
+                at.getWorld().spawnParticle(Particle.CAMPFIRE_COSY_SMOKE, at, 3, spread, 0.4, spread, 0.005, null, true);
+            }
+        }
+    }
+
+    // --- bomb mode ---
+
+    private Location site() {
+        return flagHomes[rounds.defenders()];
+    }
+
+    private boolean onSite(Location loc) {
+        Location site = site();
+        double dx = loc.getX() - site.getX();
+        double dz = loc.getZ() - site.getZ();
+        double r = bombRules.siteRadius();
+        return loc.getWorld() == site.getWorld() && dx * dx + dz * dz <= r * r && Math.abs(loc.getY() - site.getY()) <= 3;
+    }
+
+    /** Players and bots of the team still alive in this round. */
+    private int alive(int team) {
+        int n = 0;
+        for (Player p : ctx.team(team)) {
+            if (!combat.isOut(p.getUniqueId())) {
+                n++;
+            }
+        }
+        for (PaintBot b : bots.values()) {
+            if (b.team == team && !b.isOut()) {
+                n++;
+            }
+        }
+        return n;
+    }
+
+    private void tickBomb(long now) {
+        BombRounds.Event event = rounds.tick(now, alive(rounds.attackers()), alive(rounds.defenders()));
+        switch (event) {
+            case GO -> {
+                for (Player p : online()) {
+                    if (!combat.isOut(p.getUniqueId())) {
+                        freeze(p, false);
+                        if (p.getOpenInventory().getTopInventory().getHolder(false) instanceof ShopMenu) {
+                            p.closeInventory();
+                        }
+                    }
+                    hud.bigTitle(p, messages.get("bomb.go"), Component.empty());
+                    p.playSound(p, Sound.EVENT_RAID_HORN, 0.6f, 1.4f);
+                }
+            }
+            case ROUND_OVER -> roundOver(now);
+            case NEXT_ROUND -> startRound(now, false);
+            case SIDES_SWAPPED -> startRound(now, true);
+            case MATCH_OVER -> {
+                OptionalInt winner = rounds.winner();
+                finish(winner.isPresent() ? MatchOutcome.win(winner.getAsInt(), resultLines())
+                        : MatchOutcome.draw(resultLines()));
+                return;
+            }
+            case NONE -> {
+            }
+        }
+        switch (rounds.phase()) {
+            case LIVE -> {
+                tickPlant(now);
+                tickPickup();
+            }
+            case PLANTED -> {
+                tickDefuse(now);
+                bombView.tickPlanted(now, rounds.ticksLeft(now));
+            }
+            default -> {
+            }
+        }
+        bombView.tickDropped();
+        if (now % 10 == 0 && rounds.phase() != BombRounds.Phase.POST) {
+            bombView.ringSite(bombRules.siteRadius());
+        }
+        if (now % 10 == 0) {
+            keepWatchersInside();
+        }
+    }
+
+    /** A new round: everyone alive at their spawn, frozen for the buy phase; the bomb to an attacker. */
+    private void startRound(long now, boolean swapped) {
+        int attackers = rounds.attackers();
+        if (swapped) {
+            wallet.reset();
+            loadout.clearAll();
+        }
+        bombView.removeAll();
+        bombCarrier = null;
+        bombDropped = null;
+        bombPlanted = null;
+        holds.clear();
+        smokes.clear();
+        removeGrenades();
+        for (UUID ballId : List.copyOf(balls.keySet())) {
+            Entity ball = Bukkit.getEntity(ballId);
+            if (ball != null) {
+                ball.remove();
+            }
+            untrack(ballId);
+        }
+        splats.removeAll();
+        combat.start(now);
+        for (Player p : online()) {
+            UUID id = p.getUniqueId();
+            int team = team(p);
+            GameMode before = watching.remove(id);
+            if (before != null) {
+                p.setGameMode(before);
+            }
+            for (Player other : Bukkit.getOnlinePlayers()) {
+                other.showEntity(game.plugin(), p);
+            }
+            p.teleport(safestSpawn(team));
+            p.setFallDistance(0);
+            p.clearTitle();
+            buffs.clear(id);
+            if (swapped) {
+                loseGear(p);
+                combat.takeShield(id);
+                p.removePotionEffect(PotionEffectType.SPEED);
+            }
+            p.getInventory().setItem(Gear.BOMB_SLOT, null);
+            p.getInventory().setHeldItemSlot(0);
+            freeze(p, true);
+            Component side = team == attackers ? messages.get("bomb.attack") : messages.get("bomb.defend");
+            Component hint = messages.get(team == attackers ? "bomb.attack-hint" : "bomb.defend-hint",
+                    Placeholder.component("team", ctx.teamName(1 - team)));
+            hud.bigTitle(p, messages.get("bomb.round-title",
+                    Placeholder.unparsed("round", Integer.toString(rounds.round())),
+                    Placeholder.unparsed("max", Integer.toString(bombRules.maxRounds()))), side);
+            p.sendMessage(side.append(Component.text(" ")).append(hint));
+            if (swapped) {
+                p.sendMessage(messages.get("bomb.swap", Placeholder.unparsed("cash", Integer.toString(cash.start()))));
+            }
+            PackItems.play(p, PackAssets.SOUND_RESPAWN, 0.9f, 1f);
+            updateBar(p, now);
+        }
+        for (PaintBot bot : bots.values()) {
+            bot.body.getEquipment().setItemInOffHand(null);
+            respawnBot(bot);
+        }
+        bombView.showSite(site());
+        List<UUID> carriers = new ArrayList<>();
+        for (Player p : ctx.team(attackers)) {
+            carriers.add(p.getUniqueId());
+        }
+        if (carriers.isEmpty()) {
+            for (PaintBot b : bots.values()) {
+                if (b.team == attackers) {
+                    carriers.add(b.id);
+                }
+            }
+        }
+        if (!carriers.isEmpty()) {
+            giveBomb(carriers.get(ThreadLocalRandom.current().nextInt(carriers.size())), false);
+        }
+        refreshHud(now);
+    }
+
+    private void roundOver(long now) {
+        BombRounds.Result result = rounds.last();
+        int winner = result.winner();
+        score.add(winner);
+        holds.clear();
+        if (result.how() == BombRounds.End.EXPLODED) {
+            bombView.explode(rounds.attackers());
+            Location at = bombPlanted;
+            // The blast paints everyone still standing near it.
+            if (at != null) {
+                for (Player p : ctx.team(rounds.defenders())) {
+                    if (!combat.isOut(p.getUniqueId()) && p.getLocation().distanceSquared(at) <= 64) {
+                        paintBurst(p.getLocation().add(0, 1, 0), rounds.attackers(), 30, 1.6f);
+                    }
+                }
+            }
+        }
+        for (Player p : online()) {
+            int team = team(p);
+            if (team == winner) {
+                ctx.addStat(p, "rounds", 1);
+            }
+            pay(p, team == winner ? cash.roundWin() : cash.roundLoss(), team == winner ? "round-win" : "round-loss");
+            hud.bigTitle(p, messages.get("bomb.won-title", Placeholder.component("team", ctx.teamName(winner))),
+                    messages.get("bomb.end." + result.how().name().toLowerCase()));
+            p.playSound(p, team == winner ? Sound.UI_TOAST_CHALLENGE_COMPLETE : Sound.ENTITY_VILLAGER_NO, 0.7f, 1f);
+        }
+        refreshHud(now);
+    }
+
+    /** Attackers holding the bomb and sneaking on the site plant it; bots carrying it plant on the site. */
+    private void tickPlant(long now) {
+        if (bombCarrier == null) {
+            return;
+        }
+        PaintBot bot = bots.get(bombCarrier);
+        if (bot != null) {
+            if (!bot.isOut() && onSite(bot.location())) {
+                long held = holds.merge(bot.id, 1L, Long::sum);
+                if (held >= bombRules.plantTicks()) {
+                    plant(bot.location(), bot.id, bot.name, now);
+                }
+            }
+            return;
+        }
+        Player p = Bukkit.getPlayer(bombCarrier);
+        if (p == null || combat.isOut(p.getUniqueId())) {
+            return;
+        }
+        UUID id = p.getUniqueId();
+        if (p.isSneaking() && Gear.isBomb(p.getInventory().getItemInMainHand()) && onSite(p.getLocation())) {
+            long held = holds.merge(id, 1L, Long::sum);
+            p.sendActionBar(messages.get("bomb.planting",
+                    Placeholder.component("bar", progressBar(held, bombRules.plantTicks(), NamedTextColor.RED))));
+            if (held % 5 == 1) {
+                p.getWorld().playSound(p.getLocation(), Sound.BLOCK_NOTE_BLOCK_HAT, 0.8f, 1.5f);
+            }
+            if (held >= bombRules.plantTicks()) {
+                plant(p.getLocation(), id, p.getName(), now);
+                ctx.addStat(p, "plants", 1);
+                pay(p, cash.objective(), "plant");
+            }
+        } else if (holds.remove(id) != null) {
+            updateBar(p, now);
+        }
+    }
+
+    private void plant(Location at, UUID who, String name, long now) {
+        if (!rounds.plant(now)) {
+            return;
+        }
+        holds.clear();
+        Location spot = at.getBlock().getLocation().add(0.5, 0, 0.5);
+        spot.setYaw(at.getYaw());
+        bombPlanted = spot;
+        takeBombFrom(who);
+        bombCarrier = null;
+        bombView.plant(spot);
+        Component by = messages.get("bomb.planted-by", Placeholder.component("player", coloured(name, rounds.attackers())));
+        Component planted = messages.get("bomb.planted", Placeholder.unparsed("seconds",
+                Long.toString(Clock.secondsLeft(bombRules.fuseTicks()))));
+        for (Player p : online()) {
+            p.sendMessage(by);
+            hud.bigTitle(p, Component.empty(), planted);
+            p.playSound(p, Sound.BLOCK_ANVIL_LAND, 0.5f, 1.8f);
+        }
+        refreshHud(now);
+    }
+
+    /** Defenders sneaking next to the planted bomb defuse it; a defuse kit halves the time. */
+    private void tickDefuse(long now) {
+        if (bombPlanted == null) {
+            return;
+        }
+        int defenders = rounds.defenders();
+        for (Player p : ctx.team(defenders)) {
+            UUID id = p.getUniqueId();
+            if (!combat.isOut(id) && p.isSneaking() && near(p.getLocation(), bombPlanted, DEFUSE_REACH)) {
+                long need = loadout.has(id, ShopItem.DEFUSE_KIT) ? bombRules.kitDefuseTicks() : bombRules.defuseTicks();
+                long held = holds.merge(id, 1L, Long::sum);
+                p.sendActionBar(messages.get("bomb.defusing",
+                        Placeholder.component("bar", progressBar(held, need, NamedTextColor.AQUA))));
+                if (held % 6 == 1) {
+                    p.getWorld().playSound(p.getLocation(), Sound.BLOCK_TRIPWIRE_CLICK_ON, 0.8f, 1.6f);
+                }
+                if (held >= need) {
+                    ctx.addStat(p, "defuses", 1);
+                    pay(p, cash.objective(), "defuse");
+                    defused(p.getName(), now);
+                    return;
+                }
+            } else if (holds.remove(id) != null) {
+                updateBar(p, now);
+            }
+        }
+        for (PaintBot bot : bots.values()) {
+            if (bot.team == defenders && !bot.isOut() && near(bot.location(), bombPlanted, DEFUSE_REACH)) {
+                if (holds.merge(bot.id, 1L, Long::sum) >= bombRules.defuseTicks()) {
+                    defused(bot.name, now);
+                    return;
+                }
+            }
+        }
+    }
+
+    private void defused(String name, long now) {
+        if (!rounds.defuse(now)) {
+            return;
+        }
+        bombView.defused(rounds.defenders());
+        Component by = messages.get("bomb.defused-by", Placeholder.component("player", coloured(name, rounds.defenders())));
+        online().forEach(p -> p.sendMessage(by));
+        roundOver(now);
+    }
+
+    /** An attacker walking over the dropped bomb picks it up. */
+    private void tickPickup() {
+        if (bombDropped == null) {
+            return;
+        }
+        int attackers = rounds.attackers();
+        for (Player p : ctx.team(attackers)) {
+            if (!combat.isOut(p.getUniqueId()) && near(p.getLocation(), bombDropped)) {
+                giveBomb(p.getUniqueId(), true);
+                return;
+            }
+        }
+        for (PaintBot b : bots.values()) {
+            if (b.team == attackers && !b.isOut() && near(b.location(), bombDropped)) {
+                giveBomb(b.id, true);
+                return;
+            }
+        }
+    }
+
+    private void giveBomb(UUID id, boolean pickedUp) {
+        bombCarrier = id;
+        bombDropped = null;
+        bombView.removeDropped();
+        PaintBot bot = bots.get(id);
+        String name;
+        if (bot != null) {
+            bot.body.getEquipment().setItemInOffHand(Gear.bombModel());
+            name = bot.name;
+        } else {
+            Player p = Bukkit.getPlayer(id);
+            if (p == null) {
+                return;
+            }
+            p.getInventory().setItem(Gear.BOMB_SLOT, Gear.bomb(messages));
+            p.playSound(p, Sound.ITEM_ARMOR_EQUIP_IRON, 0.8f, 1f);
+            name = p.getName();
+        }
+        // Only the attackers hear who has it.
+        Component line = messages.get(pickedUp ? "bomb.picked" : "bomb.carrier",
+                Placeholder.component("player", coloured(name, rounds.attackers())));
+        ctx.team(rounds.attackers()).forEach(p -> p.sendMessage(line));
+    }
+
+    /** The carrier is out or left: the bomb drops where they were (at their spawn if out of bounds). */
+    private void dropBomb(LivingEntity carrier, boolean outOfBounds) {
+        if (rounds == null || !carrier.getUniqueId().equals(bombCarrier)) {
+            return;
+        }
+        takeBombFrom(carrier.getUniqueId());
+        bombCarrier = null;
+        Location at = outOfBounds ? ctx.arena().spawns(rounds.attackers()).getFirst().clone() : carrier.getLocation().clone();
+        bombDropped = at;
+        bombView.drop(at);
+        Component line = messages.get("bomb.dropped");
+        ctx.team(rounds.attackers()).forEach(p -> {
+            p.sendMessage(line);
+            p.playSound(p, Sound.BLOCK_NOTE_BLOCK_BASS, 0.8f, 0.5f);
+        });
+    }
+
+    private void takeBombFrom(UUID id) {
+        PaintBot bot = bots.get(id);
+        if (bot != null) {
+            bot.body.getEquipment().setItemInOffHand(null);
+            return;
+        }
+        Player p = Bukkit.getPlayer(id);
+        if (p != null) {
+            for (int slot = 0; slot < p.getInventory().getSize(); slot++) {
+                if (Gear.isBomb(p.getInventory().getItem(slot))) {
+                    p.getInventory().setItem(slot, null);
+                }
+            }
+        }
+    }
+
+    /** Spectating players stay over the arena. */
+    private void keepWatchersInside() {
+        for (Player p : online()) {
+            if (watching.containsKey(p.getUniqueId()) && (p.getWorld() != ctx.arena().world()
+                    || !ctx.arena().bounds().contains(p.getLocation().toVector()))) {
+                p.teleport(ctx.arena().spawns(team(p)).getFirst());
+            }
+        }
+    }
+
+    /** Bomb mode bots: carry the bomb to the site, fetch it when dropped, guard and defuse. */
+    private Optional<Location> bombObjective(PaintBot bot) {
+        if (rounds == null) {
+            return Optional.empty();
+        }
+        if (bot.team == rounds.attackers()) {
+            if (bot.id.equals(bombCarrier) || bombPlanted != null) {
+                return Optional.of(bombPlanted != null ? bombPlanted : site());
+            }
+            if (bombDropped != null) {
+                return Optional.of(bombDropped);
+            }
+            return bot.index % 2 == 0 ? Optional.of(site()) : Optional.empty();
+        }
+        if (bombPlanted != null) {
+            return Optional.of(bombPlanted);
+        }
+        return bot.index % 2 == 0 ? Optional.of(site()) : Optional.empty();
+    }
+
+    private static Component progressBar(long done, long need, NamedTextColor colour) {
+        int filled = (int) Math.min(20, done * 20 / Math.max(1, need));
+        return Component.text("|".repeat(filled), colour).append(Component.text("|".repeat(20 - filled), NamedTextColor.DARK_GRAY));
+    }
+
+    private void refreshHud(long now) {
+        if (mode != Mode.BOMB) {
+            hud.refresh(now, score, flagStatus());
+            return;
+        }
+        long left = rounds.ticksLeft(now);
+        String key = switch (rounds.phase()) {
+            case BUY -> "bomb.bossbar.buy";
+            case LIVE -> "bomb.bossbar.live";
+            case PLANTED -> "bomb.bossbar.planted";
+            case POST, OVER -> "bomb.bossbar.post";
+        };
+        Component status = messages.get(key, Placeholder.unparsed("time", Clock.format(left)),
+                Placeholder.unparsed("round", Integer.toString(rounds.round())),
+                Placeholder.unparsed("max", Integer.toString(bombRules.maxRounds())));
+        hud.refreshRounds(score, left, rounds.clockTicks(), status, rounds.phase() == BombRounds.Phase.PLANTED);
     }
 
     /** Online players still in this match. */

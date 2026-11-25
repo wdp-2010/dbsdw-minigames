@@ -35,6 +35,10 @@ public final class MenuListener implements Listener {
             return;
         }
         if (holder instanceof GamesMenu games) {
+            if (games.isProgress(event.getSlot())) {
+                Bukkit.getScheduler().runTask(plugin, () -> model.openProgress(player));
+                return;
+            }
             Optional<String> gameId = games.gameAt(event.getSlot());
             gameId.flatMap(id -> model.games().stream().filter(g -> g.id().equals(id)).findFirst())
                     .ifPresent(game -> Bukkit.getScheduler().runTask(plugin,

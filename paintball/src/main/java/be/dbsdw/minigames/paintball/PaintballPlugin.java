@@ -3,11 +3,13 @@ package be.dbsdw.minigames.paintball;
 import be.dbsdw.minigames.core.Messages;
 import be.dbsdw.minigames.core.api.GameRegistry;
 import be.dbsdw.minigames.paintball.match.PracticeRange;
+import be.dbsdw.minigames.paintball.rules.BombSettings;
 import be.dbsdw.minigames.paintball.rules.ModeRules;
 import be.dbsdw.minigames.paintball.rules.PowerupSettings;
 import be.dbsdw.minigames.paintball.rules.PowerupType;
 import be.dbsdw.minigames.paintball.rules.RangeBox;
 import be.dbsdw.minigames.paintball.rules.Settings;
+import be.dbsdw.minigames.paintball.rules.ShopCash;
 import java.util.ArrayList;
 import java.util.List;
 import org.bukkit.configuration.file.FileConfiguration;
@@ -65,8 +67,12 @@ public final class PaintballPlugin extends JavaPlugin {
         saveConfig();
         FileConfiguration c = getConfig();
         Settings settings;
+        BombSettings bomb;
+        ShopCash cash;
         try {
             settings = load(c);
+            bomb = bomb(c);
+            cash = cash(c);
         } catch (IllegalArgumentException e) {
             getLogger().severe("[paintball] config.yml: " + e.getMessage() + " - Paintball is disabled");
             getServer().getPluginManager().disablePlugin(this);
@@ -77,7 +83,9 @@ public final class PaintballPlugin extends JavaPlugin {
             throw new IllegalStateException("MinigameCore's GameRegistry is not available");
         }
         Messages messages = Messages.load(this);
-        PaintballGame game = new PaintballGame(this, settings, messages, messages.raw("mode.tdm"), messages.raw("mode.ctf"));
+        PaintballGame game = new PaintballGame(this, settings, messages, messages.raw("mode.tdm"), messages.raw("mode.ctf"),
+                messages.raw("mode.tdm_shop"), messages.raw("mode.ctf_shop"), Math.max(1, c.getInt("shop.unlock-level", 5)),
+                messages.raw("mode.bomb"), bomb, cash);
         registry.register(this, game);
         try {
             range = practice(c, game);
@@ -91,7 +99,9 @@ public final class PaintballPlugin extends JavaPlugin {
         }
         getServer().getPluginManager().registerEvents(new PaintballListener(game, range), this);
         getLogger().info("[paintball] enabled: tdm " + describe(settings.tdm()) + "; ctf " + describe(settings.ctf())
-                + "; power-ups " + settings.powerups().enabled().size());
+                + "; power-ups " + settings.powerups().enabled().size() + "; bomb " + bomb.minPerTeam() + "-"
+                + bomb.maxPerTeam() + " per team, first to " + bomb.winRounds() + " of " + bomb.maxRounds()
+                + " rounds, level " + bomb.unlockLevel());
     }
 
     private static Settings load(FileConfiguration c) {
@@ -123,6 +133,20 @@ public final class PaintballPlugin extends JavaPlugin {
                 c.getDouble("gun.gravity"),
                 c.getDouble("gun.scope-spread-degrees"),
                 seconds(c, "ctf.respawn-seconds"));
+    }
+
+    private static BombSettings bomb(FileConfiguration c) {
+        return new BombSettings(Math.max(1, c.getInt("bomb.unlock-level")), c.getInt("bomb.min-per-team"),
+                c.getInt("bomb.max-per-team"), c.getInt("bomb.win-rounds"), c.getInt("bomb.max-rounds"),
+                seconds(c, "bomb.buy-seconds"), seconds(c, "bomb.round-seconds"), seconds(c, "bomb.round-end-seconds"),
+                seconds(c, "bomb.plant-seconds"), seconds(c, "bomb.fuse-seconds"), seconds(c, "bomb.defuse-seconds"),
+                seconds(c, "bomb.kit-defuse-seconds"), c.getDouble("bomb.site-radius"));
+    }
+
+    private static ShopCash cash(FileConfiguration c) {
+        return new ShopCash(c.getInt("shop.cash.start"), c.getInt("shop.cash.max"), c.getInt("shop.cash.elimination"),
+                c.getInt("shop.cash.capture"), c.getInt("shop.cash.return"), c.getInt("shop.cash.round-win"),
+                c.getInt("shop.cash.round-loss"), c.getInt("shop.cash.objective"));
     }
 
     private static ModeRules mode(FileConfiguration c, String key, String winKey) {

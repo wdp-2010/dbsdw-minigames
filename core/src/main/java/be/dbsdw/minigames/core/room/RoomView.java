@@ -17,13 +17,29 @@ import java.util.UUID;
  * @param secondsLeft the start countdown, while it runs
  * @param playing whether the room's match is running
  * @param voice who hears whom in voice chat during the room's matches
+ * @param bots bots the host added, per team
+ * @param botLevel the bots' level, an index into the game's levels
  */
 public record RoomView(int id, UUID host, List<UUID> members, ModeSpec mode, Optional<String> arena,
                        RoomTeams.Rule rule, Map<UUID, Integer> picks, OptionalInt secondsLeft, boolean playing,
-                       VoiceRule voice) {
+                       VoiceRule voice, List<Integer> bots, int botLevel) {
     public RoomView {
         members = List.copyOf(members);
         picks = Map.copyOf(picks);
+        bots = List.copyOf(bots);
+    }
+
+    public int botsIn(int team) {
+        return team < bots.size() ? bots.get(team) : 0;
+    }
+
+    public int botCount() {
+        return bots.stream().mapToInt(Integer::intValue).sum();
+    }
+
+    /** Members and bots. */
+    public int headcount() {
+        return members.size() + botCount();
     }
 
     public OptionalInt teamOf(UUID member) {

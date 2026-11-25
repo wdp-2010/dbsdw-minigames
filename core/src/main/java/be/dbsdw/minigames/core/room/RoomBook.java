@@ -17,7 +17,8 @@ import java.util.random.RandomGenerator;
 
 /**
  * Private rooms: a host gathers invited players, picks mode, arena, team rule and voice rule, and starts a match.
- * A host alone may start too (a solo test match; bots will fill such rooms later). A player is in at most one room. Call {@link #tick()} once per server tick.
+ * A host alone may start too. For games with room bots the host adds bots to the teams, next to the members;
+ * a bot takes a team slot like a member. A player is in at most one room. Call {@link #tick()} once per server tick.
  */
 public final class RoomBook {
     public enum Outcome {
@@ -32,6 +33,8 @@ public final class RoomBook {
     public static final int INVITE_TICKS = 60 * 20;
     private static final int TICKS_PER_SECOND = 20;
     private static final int MIN_MEMBERS = 1;
+    /** New rooms' bot level: the second easiest (paintball: normaal). */
+    public static final int DEFAULT_BOT_LEVEL = 1;
 
     private final ArenaPool pool;
     private final RandomGenerator rnd;
@@ -105,7 +108,7 @@ public final class RoomBook {
         if (own == null || !own.containsKey(room.id)) {
             return Outcome.NO_INVITE;
         }
-        if (room.members.size() >= room.mode.maximum()) {
+        if (room.headcount() >= room.mode.maximum()) {
             return Outcome.FULL;
         }
         own.remove(room.id);
@@ -157,8 +160,20 @@ public final class RoomBook {
         if (room.members.size() > mode.maximum()) {
             return Outcome.FULL;
         }
+        boolean sameGame = room.mode.gameId().equals(mode.gameId()) && room.mode.teams() == mode.teams();
         room.mode = mode;
         room.picks.values().removeIf(team -> team >= mode.teams());
+        int[] bots = new int[mode.teams()];
+        if (sameGame) {
+            // Same game: keep the bots that still fit their team.
+            for (int team = 0; team < bots.length; team++) {
+                bots[team] = Math.max(0, Math.min(room.bots[team], mode.maxPerTeam() - room.teamSize(team)));
+            }
+        }
+        room.bots = bots;
+        while (room.headcount() > mode.maximum() && room.dropBot()) {
+            // fewer bots until the room fits the mode
+        }
         if (room.arena.isPresent() && pool.get(room.arena.get()).filter(a -> a.fits(mode)).isEmpty()) {
             room.arena = Optional.empty();
         }
@@ -232,10 +247,58 @@ public final class RoomBook {
         Integer current = room.picks.get(target);
         int next = current == null ? 0 : current + 1;
         // Skip teams that are full; past the last team the member has no team.
-        while (next < room.mode.teams() && room.teamSize(next) >= room.mode.maxPerTeam()) {
+        while (next < room.mode.teams() && room.teamSize(next) + room.bots[next] >= room.mode.maxPerTeam()) {
             next++;
         }
         return room.assign(target, next < room.mode.teams() ? OptionalInt.of(next) : OptionalInt.empty());
+    }
+
+    /** The host adds a bot to the team; it takes a slot of that team like a member. */
+    public Outcome addBot(UUID host, int team) {
+        Outcome check = hostCheck(host);
+        if (check != Outcome.OK) {
+            return check;
+        }
+        Room room = roomByMember.get(host);
+        if (team < 0 || team >= room.mode.teams()) {
+            return Outcome.NOT_ALLOWED;
+        }
+        if (room.teamSize(team) + room.bots[team] >= room.mode.maxPerTeam()) {
+            return Outcome.TEAM_FULL;
+        }
+        if (room.headcount() >= room.mode.maximum()) {
+            return Outcome.FULL;
+        }
+        room.bots[team]++;
+        return Outcome.OK;
+    }
+
+    /** The host takes a bot out of the team. */
+    public Outcome removeBot(UUID host, int team) {
+        Outcome check = hostCheck(host);
+        if (check != Outcome.OK) {
+            return check;
+        }
+        Room room = roomByMember.get(host);
+        if (team < 0 || team >= room.mode.teams() || room.bots[team] == 0) {
+            return Outcome.NOT_ALLOWED;
+        }
+        room.bots[team]--;
+        return Outcome.OK;
+    }
+
+    /** The host switches the bots' level: 0, 1, ..., {@code levels - 1}, 0. */
+    public Outcome cycleBotLevel(UUID host, int levels) {
+        Outcome check = hostCheck(host);
+        if (check != Outcome.OK) {
+            return check;
+        }
+        if (levels < 1) {
+            return Outcome.NOT_ALLOWED;
+        }
+        Room room = roomByMember.get(host);
+        room.botLevel = (room.botLevel + 1) % levels;
+        return Outcome.OK;
     }
 
     /** Checks the room can start, reserves its arena and starts the countdown. */
@@ -269,7 +332,7 @@ public final class RoomBook {
         }
         room.reserved = reserved.get();
         room.soloTeam = soloTeam;
-        room.startedWith = room.members.size();
+        room.startedWith = room.headcount();
         room.ticksLeft = COUNTDOWN_SECONDS * TICKS_PER_SECOND;
         pending.add(new RoomEvent.CountdownTick(room.id, List.copyOf(room.members), COUNTDOWN_SECONDS));
         return Outcome.OK;
@@ -312,7 +375,7 @@ public final class RoomBook {
                 continue;
             }
             // Leavers that make the room short-handed stop the countdown, so nobody gets a solo match unwarned.
-            boolean nowShort = shortHanded(room.members.size(), room.mode) && !shortHanded(room.startedWith, room.mode);
+            boolean nowShort = shortHanded(room.headcount(), room.mode) && !shortHanded(room.startedWith, room.mode);
             boolean soloBroken = room.soloTeam.isPresent() && room.members.size() != 1;
             if (room.readiness() != Outcome.OK || nowShort || soloBroken) {
                 room.stopCountdown();
@@ -323,9 +386,12 @@ public final class RoomBook {
             if (room.ticksLeft == 0) {
                 List<List<UUID>> teams = room.soloTeam.isPresent()
                         ? soloTeams(room.host, room.soloTeam.getAsInt(), room.mode.teams())
-                        : RoomTeams.build(List.copyOf(room.members), room.picks, room.rule, room.mode.teams(), rnd);
+                        : RoomTeams.build(List.copyOf(room.members), room.picks, room.rule, room.mode.teams(),
+                                room.botList(), rnd);
+                List<Integer> bots = room.soloTeam.isPresent() ? List.of() : room.botList();
                 room.soloTeam = OptionalInt.empty();
-                events.add(new RoomEvent.Start(room.id, room.mode, room.reserved, teams, room.voice));
+                events.add(new RoomEvent.Start(room.id, room.mode, room.reserved, teams, room.voice, bots,
+                        room.botLevel));
                 room.reserved = null;
                 room.playing = true;
             } else if (room.ticksLeft % TICKS_PER_SECOND == 0) {
@@ -344,7 +410,6 @@ public final class RoomBook {
         return Optional.ofNullable(rooms.get(id)).map(Room::view);
     }
 
-    /** Whether a room with this many members plays without a full set of opponents. */
     private static List<List<UUID>> soloTeams(UUID host, int team, int teams) {
         List<List<UUID>> out = new ArrayList<>();
         for (int t = 0; t < teams; t++) {
@@ -353,6 +418,7 @@ public final class RoomBook {
         return out;
     }
 
+    /** Whether a room with this many members and bots plays without a full set of opponents. */
     public static boolean shortHanded(int members, ModeSpec mode) {
         return members < Math.max(2, mode.teams());
     }
@@ -389,12 +455,49 @@ public final class RoomBook {
         boolean playing;
         /** Set for a countdown the host started alone on a team the game chose. */
         OptionalInt soloTeam = OptionalInt.empty();
+        /** Bots the host added, per team. */
+        int[] bots;
+        /** The bots' level, an index into the game's levels. */
+        int botLevel = DEFAULT_BOT_LEVEL;
 
         Room(int id, UUID host, ModeSpec mode) {
             this.id = id;
             this.host = host;
             this.mode = mode;
+            this.bots = new int[mode.teams()];
             members.add(host);
+        }
+
+        int botCount() {
+            int n = 0;
+            for (int b : bots) {
+                n += b;
+            }
+            return n;
+        }
+
+        /** Members and bots: the room's players. */
+        int headcount() {
+            return members.size() + botCount();
+        }
+
+        List<Integer> botList() {
+            return java.util.Arrays.stream(bots).boxed().toList();
+        }
+
+        /** Takes a bot off the team with the most; false when there are none. */
+        boolean dropBot() {
+            int most = 0;
+            for (int team = 1; team < bots.length; team++) {
+                if (bots[team] > bots[most]) {
+                    most = team;
+                }
+            }
+            if (bots.length == 0 || bots[most] == 0) {
+                return false;
+            }
+            bots[most]--;
+            return true;
         }
 
         Outcome stateCheck() {
@@ -409,14 +512,14 @@ public final class RoomBook {
             if (members.size() < MIN_MEMBERS) {
                 return Outcome.TOO_FEW;
             }
-            // Too few members to fill every team: some stay empty (later filled by bots).
+            // Too few members to fill every team: some stay empty (or only bots play in them).
             if (rule == RoomTeams.Rule.RANDOM || members.size() < mode.teams()) {
                 return Outcome.OK;
             }
             long unpicked = members.stream().filter(m -> !picks.containsKey(m)).count();
             long emptyTeams = 0;
             for (int team = 0; team < mode.teams(); team++) {
-                if (teamSize(team) == 0) {
+                if (teamSize(team) == 0 && bots[team] == 0) {
                     emptyTeams++;
                 }
             }
@@ -437,7 +540,7 @@ public final class RoomBook {
             if (t < 0 || t >= mode.teams()) {
                 return Outcome.NOT_ALLOWED;
             }
-            if (!Integer.valueOf(t).equals(picks.get(member)) && teamSize(t) >= mode.maxPerTeam()) {
+            if (!Integer.valueOf(t).equals(picks.get(member)) && teamSize(t) + bots[t] >= mode.maxPerTeam()) {
                 return Outcome.TEAM_FULL;
             }
             picks.put(member, t);
@@ -455,7 +558,8 @@ public final class RoomBook {
         RoomView view() {
             OptionalInt seconds = reserved == null ? OptionalInt.empty()
                     : OptionalInt.of((ticksLeft + TICKS_PER_SECOND - 1) / TICKS_PER_SECOND);
-            return new RoomView(id, host, List.copyOf(members), mode, arena, rule, picks, seconds, playing, voice);
+            return new RoomView(id, host, List.copyOf(members), mode, arena, rule, picks, seconds, playing, voice,
+                    botList(), botLevel);
         }
     }
 }

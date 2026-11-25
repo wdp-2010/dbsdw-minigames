@@ -48,6 +48,8 @@ import org.bukkit.event.server.PluginDisableEvent;
 import org.bukkit.event.server.ServerLoadEvent;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.plugin.Plugin;
+import be.dbsdw.minigames.core.progress.ProgressMenu;
+import be.dbsdw.minigames.core.progress.ProgressService;
 import be.dbsdw.minigames.core.stats.StatsStore;
 import be.dbsdw.minigames.core.voice.MatchVoice;
 import be.dbsdw.minigames.core.voice.VoiceRule;
@@ -73,6 +75,7 @@ public final class MatchManager implements MenuModel, RoomHooks, Listener, Match
     private final Map<String, RunningMatch> matchesByArena = new LinkedHashMap<>();
     private final Map<UUID, RunningMatch> matchByPlayer = new HashMap<>();
     private final StatsStore stats;
+    private final ProgressService progress;
     private final RoomService rooms;
     private final SoloMenu solo;
     /** Room id of each running room match. */
@@ -88,7 +91,7 @@ public final class MatchManager implements MenuModel, RoomHooks, Listener, Match
 
     public MatchManager(Plugin plugin, GameRegistryImpl registry, ArenaPool pool, QueueBook queues,
                         LobbyService lobby, Messages messages, int resultsTicks, RandomGenerator rnd,
-                        StatsStore stats, MatchVoice voice, VoiceRule defaultVoice) {
+                        StatsStore stats, ProgressService progress, MatchVoice voice, VoiceRule defaultVoice) {
         this.plugin = plugin;
         this.voice = voice;
         this.defaultVoice = defaultVoice;
@@ -100,6 +103,7 @@ public final class MatchManager implements MenuModel, RoomHooks, Listener, Match
         this.resultsTicks = resultsTicks;
         this.rnd = rnd;
         this.stats = stats;
+        this.progress = progress;
         this.copier = new ArenaCopier(plugin);
         this.menus = new MenuListener(plugin, this, messages);
         this.rooms = new RoomService(plugin, new RoomBook(pool, rnd, defaultVoice), pool, messages, this);
@@ -244,7 +248,7 @@ public final class MatchManager implements MenuModel, RoomHooks, Listener, Match
         heldChunks.put(arena.name(), arena);
         RunningMatch[] self = new RunningMatch[1];
         RunningMatch match = new RunningMatch(game, mode, new BukkitArenaView(arena, world),
-                teams, resultsTicks, messages, plugin.getLogger(), stats, id -> {
+                teams, resultsTicks, messages, plugin.getLogger(), stats, progress, id -> {
                     queues.remove(id);
                     matchByPlayer.put(id, self[0]);
                 }, voice, voiceRule, "dbsdw-" + (++matchCount));
@@ -265,7 +269,7 @@ public final class MatchManager implements MenuModel, RoomHooks, Listener, Match
 
     @Override
     public boolean launch(int roomId, ModeSpec mode, ArenaDefinition arena, List<List<UUID>> teams,
-                          VoiceRule voiceRule) {
+                          VoiceRule voiceRule, List<Integer> bots, int botLevel) {
         List<List<UUID>> online = teams.stream().map(team -> team.stream()
                 .filter(id -> Bukkit.getPlayer(id) != null && !matchByPlayer.containsKey(id)).toList()).toList();
         Optional<GameType> game = registry.game(mode.gameId());
@@ -297,7 +301,27 @@ public final class MatchManager implements MenuModel, RoomHooks, Listener, Match
             }
         }
         online.forEach(team -> team.forEach(queues::remove));
-        return open(game.get(), mode, arena, world, online, roomId, voiceRule);
+        boolean withBots = bots.stream().anyMatch(b -> b > 0);
+        List<UUID> players = online.stream().flatMap(List::stream).toList();
+        if (withBots && !roomBots(game.get(), players, mode, bots, botLevel)) {
+            pool.release(arena.name());
+            return false;
+        }
+        boolean opened = open(game.get(), mode, arena, world, online, roomId, voiceRule);
+        if (!opened && withBots) {
+            roomBots(game.get(), players, mode, bots.stream().map(b -> 0).toList(), botLevel);
+        }
+        return opened;
+    }
+
+    private boolean roomBots(GameType game, List<UUID> players, ModeSpec mode, List<Integer> bots, int level) {
+        try {
+            game.roomBots(players, mode, bots, level);
+            return true;
+        } catch (RuntimeException e) {
+            plugin.getLogger().log(java.util.logging.Level.WARNING, "[room] roomBots of " + game.id() + " failed", e);
+            return false;
+        }
     }
 
     @Override
@@ -315,16 +339,16 @@ public final class MatchManager implements MenuModel, RoomHooks, Listener, Match
     }
 
     @Override
-    public boolean startWithBots(Player host, ModeSpec mode, Runnable start) {
+    public List<Component> botLevels(ModeSpec mode) {
         Optional<GameType> game = registry.game(mode.gameId());
         if (game.isEmpty()) {
-            return false;
+            return List.of();
         }
         try {
-            return game.get().startWithBots(host, mode, start);
+            return List.copyOf(game.get().roomBotLevels(mode));
         } catch (RuntimeException e) {
-            plugin.getLogger().log(java.util.logging.Level.WARNING, "[room] startWithBots of " + game.get().id() + " failed", e);
-            return false;
+            plugin.getLogger().log(java.util.logging.Level.WARNING, "[room] roomBotLevels of " + game.get().id() + " failed", e);
+            return List.of();
         }
     }
 
@@ -359,6 +383,21 @@ public final class MatchManager implements MenuModel, RoomHooks, Listener, Match
         plugin.getLogger().info("[match] " + mode.key() + " started directly by the game on " + arena.get().name());
         return open(game.get(), mode, arena.get(), world, teams, null, defaultVoice)
                 ? MatchStarter.Result.STARTED : MatchStarter.Result.NO_ARENA;
+    }
+
+    @Override
+    public void openProgress(Player player) {
+        ProgressMenu.open(player, progress, registry.games(), messages, this::openGames);
+    }
+
+    @Override
+    public Component lockLore(Player viewer, ModeSpec mode) {
+        return registry.game(mode.gameId()).map(g -> progress.lockLore(viewer.getUniqueId(), g, mode)).orElse(null);
+    }
+
+    @Override
+    public Component lockReason(Player host, ModeSpec mode) {
+        return registry.game(mode.gameId()).map(g -> progress.lockReason(host, g, mode)).orElse(null);
     }
 
     /** The game's reason why the player may not play the mode now, or null (a failing game is ignored). */
@@ -567,7 +606,11 @@ public final class MatchManager implements MenuModel, RoomHooks, Listener, Match
         }
         Component name = MiniMessage.miniMessage().deserialize(mode.get().displayName());
         if (!isQueued(player.getUniqueId(), modeKey)) {
-            Component block = registry.game(mode.get().gameId()).map(g -> queueBlock(g, player, mode.get())).orElse(null);
+            // Joining the public queue needs the level; guests of a room do not (only its host is checked).
+            Component block = registry.game(mode.get().gameId()).map(g -> {
+                Component locked = progress.lockReason(player, g, mode.get());
+                return locked != null ? locked : queueBlock(g, player, mode.get());
+            }).orElse(null);
             if (block != null) {
                 player.sendMessage(block);
                 return;

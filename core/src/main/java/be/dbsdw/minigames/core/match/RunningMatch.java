@@ -10,6 +10,8 @@ import be.dbsdw.minigames.core.api.ModeSpec;
 import be.dbsdw.minigames.core.lobby.LobbyService;
 import be.dbsdw.minigames.core.pack.PackAssets;
 import be.dbsdw.minigames.core.pack.PackItems;
+import be.dbsdw.minigames.core.progress.ProgressService;
+import be.dbsdw.minigames.core.progress.XpRules;
 import be.dbsdw.minigames.core.stats.StatsStore;
 import be.dbsdw.minigames.core.voice.MatchVoice;
 import be.dbsdw.minigames.core.voice.VoiceRule;
@@ -44,11 +46,13 @@ final class RunningMatch implements MatchContext {
     private final Logger log;
     private MatchHandler handler;
     private final StatsStore stats;
+    private final ProgressService progress;
     private final Map<UUID, String> names = new LinkedHashMap<>();
     private final Map<UUID, Map<String, Long>> deltas = new HashMap<>();
     private long ticks;
     private boolean failed;
     private boolean statsSaved;
+    private boolean withBots;
     private final Consumer<UUID> onRejoin;
     private final MatchVoice voice;
     private final VoiceRule voiceRule;
@@ -61,7 +65,7 @@ final class RunningMatch implements MatchContext {
      * voice groups by {@code voiceRule}, under the unique {@code voiceKey}.
      */
     RunningMatch(GameType game, ModeSpec mode, ArenaView arena, List<List<UUID>> teams, int resultsTicks,
-                 Messages messages, Logger log, StatsStore stats, Consumer<UUID> onRejoin,
+                 Messages messages, Logger log, StatsStore stats, ProgressService progress, Consumer<UUID> onRejoin,
                  MatchVoice voice, VoiceRule voiceRule, String voiceKey) {
         this.onRejoin = onRejoin;
         this.voice = voice;
@@ -74,6 +78,7 @@ final class RunningMatch implements MatchContext {
         this.messages = messages;
         this.log = log;
         this.stats = stats;
+        this.progress = progress;
     }
 
     GameType game() {
@@ -236,6 +241,7 @@ final class RunningMatch implements MatchContext {
         if (outcome.practice()) {
             deltas.clear();
         }
+        Map<UUID, ProgressService.Gain> gains = awardXp(outcome);
         saveStats();
         Component title = outcome.winner().isPresent()
                 ? text("match.win", Placeholder.component("team", teamName(outcome.winner().getAsInt())))
@@ -256,6 +262,10 @@ final class RunningMatch implements MatchContext {
                 }
                 outcome.lines().forEach(player::sendMessage);
                 personalLine(player);
+                ProgressService.Gain gain = gains.get(id);
+                if (gain != null) {
+                    progress.announce(player, game, gain);
+                }
                 String sound = outcome.winner().isEmpty() ? PackAssets.SOUND_DRAW
                         : team.isPresent() && team.getAsInt() == outcome.winner().getAsInt()
                         ? PackAssets.SOUND_WIN : PackAssets.SOUND_LOSE;
@@ -266,6 +276,24 @@ final class RunningMatch implements MatchContext {
                 + (outcome.winner().isPresent() ? "winner team " + outcome.winner().getAsInt() : "draw")
                 + (outcome.gaveUp().isPresent() ? " (team " + outcome.gaveUp().getAsInt() + " gave up)" : "")
                 + (outcome.practice() ? ", practice: nothing counted" : ""));
+    }
+
+    /** XP for the players still in the match, added to their stats before these are saved. */
+    private Map<UUID, ProgressService.Gain> awardXp(MatchOutcome outcome) {
+        if (progress == null || outcome.practice()) {
+            return Map.of();
+        }
+        Map<UUID, XpRules.Result> results = new LinkedHashMap<>();
+        for (UUID id : state.everyone()) {
+            if (!names.containsKey(id) || Bukkit.getPlayer(id) == null) {
+                continue;
+            }
+            OptionalInt team = state.teamOf(id);
+            results.put(id, outcome.winner().isEmpty() ? XpRules.Result.DRAW
+                    : team.isPresent() && team.getAsInt() == outcome.winner().getAsInt()
+                    ? XpRules.Result.WIN : XpRules.Result.LOSS);
+        }
+        return progress.award(game, results, names, deltas, ticks / 20, withBots);
     }
 
     /** Tells everyone the time is nearly up: a line at one minute and at ten seconds, a tick each second, big numbers at the end. */
@@ -358,6 +386,11 @@ final class RunningMatch implements MatchContext {
         if (stats != null && !deltas.isEmpty()) {
             stats.add(game.id(), names, deltas);
         }
+    }
+
+    @Override
+    public void markBots() {
+        withBots = true;
     }
 
     @Override
