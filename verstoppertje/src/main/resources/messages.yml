@@ -46,6 +46,8 @@ build:
   boxed-in: "<#FFB52E>Je kunt jezelf niet insluiten"
   boxes-other: "<#FFB52E>Je kunt een verstopper niet insluiten"
   break-full: "<#FFB52E>Breken op"
+  # Near the seekers' spawn or along the arena's sides.
+  off-limits: "<#FFB52E>Hier mag je niet bouwen of breken"
 
 # Not "on": YAML reads that key as true.
 solid:

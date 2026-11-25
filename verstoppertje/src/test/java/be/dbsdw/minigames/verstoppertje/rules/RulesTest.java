@@ -96,4 +96,16 @@ class RulesTest {
         assertEquals(1, BlockRules.left(30, 29));
         assertEquals(0, BlockRules.left(30, 31));
     }
+
+    @Test
+    void noBuildingNearSeekerSpawnOrArenaSides() {
+        List<int[]> spawns = List.<int[]>of(new int[] {50, 64, 50});
+        assertTrue(BuildZone.blocked(52, 64, 47, spawns, 0, 0, 100, 100), "next to the seekers' spawn");
+        assertTrue(BuildZone.blocked(50, 63, 50, spawns, 0, 0, 100, 100), "floor under the spawn");
+        assertFalse(BuildZone.blocked(55, 64, 50, spawns, 0, 0, 100, 100), "five blocks away");
+        assertFalse(BuildZone.blocked(50, 70, 50, spawns, 0, 0, 100, 100), "high above");
+        assertTrue(BuildZone.blocked(1, 64, 20, List.of(), 0, 0, 100, 100), "west side");
+        assertTrue(BuildZone.blocked(20, 64, 98, List.of(), 0, 0, 100, 100), "south side");
+        assertFalse(BuildZone.blocked(2, 64, 97, List.of(), 0, 0, 100, 100), "just inside");
+    }
 }

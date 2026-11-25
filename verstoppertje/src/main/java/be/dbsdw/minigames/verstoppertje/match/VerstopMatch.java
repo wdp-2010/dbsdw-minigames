@@ -7,6 +7,7 @@ import be.dbsdw.minigames.core.api.MatchOutcome;
 import be.dbsdw.minigames.core.pack.PackItems;
 import be.dbsdw.minigames.verstoppertje.PackAssets;
 import be.dbsdw.minigames.verstoppertje.rules.BlockRules;
+import be.dbsdw.minigames.verstoppertje.rules.BuildZone;
 import be.dbsdw.minigames.verstoppertje.rules.Phase;
 import be.dbsdw.minigames.verstoppertje.rules.Roles;
 import be.dbsdw.minigames.verstoppertje.rules.Settings;
@@ -440,6 +441,10 @@ public final class VerstopMatch implements MatchHandler {
                 || !target.getWorld().getNearbyEntities(BoundingBox.of(target).expand(-0.01), e -> e instanceof LivingEntity).isEmpty()) {
             return;
         }
+        if (offLimits(target)) {
+            p.sendActionBar(messages.get("build.off-limits"));
+            return;
+        }
         int used = placed.getOrDefault(p.getUniqueId(), 0);
         if (used >= settings.placeLimit()) {
             p.sendActionBar(messages.get("build.place-full"));
@@ -512,6 +517,10 @@ public final class VerstopMatch implements MatchHandler {
                 || block.isLiquid() || m.getHardness() < 0 || !canBuild(p, block)) {
             return;
         }
+        if (offLimits(block)) {
+            p.sendActionBar(messages.get("build.off-limits"));
+            return;
+        }
         int used = broken.getOrDefault(p.getUniqueId(), 0);
         if (used >= settings.breakLimit()) {
             p.sendActionBar(messages.get("build.break-full"));
@@ -533,6 +542,14 @@ public final class VerstopMatch implements MatchHandler {
             case NORTH, SOUTH -> Axis.Z;
             default -> Axis.Y;
         };
+    }
+
+    /** Near the seekers' spawn or along the arena's sides: nobody places or breaks blocks there. */
+    private boolean offLimits(Block b) {
+        BoundingBox box = ctx.arena().bounds();
+        List<int[]> spawns = ctx.arena().spawns(SEEKERS).stream()
+                .map(l -> new int[] {l.getBlockX(), l.getBlockY(), l.getBlockZ()}).toList();
+        return BuildZone.blocked(b.getX(), b.getY(), b.getZ(), spawns, box.getMinX(), box.getMinZ(), box.getMaxX(), box.getMaxZ());
     }
 
     private boolean canBuild(Player p, Block block) {
