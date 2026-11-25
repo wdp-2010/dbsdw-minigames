@@ -1,6 +1,6 @@
 # Player messages (MiniMessage format).
 # Raise "version" when texts change: servers with an older file get it backed up and replaced.
-version: 3
+version: 4
 
 not-logged-in: "<red>Log eerst in, dan kun je naar de minigames."
 bedrock: "<red>De minigames werken voorlopig alleen op Minecraft Java Edition."
@@ -9,3 +9,7 @@ unavailable: "<red>De minigames zijn even dicht. Probeer het straks opnieuw."
 transferring: "<#9CC05A>Op naar de minigames..."
 npc-set: "<green>Minigames-NPC geplaatst."
 npc-removed: "<green><count> minigames-NPC('s) verwijderd."
+# Queue notification: <name> is e.g. "Paintball TDM 2v2", <queued> waiting of <needed> needed (<max> fit).
+queue-notify: "<#D9C78F>[Minigames]</#D9C78F> <white><queued></white><gray>/<white><max></white> spelers wachten op <white><name></white>. <click>"
+queue-notify-click: "<#9CC05A><bold>[Doe mee]</bold>"
+queue-notify-hover: "<gray>Klik om naar de minigames te gaan, in de wachtrij voor <white><name></white>"

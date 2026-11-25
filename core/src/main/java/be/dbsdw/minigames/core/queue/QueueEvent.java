@@ -5,7 +5,7 @@ import be.dbsdw.minigames.core.arena.ArenaDefinition;
 import java.util.List;
 import java.util.UUID;
 
-/** What happened to the queues during one {@link QueueBook#tick()}. */
+/** What happened to the queues during one {@link QueueBook#tick()}; {@code mode} strings are queue keys. */
 public sealed interface QueueEvent {
     record CountdownStarted(String mode, String arena, int seconds) implements QueueEvent {}
 
@@ -27,8 +27,8 @@ public sealed interface QueueEvent {
         }
     }
 
-    /** These players leave the queue for a match on the arena, which stays reserved. */
-    record Start(ModeSpec mode, ArenaDefinition arena, List<UUID> players) implements QueueEvent {
+    /** These players leave the queue {@code queue} for a match on the arena, which stays reserved. */
+    record Start(String queue, ModeSpec mode, ArenaDefinition arena, List<UUID> players) implements QueueEvent {
         public Start {
             players = List.copyOf(players);
         }

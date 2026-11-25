@@ -26,7 +26,7 @@ public final class MenuListener implements Listener {
     @EventHandler
     public void onClick(InventoryClickEvent event) {
         InventoryHolder holder = event.getView().getTopInventory().getHolder(false);
-        if (!(holder instanceof GamesMenu) && !(holder instanceof ModesMenu)) {
+        if (!(holder instanceof GamesMenu) && !(holder instanceof ModesMenu) && !(holder instanceof SizesMenu)) {
             return;
         }
         event.setCancelled(true);
@@ -48,25 +48,39 @@ public final class MenuListener implements Listener {
                 model.toggle(player, key);
                 refreshOpen();
             });
+            modes.sizedAt(event.getSlot()).ifPresent(mode -> Bukkit.getScheduler().runTask(plugin,
+                    () -> SizesMenu.open(player, modes.game(), mode, model, messages)));
             modes.entryAt(event.getSlot()).ifPresent(entry -> Bukkit.getScheduler().runTask(plugin, () -> {
                 player.closeInventory();
                 entry.onClick().accept(player);
             }));
+        } else if (holder instanceof SizesMenu sizes) {
+            if (sizes.isBack(event.getSlot())) {
+                Bukkit.getScheduler().runTask(plugin, () -> ModesMenu.open(player, sizes.game(), model, messages));
+                return;
+            }
+            sizes.queueAt(event.getSlot()).ifPresent(key -> {
+                model.toggle(player, key);
+                refreshOpen();
+            });
         }
     }
 
     @EventHandler
     public void onDrag(InventoryDragEvent event) {
         InventoryHolder holder = event.getView().getTopInventory().getHolder(false);
-        if (holder instanceof GamesMenu || holder instanceof ModesMenu) {
+        if (holder instanceof GamesMenu || holder instanceof ModesMenu || holder instanceof SizesMenu) {
             event.setCancelled(true);
         }
     }
 
-    /** Redraws every open modes menu (queue sizes, countdowns). */
+    /** Redraws every open modes and sizes menu (queue sizes, countdowns). */
     public void refreshOpen() {
         for (Player player : Bukkit.getOnlinePlayers()) {
-            if (player.getOpenInventory().getTopInventory().getHolder(false) instanceof ModesMenu menu) {
+            InventoryHolder open = player.getOpenInventory().getTopInventory().getHolder(false);
+            if (open instanceof ModesMenu menu) {
+                menu.render(player);
+            } else if (open instanceof SizesMenu menu) {
                 menu.render(player);
             }
         }

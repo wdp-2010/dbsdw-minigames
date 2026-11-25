@@ -18,6 +18,8 @@ import be.dbsdw.minigames.core.menu.MenuModel;
 import be.dbsdw.minigames.core.menu.ModesMenu;
 import be.dbsdw.minigames.core.queue.QueueBook;
 import be.dbsdw.minigames.core.queue.QueueEvent;
+import be.dbsdw.minigames.core.queue.QueueSizes;
+import be.dbsdw.minigames.travel.QueueStatus;
 import be.dbsdw.minigames.core.room.RoomBook;
 import be.dbsdw.minigames.core.room.RoomHooks;
 import be.dbsdw.minigames.core.room.RoomService;
@@ -35,6 +37,8 @@ import java.util.OptionalInt;
 import java.util.UUID;
 import java.util.random.RandomGenerator;
 import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.event.ClickEvent;
+import net.kyori.adventure.text.event.HoverEvent;
 import net.kyori.adventure.text.minimessage.MiniMessage;
 import net.kyori.adventure.text.minimessage.tag.resolver.Placeholder;
 import net.kyori.adventure.title.Title;
@@ -88,6 +92,8 @@ public final class MatchManager implements MenuModel, RoomHooks, Listener, Match
     /** Voice rule of public queue matches and the start value of new rooms. */
     private final VoiceRule defaultVoice;
     private long matchCount;
+    /** The public queues with players waiting, as {@link QueueStatus} text for the survival server; set every second. */
+    private volatile String statusText = "";
 
     public MatchManager(Plugin plugin, GameRegistryImpl registry, ArenaPool pool, QueueBook queues,
                         LobbyService lobby, Messages messages, int resultsTicks, RandomGenerator rnd,
@@ -108,7 +114,25 @@ public final class MatchManager implements MenuModel, RoomHooks, Listener, Match
         this.menus = new MenuListener(plugin, this, messages);
         this.rooms = new RoomService(plugin, new RoomBook(pool, rnd, defaultVoice), pool, messages, this);
         this.solo = new SoloMenu(plugin, messages, this::soloModes, this::gameIcon, this::modeIcon, rooms::startSolo);
-        registry.onRegister(game -> game.modes().forEach(queues::addMode));
+        registry.onRegister(game -> game.modes().forEach(mode -> addQueues(game, mode)));
+    }
+
+    /** The mode's public queue, or one per team size when the game splits it (GameType#queueSizes). */
+    private void addQueues(GameType game, ModeSpec mode) {
+        List<Integer> sizes;
+        try {
+            sizes = game.queueSizes(mode).stream().filter(n -> n != null && n >= 1).distinct().toList();
+        } catch (RuntimeException e) {
+            plugin.getLogger().log(java.util.logging.Level.WARNING, "[queue] queueSizes of " + game.id() + " failed", e);
+            sizes = List.of();
+        }
+        if (sizes.isEmpty()) {
+            queues.addMode(mode);
+            return;
+        }
+        for (int perTeam : sizes) {
+            queues.addQueue(QueueSizes.key(mode, perTeam), QueueSizes.sized(mode, perTeam));
+        }
     }
 
     public MenuListener menuListener() {
@@ -142,6 +166,7 @@ public final class MatchManager implements MenuModel, RoomHooks, Listener, Match
         boolean fullSecond = ++tickCount % 20 == 0;
         if (fullSecond) {
             menus.refreshOpen();
+            statusText = QueueStatus.encode(status());
         }
         queueBars(fullSecond);
     }
@@ -157,8 +182,9 @@ public final class MatchManager implements MenuModel, RoomHooks, Listener, Match
                 barSeconds.remove(id);
                 continue;
             }
-            queues.queueOf(id).flatMap(registry::mode).ifPresentOrElse(mode -> {
-                OptionalInt left = queues.secondsLeft(mode.key());
+            queues.queueOf(id).ifPresentOrElse(key -> {
+                ModeSpec mode = queues.mode(key).orElseThrow();
+                OptionalInt left = queues.secondsLeft(key);
                 Integer shown = left.isPresent() ? left.getAsInt() : null;
                 if (!fullSecond && Objects.equals(shown, barSeconds.get(id))) {
                     return;
@@ -168,12 +194,12 @@ public final class MatchManager implements MenuModel, RoomHooks, Listener, Match
                 } else {
                     barSeconds.put(id, shown);
                 }
-                Component modeName = MiniMessage.miniMessage().deserialize(mode.displayName());
+                Component modeName = queueName(key);
                 player.sendActionBar(left.isPresent()
                         ? messages.get("queue.bar-countdown", Placeholder.component("mode", modeName),
                                 Placeholder.unparsed("seconds", String.valueOf(left.getAsInt())))
                         : messages.get("queue.bar", Placeholder.component("mode", modeName),
-                                Placeholder.unparsed("queued", String.valueOf(queues.size(mode.key()))),
+                                Placeholder.unparsed("queued", String.valueOf(queues.size(key))),
                                 Placeholder.unparsed("needed", String.valueOf(mode.startMinimum()))));
             }, () -> barSeconds.remove(id));
         }
@@ -194,7 +220,8 @@ public final class MatchManager implements MenuModel, RoomHooks, Listener, Match
                 plugin.getLogger().info("[queue] " + mode + " waiting for a free arena");
                 tell(queued, messages.get("queue.waiting"));
             }
-            case QueueEvent.Start(ModeSpec mode, ArenaDefinition arena, List<UUID> players) -> start(mode, arena, players);
+            case QueueEvent.Start(String queue, ModeSpec mode, ArenaDefinition arena, List<UUID> players) ->
+                    start(queue, mode, arena, players);
         }
     }
 
@@ -209,7 +236,7 @@ public final class MatchManager implements MenuModel, RoomHooks, Listener, Match
         });
     }
 
-    private void start(ModeSpec mode, ArenaDefinition arena, List<UUID> players) {
+    private void start(String queue, ModeSpec mode, ArenaDefinition arena, List<UUID> players) {
         List<UUID> online = players.stream().filter(id -> Bukkit.getPlayer(id) != null).toList();
         Optional<GameType> game = registry.game(mode.gameId());
         World world = Bukkit.getWorld(arena.world());
@@ -219,12 +246,13 @@ public final class MatchManager implements MenuModel, RoomHooks, Listener, Match
             }
             pool.release(arena.name());
             if (game.isPresent()) {
-                queues.requeueFront(mode.key(), online);
+                queues.requeueFront(queue, online);
             }
-            plugin.getLogger().info("[queue] " + mode.key() + " start fell through: " + online.size() + " player(s) online");
+            plugin.getLogger().info("[queue] " + queue + " start fell through: " + online.size() + " player(s) online");
             return;
         }
-        open(game.get(), mode, arena, world, TeamSplit.split(online, mode.teams(), rnd), null, defaultVoice);
+        open(game.get(), mode, arena, world, TeamSplit.split(online, mode.teams(), rnd), null, defaultVoice,
+                java.util.Set.of());
     }
 
     /**
@@ -232,7 +260,7 @@ public final class MatchManager implements MenuModel, RoomHooks, Listener, Match
      * first. False (arena released) if the copy could not be built.
      */
     private boolean open(GameType game, ModeSpec mode, ArenaDefinition arena, World world, List<List<UUID>> teams,
-                         Integer roomId, VoiceRule voiceRule) {
+                         Integer roomId, VoiceRule voiceRule, java.util.Set<String> options) {
         Optional<ArenaDefinition> template = pool.templateOf(arena.name());
         if (template.isPresent()) {
             try {
@@ -251,7 +279,7 @@ public final class MatchManager implements MenuModel, RoomHooks, Listener, Match
                 teams, resultsTicks, messages, plugin.getLogger(), stats, progress, id -> {
                     queues.remove(id);
                     matchByPlayer.put(id, self[0]);
-                }, voice, voiceRule, "dbsdw-" + (++matchCount));
+                }, voice, voiceRule, "dbsdw-" + (++matchCount), options);
         self[0] = match;
         matchesByArena.put(arena.name(), match);
         if (roomId != null) {
@@ -269,7 +297,7 @@ public final class MatchManager implements MenuModel, RoomHooks, Listener, Match
 
     @Override
     public boolean launch(int roomId, ModeSpec mode, ArenaDefinition arena, List<List<UUID>> teams,
-                          VoiceRule voiceRule, List<Integer> bots, int botLevel) {
+                          VoiceRule voiceRule, List<Integer> bots, int botLevel, java.util.Set<String> options) {
         List<List<UUID>> online = teams.stream().map(team -> team.stream()
                 .filter(id -> Bukkit.getPlayer(id) != null && !matchByPlayer.containsKey(id)).toList()).toList();
         Optional<GameType> game = registry.game(mode.gameId());
@@ -307,7 +335,7 @@ public final class MatchManager implements MenuModel, RoomHooks, Listener, Match
             pool.release(arena.name());
             return false;
         }
-        boolean opened = open(game.get(), mode, arena, world, online, roomId, voiceRule);
+        boolean opened = open(game.get(), mode, arena, world, online, roomId, voiceRule, options);
         if (!opened && withBots) {
             roomBots(game.get(), players, mode, bots.stream().map(b -> 0).toList(), botLevel);
         }
@@ -336,6 +364,36 @@ public final class MatchManager implements MenuModel, RoomHooks, Listener, Match
             plugin.getLogger().log(java.util.logging.Level.WARNING, "[room] startAlone of " + game.get().id() + " failed", e);
             return false;
         }
+    }
+
+    @Override
+    public List<GameType.RoomOption> roomOptions(ModeSpec mode) {
+        Optional<GameType> game = registry.game(mode.gameId());
+        if (game.isEmpty()) {
+            return List.of();
+        }
+        try {
+            return List.copyOf(game.get().roomOptions(mode));
+        } catch (RuntimeException e) {
+            plugin.getLogger().log(java.util.logging.Level.WARNING, "[room] roomOptions of " + game.get().id() + " failed", e);
+            return List.of();
+        }
+    }
+
+    @Override
+    public Component optionLock(Player host, ModeSpec mode, GameType.RoomOption option) {
+        Optional<GameType> game = registry.game(mode.gameId());
+        if (game.isEmpty() || option.requiredLevel() <= 1) {
+            return null;
+        }
+        int have = progress.level(host.getUniqueId(), game.get().id());
+        if (have >= option.requiredLevel()) {
+            return null;
+        }
+        return messages.get("progress.option-locked", Placeholder.component("game", game.get().displayName()),
+                Placeholder.component("option", option.name()),
+                Placeholder.unparsed("need", String.valueOf(option.requiredLevel())),
+                Placeholder.unparsed("have", String.valueOf(have)));
     }
 
     @Override
@@ -381,7 +439,7 @@ public final class MatchManager implements MenuModel, RoomHooks, Listener, Match
         }
         everyone.forEach(queues::remove);
         plugin.getLogger().info("[match] " + mode.key() + " started directly by the game on " + arena.get().name());
-        return open(game.get(), mode, arena.get(), world, teams, null, defaultVoice)
+        return open(game.get(), mode, arena.get(), world, teams, null, defaultVoice, java.util.Set.of())
                 ? MatchStarter.Result.STARTED : MatchStarter.Result.NO_ARENA;
     }
 
@@ -538,9 +596,11 @@ public final class MatchManager implements MenuModel, RoomHooks, Listener, Match
                 }
             }
             for (ModeSpec mode : game.modes()) {
-                List<UUID> queued = queues.removeMode(mode.key());
-                if (!stopping) {
-                    tell(queued, messages.get("queue.closed"));
+                for (String key : queues.keysOf(mode.key())) {
+                    List<UUID> queued = queues.removeQueue(key);
+                    if (!stopping) {
+                        tell(queued, messages.get("queue.closed"));
+                    }
                 }
             }
             registry.unregister(game.id());
@@ -564,6 +624,71 @@ public final class MatchManager implements MenuModel, RoomHooks, Listener, Match
     @Override
     public Collection<GameType> games() {
         return registry.games();
+    }
+
+    @Override
+    public List<String> queueKeys(ModeSpec mode) {
+        return queues.keysOf(mode.key());
+    }
+
+    /** The mode's name, followed by the team size for a sized queue: "TDM 2v2". */
+    @Override
+    public Component queueName(String queueKey) {
+        Optional<ModeSpec> mode = queues.mode(queueKey);
+        if (mode.isEmpty()) {
+            return Component.text(queueKey);
+        }
+        Component name = MiniMessage.miniMessage().deserialize(mode.get().displayName());
+        return queueKey.equals(mode.get().key()) ? name
+                : name.append(Component.text(" " + queueKey.substring(queueKey.lastIndexOf(':') + 1)));
+    }
+
+    @Override
+    public int needed(String queueKey) {
+        return queues.mode(queueKey).map(ModeSpec::startMinimum).orElse(0);
+    }
+
+    /** Every public queue key, for {@code /queue}. */
+    public List<String> queueKeys() {
+        return queues.keys();
+    }
+
+    /** The public queues with players waiting (MiniMessage names), for the survival server. */
+    private List<QueueStatus> status() {
+        List<QueueStatus> result = new ArrayList<>();
+        for (String key : queues.keys()) {
+            int size = queues.size(key);
+            ModeSpec mode = queues.mode(key).orElse(null);
+            if (size == 0 || mode == null) {
+                continue;
+            }
+            Component game = registry.game(mode.gameId()).map(GameType::displayName).orElse(Component.empty());
+            String name = MiniMessage.miniMessage().serialize(game.append(Component.text(" ")).append(queueName(key)));
+            result.add(new QueueStatus(key, name, size, mode.startMinimum(), mode.maximum()));
+        }
+        return result;
+    }
+
+    /** The latest {@link #status()} as text; safe to read from any thread. */
+    public String statusText() {
+        return statusText;
+    }
+
+    /**
+     * Puts the player in the queue unless they already wait in it ({@code /queue}, the switch link,
+     * arriving from survival through a queue notification). False when the queue does not exist.
+     */
+    public boolean join(Player player, String queueKey) {
+        if (queues.mode(queueKey).isEmpty()) {
+            player.sendMessage(messages.get("queue.unknown"));
+            return false;
+        }
+        if (isQueued(player.getUniqueId(), queueKey)) {
+            player.sendMessage(messages.get("queue.already", Placeholder.component("mode", queueName(queueKey))));
+            return true;
+        }
+        toggle(player, queueKey);
+        return true;
     }
 
     @Override
@@ -596,7 +721,7 @@ public final class MatchManager implements MenuModel, RoomHooks, Listener, Match
         if (inMatch(player.getUniqueId())) {
             return;
         }
-        Optional<ModeSpec> mode = registry.mode(modeKey);
+        Optional<ModeSpec> mode = queues.mode(modeKey);
         if (mode.isEmpty()) {
             return;
         }
@@ -604,7 +729,7 @@ public final class MatchManager implements MenuModel, RoomHooks, Listener, Match
             player.sendMessage(messages.get("room.in-room"));
             return;
         }
-        Component name = MiniMessage.miniMessage().deserialize(mode.get().displayName());
+        Component name = queueName(modeKey);
         if (!isQueued(player.getUniqueId(), modeKey)) {
             // Joining the public queue needs the level; guests of a room do not (only its host is checked).
             Component block = registry.game(mode.get().gameId()).map(g -> {
@@ -622,7 +747,23 @@ public final class MatchManager implements MenuModel, RoomHooks, Listener, Match
             case MOVED -> player.sendMessage(messages.get("queue.moved", Placeholder.component("mode", name)));
             case LEFT -> player.sendMessage(messages.get("queue.left"));
         }
+        if (result != QueueBook.Toggle.LEFT) {
+            siblingHints(player, modeKey);
+        }
         plugin.getLogger().info("[queue] " + player.getName() + " " + (result == QueueBook.Toggle.LEFT ? "left " : "joined ") + modeKey);
+    }
+
+    /** Tells a player who just joined a sized queue where players already wait for another size, with a switch link. */
+    private void siblingHints(Player player, String queueKey) {
+        for (String other : queues.waitingSiblings(queueKey)) {
+            Component name = queueName(other);
+            Component click = messages.get("queue.sibling-click")
+                    .clickEvent(ClickEvent.runCommand("/queue " + other))
+                    .hoverEvent(HoverEvent.showText(messages.get("queue.sibling-hover", Placeholder.component("mode", name))));
+            player.sendMessage(messages.get("queue.sibling",
+                    Placeholder.unparsed("queued", String.valueOf(queues.size(other))),
+                    Placeholder.component("mode", name), Placeholder.component("click", click)));
+        }
     }
 
     private static List<Player> players(Collection<UUID> ids) {

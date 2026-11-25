@@ -3,7 +3,9 @@ package be.dbsdw.minigames.core.room;
 import be.dbsdw.minigames.core.api.ModeSpec;
 import be.dbsdw.minigames.core.arena.ArenaDefinition;
 import be.dbsdw.minigames.core.voice.VoiceRule;
+import be.dbsdw.minigames.core.api.GameType;
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 import java.util.function.IntConsumer;
 import net.kyori.adventure.text.Component;
@@ -14,10 +16,11 @@ import org.bukkit.inventory.ItemStack;
 public interface RoomHooks {
     /**
      * Starts the room's match with these teams and voice rule on the reserved arena, plus the bots per
-     * team the host added at that level. Returns false when it could not start; the arena is then released.
+     * team the host added at that level and the room options the host switched on. Returns false when it
+     * could not start; the arena is then released.
      */
     boolean launch(int roomId, ModeSpec mode, ArenaDefinition arena, List<List<UUID>> teams, VoiceRule voice,
-                   List<Integer> bots, int botLevel);
+                   List<Integer> bots, int botLevel, Set<String> options);
 
     boolean inMatch(UUID player);
 
@@ -35,8 +38,23 @@ public interface RoomHooks {
     /** See {@link be.dbsdw.minigames.core.api.GameType#roomBotLevels}; empty when the game has no room bots. */
     List<Component> botLevels(ModeSpec mode);
 
+    /** See {@link GameType#roomOptions}; empty when the game has none. */
+    default List<GameType.RoomOption> roomOptions(ModeSpec mode) {
+        return List.of();
+    }
+
+    /** Why this host may not switch the option on yet (their level is too low), or null. */
+    default Component optionLock(Player host, ModeSpec mode, GameType.RoomOption option) {
+        return null;
+    }
+
     /** Why this host may not play the mode yet (their level is too low), or null. Guests are not checked. */
     default Component lockReason(Player host, ModeSpec mode) {
+        return null;
+    }
+
+    /** Menu line saying the viewer is below the mode's level, or null when the mode is open to them. */
+    default Component lockLore(Player viewer, ModeSpec mode) {
         return null;
     }
 

@@ -6,6 +6,7 @@ import java.io.IOException;
 import java.io.OutputStream;
 import java.net.InetSocketAddress;
 import java.net.URI;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.security.MessageDigest;
@@ -16,6 +17,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
+import java.util.function.Supplier;
 import java.util.logging.Logger;
 import net.kyori.adventure.audience.Audience;
 import net.kyori.adventure.resource.ResourcePackInfo;
@@ -112,6 +114,30 @@ public final class PackHost {
         } catch (java.util.concurrent.ExecutionException e) {
             return null;
         }
+    }
+
+    /**
+     * Also serves {@code text()} (UTF-8 plain text) at {@code path} on the pack's HTTP port, e.g. the
+     * queue status the survival server reads. {@code text} is called on an HTTP thread.
+     */
+    public void serveText(String path, Supplier<String> text) {
+        server.createContext(path, exchange -> {
+            try (exchange) {
+                if (!exchange.getRequestMethod().equals("GET") || !exchange.getRequestURI().getPath().equals(path)) {
+                    exchange.sendResponseHeaders(404, -1);
+                    return;
+                }
+                byte[] body = text.get().getBytes(StandardCharsets.UTF_8);
+                exchange.getResponseHeaders().set("Content-Type", "text/plain; charset=utf-8");
+                exchange.getResponseHeaders().set("Cache-Control", "no-store");
+                exchange.sendResponseHeaders(200, body.length == 0 ? -1 : body.length);
+                if (body.length > 0) {
+                    try (OutputStream out = exchange.getResponseBody()) {
+                        out.write(body);
+                    }
+                }
+            }
+        });
     }
 
     public int size() {

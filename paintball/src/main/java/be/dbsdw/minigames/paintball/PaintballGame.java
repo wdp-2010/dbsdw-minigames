@@ -36,14 +36,14 @@ public final class PaintballGame implements GameType {
     private final Messages messages;
     private final ModeSpec tdm;
     private final ModeSpec ctf;
-    private final ModeSpec tdmShop;
-    private final ModeSpec ctfShop;
     private final ModeSpec bomb;
     private final int shopLevel;
     private final BombSettings bombSettings;
     private final ShopCash shopCash;
     private final Map<UUID, PaintballMatch> players = new HashMap<>();
     private final Map<UUID, PaintballMatch> balls = new HashMap<>();
+    /** Team sizes of the public team deathmatch queues (1v1 to 4v4 by default); empty: one queue. */
+    private List<Integer> tdmQueueSizes = List.of();
     private final Map<UUID, BotSetup> botSetups = new HashMap<>();
     private final Map<UUID, BotMenu.Choice> botChoices = new HashMap<>();
 
@@ -62,12 +62,15 @@ public final class PaintballGame implements GameType {
     private static final Map<String, Integer> XP = Map.of("hits", 1, "eliminations", 3, "captures", 15, "returns", 5,
             "rounds", 10, "plants", 5, "defuses", 5);
 
+    /** The room option that puts the shop in team deathmatch or capture the flag. */
+    public static final String SHOP_OPTION = "shop";
+
     /**
-     * {@code shopLevel}: the paintball level that unlocks the two shop modes; the bomb mode unlocks at
-     * {@code bomb.unlockLevel()}.
+     * {@code shopLevel}: the paintball level a room's host needs to switch the shop on; the bomb mode
+     * unlocks at {@code bomb.unlockLevel()}.
      */
     PaintballGame(Plugin plugin, Settings settings, Messages messages, String tdmDisplayName, String ctfDisplayName,
-                  String tdmShopDisplayName, String ctfShopDisplayName, int shopLevel, String bombDisplayName,
+                  int shopLevel, String bombDisplayName,
                   BombSettings bomb, ShopCash shopCash) {
         this.shopLevel = shopLevel;
         this.bombSettings = bomb;
@@ -79,26 +82,22 @@ public final class PaintballGame implements GameType {
                 settings.tdm().maxPerTeam(), Set.of());
         this.ctf = new ModeSpec("paintball", "ctf", ctfDisplayName, 2, settings.ctf().minPerTeam(),
                 settings.ctf().maxPerTeam(), Set.of(ArenaFeature.FLAGS));
-        // The shop modes play like the plain ones (same rules, same arenas) with a shop on top.
-        this.tdmShop = new ModeSpec("paintball", "tdm_shop", tdmShopDisplayName, 2, settings.tdm().minPerTeam(),
-                settings.tdm().maxPerTeam(), Set.of());
-        this.ctfShop = new ModeSpec("paintball", "ctf_shop", ctfShopDisplayName, 2, settings.ctf().minPerTeam(),
-                settings.ctf().maxPerTeam(), Set.of(ArenaFeature.FLAGS));
-        // Rounds of attack and defence; the bomb site is the defending team's flag spot.
+        // Rounds of attack and defence. The bomb sites are the defending team's flag spot, or sites A and
+        // B on a bomb map (see BombSites); so the mode cannot ask for the two team flags.
         this.bomb = new ModeSpec("paintball", "bomb", bombDisplayName, 2, bomb.minPerTeam(), bomb.maxPerTeam(),
-                Set.of(ArenaFeature.FLAGS));
+                Set.of());
     }
 
-    /** Whether the mode has a shop: the two shop variants and the bomb mode. */
-    public static boolean isShop(ModeSpec mode) {
-        return mode.id().endsWith("_shop") || isBomb(mode);
+    /** Whether the match has a shop: the bomb mode always, the other modes when the room's host switched it on. */
+    public static boolean hasShop(MatchContext ctx) {
+        return isBomb(ctx.mode()) || ctx.option(SHOP_OPTION);
     }
 
     public static boolean isBomb(ModeSpec mode) {
         return mode.id().equals("bomb");
     }
 
-    /** Whether the mode is a capture the flag mode, with or without shop. */
+    /** Whether the mode is capture the flag. */
     public static boolean isCtf(ModeSpec mode) {
         return mode.id().startsWith("ctf");
     }
@@ -113,7 +112,17 @@ public final class PaintballGame implements GameType {
         if (isBomb(mode)) {
             return bombSettings.unlockLevel();
         }
-        return isShop(mode) ? shopLevel : 0;
+        return 0;
+    }
+
+    /** Team deathmatch and capture the flag: the room's host can switch the shop on (bomb always has it). */
+    @Override
+    public List<RoomOption> roomOptions(ModeSpec mode) {
+        if (isBomb(mode)) {
+            return List.of();
+        }
+        return List.of(new RoomOption(SHOP_OPTION, messages.get("room-option.shop"),
+                List.of(messages.get("room-option.shop-lore")), Gun.shopItem(messages), shopLevel));
     }
 
     @Override
@@ -145,9 +154,20 @@ public final class PaintballGame implements GameType {
         return isCtf(mode) ? PackItems.item(Material.PAPER, PackAssets.FLAG, PackAssets.BLUE) : iconItem();
     }
 
+    /** Sets the team sizes of the public team deathmatch queues; call before registering the game. */
+    void tdmQueueSizes(List<Integer> sizes) {
+        tdmQueueSizes = sizes.stream().filter(n -> n >= 1).distinct().sorted().toList();
+    }
+
+    /** Plain team deathmatch has one public queue per team size; the other modes have one queue. */
+    @Override
+    public List<Integer> queueSizes(ModeSpec mode) {
+        return mode.id().equals("tdm") ? tdmQueueSizes : List.of();
+    }
+
     @Override
     public List<ModeSpec> modes() {
-        return List.of(tdm, ctf, tdmShop, ctfShop, bomb);
+        return List.of(tdm, ctf, bomb);
     }
 
     @Override

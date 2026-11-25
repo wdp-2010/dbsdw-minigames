@@ -158,7 +158,7 @@ class QueueBookTest {
     void removeModeReturnsQueuedAndReleasesArena() {
         join(0, 1);
         book.tick();
-        assertEquals(List.of(p.get(0), p.get(1)), book.removeMode(M.key()));
+        assertEquals(List.of(p.get(0), p.get(1)), book.removeQueue(M.key()));
         assertFalse(pool.isBusy("a"));
         assertEquals(Optional.empty(), book.queueOf(p.get(0)));
     }
@@ -197,5 +197,42 @@ class QueueBookTest {
     void startingListsFirstMaximum() {
         join(0, 1, 2, 3, 4);
         assertEquals(p.subList(0, 4), book.starting(M.key()));
+    }
+
+    @Test
+    void sizedQueuesShareTheModeButStartWithTheirOwnSize() {
+        ModeSpec tdm = new ModeSpec("t", "m", "M", 2, 2, 8, Set.of());
+        QueueBook sized = new QueueBook(pool, new QueueTimings(30, 10), new Random(1));
+        String one = QueueSizes.key(tdm, 1);
+        String two = QueueSizes.key(tdm, 2);
+        sized.addQueue(one, QueueSizes.sized(tdm, 1));
+        sized.addQueue(two, QueueSizes.sized(tdm, 2));
+        assertEquals("t:m:1v1", one);
+        assertEquals(List.of(one, two), sized.keysOf(tdm.key()));
+        assertEquals(2, sized.mode(one).orElseThrow().startMinimum());
+        assertEquals(4, sized.mode(two).orElseThrow().maximum());
+        sized.toggle(p.get(0), one);
+        assertEquals(Optional.of(one), sized.queueOf(p.get(0)));
+        assertEquals(List.of(one), sized.waitingSiblings(two));
+        assertEquals(List.of(), sized.waitingSiblings(one));
+        sized.toggle(p.get(1), one);
+        List<QueueEvent> events = new ArrayList<>();
+        for (int i = 0; i < 30 * 20 + 5; i++) {
+            events.addAll(sized.tick());
+        }
+        QueueEvent.Start start = assertInstanceOf(QueueEvent.Start.class, events.getLast());
+        assertEquals(one, start.queue());
+        assertEquals(List.of(p.get(0), p.get(1)), start.players());
+        assertEquals(1, start.mode().maxPerTeam());
+        assertEquals("t:m", start.mode().key());
+    }
+
+    @Test
+    void queueKeysMatchThePattern() {
+        assertTrue(QueueSizes.KEY.matcher("paintball:tdm:2v2").matches());
+        assertTrue(QueueSizes.KEY.matcher("chess:classic").matches());
+        assertFalse(QueueSizes.KEY.matcher("paintball:tdm:2v").matches());
+        assertFalse(QueueSizes.KEY.matcher("x").matches());
+        assertEquals("3v3v3", QueueSizes.label(3, 3));
     }
 }

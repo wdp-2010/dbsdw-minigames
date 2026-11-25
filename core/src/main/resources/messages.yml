@@ -1,7 +1,7 @@
 # Player messages (MiniMessage format).
 # Raise "version" when texts change: servers with an older file get it backed up and replaced.
 # Colours: khaki #D9C78F (headings), field green #9CC05A (good news), amber #FFB52E (alerts, numbers).
-version: 10
+version: 12
 
 no-ticket: "<red>Je kunt hier alleen binnenkomen via survival.<newline><gray>Typ daar <white>/minigames</white>."
 unavailable: "<red>De minigames zijn even dicht. Probeer het straks opnieuw."
@@ -42,6 +42,12 @@ menu:
     no-arena: "<red>Geen veld vrij"
     click-join: "<#9CC05A>▶ Klik om mee te doen"
     click-leave: "<red>✖ Klik om de wachtrij te verlaten"
+    # Modes with one queue per team size (e.g. TDM 1v1 to 4v4): the mode opens the sizes menu.
+    sizes: "<gray>Kies: <white><sizes></white>"
+    click-sizes: "<#9CC05A>▶ Klik om te kiezen hoeveel tegen hoeveel"
+  sizes:
+    title: "<font:dbsdw:menu><white>\uF800\uE100\uF801</white></font><mode>"
+    back: "<gray>◀ Terug"
 
 queue:
   joined: "<#9CC05A>Je staat in de wachtrij voor <white><mode></white>."
@@ -50,6 +56,12 @@ queue:
   cancelled: "<red>Te weinig spelers: het aftellen stopt."
   waiting: "<#FFB52E>Genoeg spelers! Wachten op een vrij veld..."
   closed: "<red>Dit spel is even dicht; je bent uit de wachtrij gehaald."
+  already: "<gray>Je staat al in de wachtrij voor <white><mode></white>."
+  unknown: "<red>Die wachtrij bestaat niet (meer)."
+  # After joining a queue: other team sizes of the same mode where players already wait.
+  sibling: "<#FFB52E><queued> speler(s) wacht(en) al op <white><mode></white>. <click>"
+  sibling-click: "<#9CC05A><bold>[Wissel]</bold>"
+  sibling-hover: "<gray>Klik om naar <white><mode></white> te wisselen"
   # Action bar in the lobby while waiting in a queue.
   bar: "<gray>Wachtrij <white><mode></white> <dark_gray>·</dark_gray> <white><queued></white><gray>/<white><needed></white> <gray>spelers"
   bar-countdown: "<white><mode></white> <dark_gray>·</dark_gray> <#FFB52E>start over <white><seconds></white>s"
@@ -188,6 +200,10 @@ room:
     bot-remove: "<gray>Klik om deze bot weg te halen"
     bot-level: "<#D9C78F>Bots: <level>"
     bot-level-lore: "<gray>Hoe goed de bots spelen"
+    option-on: "<option> <dark_gray>· <#9CC05A>aan"
+    option-off: "<option> <dark_gray>· <gray>uit"
+    option-click-on: "<yellow>Klik om aan te zetten"
+    option-click-off: "<yellow>Klik om uit te zetten"
     invite: "<#9CC05A>Uitnodigen"
     invite-lore: "<gray>Kies een speler die online is"
     leave: "<red>Room verlaten"
@@ -218,6 +234,7 @@ progress:
   account-level-up: "<#9CC05A>Je minigames-niveau is nu <white><to></white>"
   unlocked: "<#FFB52E>★ Vrijgespeeld: <mode>"
   locked: "<red>Je hebt <game> niveau <white><need></white> nodig voor <mode><red> (jij: <white><have></white>)."
+  option-locked: "<red>Je hebt <game> niveau <white><need></white> nodig voor <option><red> (jij: <white><have></white>)."
   locked-lore: "<red>Vergrendeld <dark_gray>· <gray><game> niveau <white><need></white> (jij: <white><have></white>)"
   title: "<#D9C78F>Niveau van <player>"
   account: "<gray>Minigames: niveau <white><level></white> <dark_gray>(<xp> XP, nog <white><missing></white> tot <next>)"

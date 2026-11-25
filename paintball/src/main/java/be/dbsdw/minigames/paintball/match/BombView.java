@@ -3,6 +3,9 @@ package be.dbsdw.minigames.paintball.match;
 import be.dbsdw.minigames.core.Messages;
 import be.dbsdw.minigames.paintball.Gear;
 import be.dbsdw.minigames.paintball.PackAssets;
+import java.util.ArrayList;
+import java.util.List;
+import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.minimessage.tag.resolver.Placeholder;
 import org.bukkit.Color;
 import org.bukkit.Location;
@@ -16,7 +19,7 @@ import org.joml.AxisAngle4f;
 import org.joml.Vector3f;
 
 /**
- * What the bomb mode shows in the world: the site sign and its ring, the planted bomb with its
+ * What the bomb mode shows in the world: the site signs and their rings, the planted bomb with its
  * countdown and blinking light, the dropped bomb, and the explosion.
  */
 final class BombView {
@@ -25,8 +28,8 @@ final class BombView {
     private static final Color SITE = Color.fromRGB(0xFF, 0xC2, 0x1A);
 
     private final Messages messages;
-    private TextDisplay siteSign;
-    private Location site;
+    private final List<TextDisplay> signs = new ArrayList<>();
+    private final List<Location> sites = new ArrayList<>();
     private ItemDisplay planted;
     private TextDisplay timer;
     private ItemDisplay dropped;
@@ -36,34 +39,45 @@ final class BombView {
         this.messages = messages;
     }
 
-    /** Puts the sign over this round's site (the defenders' flag spot). */
-    void showSite(Location at) {
-        site = at.clone();
-        if (siteSign != null) {
-            siteSign.remove();
+    /**
+     * Puts a sign over each of this round's sites: the defenders' flag spot, or sites A and B on a bomb
+     * map. {@code labels} holds the letter of each site, or is empty for a single unnamed site.
+     */
+    void showSites(List<Location> at, List<String> labels) {
+        removeSigns();
+        sites.clear();
+        for (int i = 0; i < at.size(); i++) {
+            Location spot = at.get(i).clone();
+            sites.add(spot);
+            Component text = labels.isEmpty() ? messages.get("bomb.site")
+                    : messages.get("bomb.site-named", Placeholder.unparsed("site", labels.get(i)));
+            signs.add(spot.getWorld().spawn(spot.clone().add(0, 3.2, 0), TextDisplay.class, d -> {
+                d.setPersistent(false);
+                d.text(text);
+                d.setBillboard(Display.Billboard.CENTER);
+                d.setShadowed(true);
+                d.setBackgroundColor(Color.fromARGB(0x60, 0, 0, 0));
+                d.setBrightness(new Display.Brightness(15, 15));
+            }));
         }
-        siteSign = at.getWorld().spawn(at.clone().add(0, 3.2, 0), TextDisplay.class, d -> {
-            d.setPersistent(false);
-            d.text(messages.get("bomb.site"));
-            d.setBillboard(Display.Billboard.CENTER);
-            d.setShadowed(true);
-            d.setBackgroundColor(Color.fromARGB(0x60, 0, 0, 0));
-            d.setBrightness(new Display.Brightness(15, 15));
-        });
     }
 
-    /** A ring of yellow dust around the site; call now and then. */
-    void ringSite(double radius) {
-        if (site == null) {
-            return;
-        }
+    /** A ring of yellow dust around every site; call now and then. */
+    void ringSites(double radius) {
         Particle.DustOptions dust = new Particle.DustOptions(SITE, 1.3f);
         int points = (int) Math.max(16, radius * 8);
-        for (int i = 0; i < points; i++) {
-            double a = Math.PI * 2 * i / points;
-            site.getWorld().spawnParticle(Particle.DUST, site.getX() + Math.cos(a) * radius, site.getY() + 0.15,
-                    site.getZ() + Math.sin(a) * radius, 1, 0, 0, 0, 0, dust);
+        for (Location site : sites) {
+            for (int i = 0; i < points; i++) {
+                double a = Math.PI * 2 * i / points;
+                site.getWorld().spawnParticle(Particle.DUST, site.getX() + Math.cos(a) * radius, site.getY() + 0.15,
+                        site.getZ() + Math.sin(a) * radius, 1, 0, 0, 0, 0, dust);
+            }
         }
+    }
+
+    private void removeSigns() {
+        signs.forEach(TextDisplay::remove);
+        signs.clear();
     }
 
     void plant(Location at) {
@@ -161,11 +175,8 @@ final class BombView {
     void removeAll() {
         removeDropped();
         removePlanted();
-        if (siteSign != null) {
-            siteSign.remove();
-            siteSign = null;
-        }
-        site = null;
+        removeSigns();
+        sites.clear();
     }
 
     private static ItemDisplay model(Location at, float scale, float yaw) {

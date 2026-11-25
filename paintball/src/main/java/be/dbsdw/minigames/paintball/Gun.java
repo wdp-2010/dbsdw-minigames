@@ -51,7 +51,7 @@ public final class Gun {
         return stack;
     }
 
-    /** The item that opens the shop in the shop modes. */
+    /** The item that opens the shop with the shop on and in the bomb mode. */
     public static ItemStack shopItem(Messages messages) {
         ItemStack stack = ItemStack.of(Material.EMERALD);
         ItemMeta meta = stack.getItemMeta();

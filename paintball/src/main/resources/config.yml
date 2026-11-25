@@ -4,6 +4,9 @@
 tdm:
   min-per-team: 2
   max-per-team: 8
+  # Public queues: one per team size, players pick 1v1, 2v2, ... in the menu. A queue starts with
+  # exactly that many per team. [] = one queue from min-per-team to max-per-team. Rooms ignore this.
+  queue-sizes: [1, 2, 3, 4]
   # First team to this many eliminations wins: this many per player on the bigger team (bots count),
   # up to win-eliminations. 1v1 plays to 10, 2v2 to 20, 3v3 and up to 30. 0 = always win-eliminations.
   win-eliminations-per-player: 10
@@ -87,10 +90,10 @@ practice:
   target-hits: 3
   target-down-seconds: 3
 
-# The shop modes (team deathmatch and capture the flag with a shop) unlock at this paintball level.
+# A room's host needs this paintball level to switch the shop on for team deathmatch or capture the flag.
 shop:
   unlock-level: 5
-  # Cash in the shop modes and the bomb mode, per match (never saved).
+  # Cash with the shop on and in the bomb mode, per match (never saved).
   cash:
     start: 800
     max: 9000

@@ -1,6 +1,7 @@
 package be.dbsdw.minigames.core.room;
 
 import be.dbsdw.minigames.core.Messages;
+import be.dbsdw.minigames.core.api.GameType;
 import be.dbsdw.minigames.core.api.ModeSpec;
 import be.dbsdw.minigames.core.arena.ArenaDefinition;
 import be.dbsdw.minigames.core.arena.ArenaPool;
@@ -16,6 +17,7 @@ import java.util.Locale;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.OptionalInt;
+import java.util.Set;
 import java.util.UUID;
 import java.util.logging.Logger;
 import net.kyori.adventure.text.Component;
@@ -53,6 +55,8 @@ public final class RoomService {
     private static final int BOT_LEVEL_SLOT = 47;
     private static final int LEAVE_SLOT = 49;
     private static final int START_SLOT = 53;
+    /** Row 6: the game's on/off room options (e.g. paintball's shop), in this order. */
+    private static final int[] OPTION_SLOTS = {51, 52, 46, 48, 50};
     private static final int INVITE_BACK_SLOT = 49;
     private static final Material[] TEAM_WOOL = {Material.RED_WOOL, Material.BLUE_WOOL, Material.LIME_WOOL,
             Material.YELLOW_WOOL};
@@ -237,6 +241,9 @@ public final class RoomService {
         // A host below the mode's level cannot start it; cancelling a countdown is always fine.
         if (room.isPresent() && !room.get().counting() && room.get().host().equals(host.getUniqueId())) {
             Component locked = hooks.lockReason(host, room.get().mode());
+            if (locked == null) {
+                locked = optionsLock(host, room.get());
+            }
             if (locked != null) {
                 host.sendMessage(locked);
                 return;
@@ -265,6 +272,36 @@ public final class RoomService {
         refresh();
     }
 
+    /** Why the host may not start with the options switched on (a level too low for one), or null. */
+    private Component optionsLock(Player host, RoomView room) {
+        for (GameType.RoomOption option : hooks.roomOptions(room.mode())) {
+            if (room.options().contains(option.id())) {
+                Component locked = hooks.optionLock(host, room.mode(), option);
+                if (locked != null) {
+                    return locked;
+                }
+            }
+        }
+        return null;
+    }
+
+    /** The host clicked an option: switch it, unless it goes on and their level is too low for it. */
+    private void toggleOption(Player host, RoomView room, GameType.RoomOption option) {
+        if (room.host().equals(host.getUniqueId()) && !room.options().contains(option.id())) {
+            Component locked = hooks.optionLock(host, room.mode(), option);
+            if (locked != null) {
+                host.sendMessage(locked);
+                return;
+            }
+        }
+        Outcome out = book.toggleOption(host.getUniqueId(), option.id());
+        if (out == Outcome.OK) {
+            log.info("[room] " + host.getName() + " switched " + option.id() + " "
+                    + (room.options().contains(option.id()) ? "off" : "on") + " for " + room.mode().key());
+        }
+        act(host, out);
+    }
+
     /** The game picked the host's team for a solo start (see {@link RoomHooks#startAlone}). */
     private void startAlone(Player host, int team) {
         Outcome out = book.start(host.getUniqueId(), java.util.OptionalInt.of(team));
@@ -283,10 +320,14 @@ public final class RoomService {
                 case RoomEvent.CountdownCancelled(int id, List<UUID> members) ->
                         tell(members, messages.get("room.cancelled"));
                 case RoomEvent.Start(int id, ModeSpec mode, ArenaDefinition arena, List<List<UUID>> teams,
-                                     VoiceRule voice, List<Integer> bots, int botLevel) -> {
+                                     VoiceRule voice, List<Integer> bots, int botLevel, Set<String> options) -> {
+                    Set<String> offered = new java.util.TreeSet<>();
+                    hooks.roomOptions(mode).forEach(o -> offered.add(o.id()));
+                    offered.retainAll(options);
                     log.info("[room] room " + id + " starts " + mode.key() + " on " + arena.name()
-                            + (bots.stream().allMatch(b -> b == 0) ? "" : " with bots " + bots));
-                    if (!hooks.launch(id, mode, arena, teams, voice, bots, botLevel)) {
+                            + (bots.stream().allMatch(b -> b == 0) ? "" : " with bots " + bots)
+                            + (offered.isEmpty() ? "" : " with " + offered));
+                    if (!hooks.launch(id, mode, arena, teams, voice, bots, botLevel, offered)) {
                         book.matchEnded(id);
                         book.room(id).ifPresent(r -> tellAll(r, messages.get("room.start-failed")));
                     }
@@ -393,7 +434,9 @@ public final class RoomService {
             ItemStack icon = hooks.modeIcon(mode);
             ItemMeta meta = icon.getItemMeta();
             meta.itemName(MiniMessage.miniMessage().deserialize(mode.displayName()));
-            meta.lore(List.of(messages.get(selected ? "room.menu.mode-selected" : host ? "room.menu.mode-click"
+            Component locked = host ? hooks.lockLore(viewer, mode) : null;
+            meta.lore(List.of(locked != null ? locked
+                    : messages.get(selected ? "room.menu.mode-selected" : host ? "room.menu.mode-click"
                     : "room.menu.start-host-only")));
             meta.setEnchantmentGlintOverride(selected);
             icon.setItemMeta(meta);
@@ -461,6 +504,25 @@ public final class RoomService {
             menu.action(BOT_LEVEL_SLOT, p -> act(p, book.cycleBotLevel(p.getUniqueId(), botLevels.size())));
         }
 
+        List<GameType.RoomOption> options = hooks.roomOptions(room.mode());
+        for (int i = 0; i < options.size() && i < OPTION_SLOTS.length; i++) {
+            GameType.RoomOption option = options.get(i);
+            boolean on = room.options().contains(option.id());
+            ItemStack icon = option.icon().clone();
+            ItemMeta meta = icon.getItemMeta();
+            meta.itemName(messages.get(on ? "room.menu.option-on" : "room.menu.option-off",
+                    Placeholder.component("option", option.name())));
+            List<Component> lore = new ArrayList<>(option.lore());
+            if (host) {
+                lore.add(messages.get(on ? "room.menu.option-click-off" : "room.menu.option-click-on"));
+            }
+            meta.lore(lore);
+            meta.setEnchantmentGlintOverride(on);
+            icon.setItemMeta(meta);
+            inv.setItem(OPTION_SLOTS[i], icon);
+            menu.action(OPTION_SLOTS[i], p -> toggleOption(p, room, option));
+        }
+
         List<UUID> none = random ? room.members()
                 : room.members().stream().filter(m -> room.teamOf(m).isEmpty()).toList();
         List<Component> noneLore = new ArrayList<>(List.of(messages.get("room.menu.none-lore")));
@@ -497,6 +559,10 @@ public final class RoomService {
             startName = messages.get("room.menu.start");
             if (!host) {
                 startLore.add(messages.get("room.menu.start-host-only"));
+                startIcon = Material.GRAY_CONCRETE;
+            } else if (hooks.lockReason(viewer, room.mode()) != null) {
+                // The host has not unlocked this mode yet: the start button is blocked.
+                startLore.add(hooks.lockReason(viewer, room.mode()));
                 startIcon = Material.GRAY_CONCRETE;
             } else if (RoomBook.shortHanded(room.headcount(), room.mode())) {
                 startLore.add(messages.get("room.menu.start-short"));

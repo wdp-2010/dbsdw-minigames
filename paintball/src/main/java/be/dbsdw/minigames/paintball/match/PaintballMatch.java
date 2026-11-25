@@ -12,6 +12,7 @@ import be.dbsdw.minigames.paintball.PaintballGame;
 import be.dbsdw.minigames.paintball.ShopMenu;
 import be.dbsdw.minigames.paintball.bot.BotNav;
 import be.dbsdw.minigames.paintball.rules.BombRounds;
+import be.dbsdw.minigames.paintball.rules.BombSites;
 import be.dbsdw.minigames.paintball.rules.BombSettings;
 import be.dbsdw.minigames.paintball.rules.Buffs;
 import be.dbsdw.minigames.paintball.rules.Clock;
@@ -130,7 +131,7 @@ public final class PaintballMatch implements MatchHandler {
     /** Last tick's position of everyone, to tell bots how fast their targets move. */
     private final Map<UUID, double[]> lastPos = new HashMap<>();
 
-    // --- shop (shop modes and the bomb mode) ---
+    // --- shop (rooms with the shop on, and the bomb mode) ---
     private final boolean shopMode;
     private final ShopCash cash;
     private final Wallet wallet;
@@ -147,6 +148,10 @@ public final class PaintballMatch implements MatchHandler {
     private UUID bombCarrier;
     private Location bombDropped;
     private Location bombPlanted;
+    /** Sites A and B of a bomb map (empty: the site is the defenders' flag spot, see {@link BombSites}). */
+    private List<Location> fixedSites = List.of();
+    /** The site the attacking bots go for this round. */
+    private int botSite;
     /** Plant or defuse progress in ticks, per player or bot. */
     private final Map<UUID, Long> holds = new HashMap<>();
     /** Game mode of players watching as spectators after going out in a round, to give back. */
@@ -172,7 +177,7 @@ public final class PaintballMatch implements MatchHandler {
             case TDM -> "hud.title-tdm";
             case BOMB -> "bomb.hud-title";
         });
-        this.shopMode = PaintballGame.isShop(ctx.mode());
+        this.shopMode = PaintballGame.hasShop(ctx);
         this.cash = game.shopCash();
         this.wallet = new Wallet(cash.start(), cash.cap());
         this.splats = new Splats(settings.splatCap(), settings.splatLifetimeTicks());
@@ -188,7 +193,7 @@ public final class PaintballMatch implements MatchHandler {
                 gates.put(p.getUniqueId(), new FireGate());
                 game.players().put(p.getUniqueId(), this);
                 p.getInventory().setItem(0, Gun.gun(messages, team));
-                if (PaintballGame.isShop(ctx.mode())) {
+                if (shopMode) {
                     p.getInventory().setItem(8, Gun.shopItem(messages));
                 }
                 p.getInventory().setHeldItemSlot(0);
@@ -206,11 +211,18 @@ public final class PaintballMatch implements MatchHandler {
         });
         combat.start(0);
         if (mode == Mode.BOMB) {
-            // The bomb sites are the flag spots: each team defends its own.
-            flagHomes = new Location[] {
-                ctx.arena().flag(0).orElseThrow(() -> new IllegalStateException("arena has no flag for team 0")),
-                ctx.arena().flag(1).orElseThrow(() -> new IllegalStateException("arena has no flag for team 1")),
-            };
+            Optional<Location> siteA = ctx.arena().flag(BombSites.SITE_A);
+            Optional<Location> siteB = ctx.arena().flag(BombSites.SITE_B);
+            if (siteA.isPresent() && siteB.isPresent()) {
+                // A bomb map: sites A and B on the defenders' side, spawn 0 for the attackers.
+                fixedSites = List.of(siteA.get(), siteB.get());
+            } else {
+                // A paintball arena: the bomb sites are the flag spots, each team defends its own.
+                flagHomes = new Location[] {
+                    ctx.arena().flag(0).orElseThrow(() -> new IllegalStateException("arena has no flag for team 0 and no bomb sites")),
+                    ctx.arena().flag(1).orElseThrow(() -> new IllegalStateException("arena has no flag for team 1 and no bomb sites")),
+                };
+            }
             bombView = new BombView(messages);
             rounds = new BombRounds(bombRules, 0);
             startRound(0, false);
@@ -1102,7 +1114,7 @@ public final class PaintballMatch implements MatchHandler {
 
     /** The team spawn furthest from living enemies (ties picked at random). */
     private Location safestSpawn(int team) {
-        List<Location> spawns = ctx.arena().spawns(team);
+        List<Location> spawns = ctx.arena().spawns(spawnSide(team));
         List<double[]> at = spawns.stream().map(l -> new double[] {l.getX(), l.getY(), l.getZ()}).toList();
         List<double[]> enemies = new ArrayList<>();
         for (Player e : ctx.team(1 - team)) {
@@ -1442,7 +1454,7 @@ public final class PaintballMatch implements MatchHandler {
         }
     }
 
-    /** Cash for a player in a shop mode, with a short line saying why. */
+    /** Cash for a player in a match with the shop, with a short line saying why. */
     private void pay(Player p, int amount, String reason) {
         if (!shopMode || amount <= 0 || p == null || !teams.containsKey(p.getUniqueId())) {
             return;
@@ -1596,16 +1608,33 @@ public final class PaintballMatch implements MatchHandler {
 
     // --- bomb mode ---
 
-    private Location site() {
-        return flagHomes[rounds.defenders()];
+    /** This round's bomb sites: A and B on a bomb map, else the defenders' flag spot. */
+    private List<Location> sites() {
+        return fixedSites.isEmpty() ? List.of(flagHomes[rounds.defenders()]) : fixedSites;
+    }
+
+    /** The arena spawn list a team uses: on a bomb map the attackers always start at spawn 0. */
+    private int spawnSide(int team) {
+        return rounds == null ? team : BombSites.spawnSide(team, rounds.attackers(), !fixedSites.isEmpty());
+    }
+
+    /** The index of the site this spot is on, or -1. */
+    private int siteAt(Location loc) {
+        List<Location> sites = sites();
+        if (loc.getWorld() != sites.getFirst().getWorld()) {
+            return -1;
+        }
+        List<double[]> at = sites.stream().map(l -> new double[] {l.getX(), l.getY(), l.getZ()}).toList();
+        return BombSites.siteAt(at, bombRules.siteRadius(), loc.getX(), loc.getY(), loc.getZ());
     }
 
     private boolean onSite(Location loc) {
-        Location site = site();
-        double dx = loc.getX() - site.getX();
-        double dz = loc.getZ() - site.getZ();
-        double r = bombRules.siteRadius();
-        return loc.getWorld() == site.getWorld() && dx * dx + dz * dz <= r * r && Math.abs(loc.getY() - site.getY()) <= 3;
+        return siteAt(loc) >= 0;
+    }
+
+    /** "A" or "B" on a bomb map; empty for the single flag-spot site. */
+    private String siteLabel(int index) {
+        return fixedSites.isEmpty() || index < 0 ? "" : BombSites.label(index);
     }
 
     /** Players and bots of the team still alive in this round. */
@@ -1665,7 +1694,7 @@ public final class PaintballMatch implements MatchHandler {
         }
         bombView.tickDropped();
         if (now % 10 == 0 && rounds.phase() != BombRounds.Phase.POST) {
-            bombView.ringSite(bombRules.siteRadius());
+            bombView.ringSites(bombRules.siteRadius());
         }
         if (now % 10 == 0) {
             keepWatchersInside();
@@ -1718,8 +1747,8 @@ public final class PaintballMatch implements MatchHandler {
             p.getInventory().setHeldItemSlot(0);
             freeze(p, true);
             Component side = team == attackers ? messages.get("bomb.attack") : messages.get("bomb.defend");
-            Component hint = messages.get(team == attackers ? "bomb.attack-hint" : "bomb.defend-hint",
-                    Placeholder.component("team", ctx.teamName(1 - team)));
+            String hintKey = (team == attackers ? "bomb.attack-hint" : "bomb.defend-hint") + (fixedSites.isEmpty() ? "" : "-sites");
+            Component hint = messages.get(hintKey, Placeholder.component("team", ctx.teamName(1 - team)));
             hud.bigTitle(p, messages.get("bomb.round-title",
                     Placeholder.unparsed("round", Integer.toString(rounds.round())),
                     Placeholder.unparsed("max", Integer.toString(bombRules.maxRounds()))), side);
@@ -1734,7 +1763,12 @@ public final class PaintballMatch implements MatchHandler {
             bot.body.getEquipment().setItemInOffHand(null);
             respawnBot(bot);
         }
-        bombView.showSite(site());
+        List<String> labels = new ArrayList<>();
+        for (int i = 0; i < fixedSites.size(); i++) {
+            labels.add(BombSites.label(i));
+        }
+        bombView.showSites(sites(), labels);
+        botSite = ThreadLocalRandom.current().nextInt(sites().size());
         List<UUID> carriers = new ArrayList<>();
         for (Player p : ctx.team(attackers)) {
             carriers.add(p.getUniqueId());
@@ -1826,11 +1860,15 @@ public final class PaintballMatch implements MatchHandler {
         holds.clear();
         Location spot = at.getBlock().getLocation().add(0.5, 0, 0.5);
         spot.setYaw(at.getYaw());
+        String label = siteLabel(siteAt(at));
         bombPlanted = spot;
         takeBombFrom(who);
         bombCarrier = null;
         bombView.plant(spot);
-        Component by = messages.get("bomb.planted-by", Placeholder.component("player", coloured(name, rounds.attackers())));
+        Component by = label.isEmpty()
+                ? messages.get("bomb.planted-by", Placeholder.component("player", coloured(name, rounds.attackers())))
+                : messages.get("bomb.planted-by-site", Placeholder.component("player", coloured(name, rounds.attackers())),
+                        Placeholder.unparsed("site", label));
         Component planted = messages.get("bomb.planted", Placeholder.unparsed("seconds",
                 Long.toString(Clock.secondsLeft(bombRules.fuseTicks()))));
         for (Player p : online()) {
@@ -1938,7 +1976,7 @@ public final class PaintballMatch implements MatchHandler {
         }
         takeBombFrom(carrier.getUniqueId());
         bombCarrier = null;
-        Location at = outOfBounds ? ctx.arena().spawns(rounds.attackers()).getFirst().clone() : carrier.getLocation().clone();
+        Location at = outOfBounds ? ctx.arena().spawns(spawnSide(rounds.attackers())).getFirst().clone() : carrier.getLocation().clone();
         bombDropped = at;
         bombView.drop(at);
         Component line = messages.get("bomb.dropped");
@@ -1969,7 +2007,7 @@ public final class PaintballMatch implements MatchHandler {
         for (Player p : online()) {
             if (watching.containsKey(p.getUniqueId()) && (p.getWorld() != ctx.arena().world()
                     || !ctx.arena().bounds().contains(p.getLocation().toVector()))) {
-                p.teleport(ctx.arena().spawns(team(p)).getFirst());
+                p.teleport(ctx.arena().spawns(spawnSide(team(p))).getFirst());
             }
         }
     }
@@ -1979,19 +2017,25 @@ public final class PaintballMatch implements MatchHandler {
         if (rounds == null) {
             return Optional.empty();
         }
+        List<Location> sites = sites();
+        Location target = sites.get(Math.min(botSite, sites.size() - 1));
         if (bot.team == rounds.attackers()) {
             if (bot.id.equals(bombCarrier) || bombPlanted != null) {
-                return Optional.of(bombPlanted != null ? bombPlanted : site());
+                return Optional.of(bombPlanted != null ? bombPlanted : target);
             }
             if (bombDropped != null) {
                 return Optional.of(bombDropped);
             }
-            return bot.index % 2 == 0 ? Optional.of(site()) : Optional.empty();
+            return bot.index % 2 == 0 ? Optional.of(target) : Optional.empty();
         }
         if (bombPlanted != null) {
             return Optional.of(bombPlanted);
         }
-        return bot.index % 2 == 0 ? Optional.of(site()) : Optional.empty();
+        if (sites.size() > 1) {
+            // On a bomb map the defenders split over the sites.
+            return Optional.of(sites.get(bot.index % sites.size()));
+        }
+        return bot.index % 2 == 0 ? Optional.of(target) : Optional.empty();
     }
 
     private static Component progressBar(long done, long need, NamedTextColor colour) {

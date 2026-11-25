@@ -31,6 +31,8 @@ public final class ModesMenu implements InventoryHolder {
     private final Messages messages;
     private final Inventory inventory;
     private final Map<Integer, String> modeBySlot = new HashMap<>();
+    /** Modes with a queue per team size: a click opens their sizes menu. */
+    private final Map<Integer, ModeSpec> sizedBySlot = new HashMap<>();
     private GameType.MenuEntry entry;
 
     private ModesMenu(GameType game, MenuModel model, Messages messages) {
@@ -50,19 +52,27 @@ public final class ModesMenu implements InventoryHolder {
     /** Redraws the mode entries for this viewer. */
     void render(Player viewer) {
         int slot = FIRST_SLOT;
+        modeBySlot.clear();
+        sizedBySlot.clear();
         for (ModeSpec mode : game.modes()) {
             if (slot >= SIZE) {
                 break;
             }
+            List<String> keys = model.queueKeys(mode);
+            boolean sized = !keys.equals(List.of(mode.key()));
             ItemStack icon = game.modeIcon(mode);
             ItemMeta meta = icon.getItemMeta();
             meta.itemName(MiniMessage.miniMessage().deserialize(mode.displayName()));
             List<Component> lore = new ArrayList<>();
             Component locked = model.lockLore(viewer, mode);
+            boolean queued = keys.stream().anyMatch(k -> model.isQueued(viewer.getUniqueId(), k));
             if (locked != null) {
                 lore.add(locked);
             } else if (!model.anyArena(mode)) {
                 lore.add(messages.get("menu.mode.no-arena"));
+            } else if (sized) {
+                lore.add(messages.get("menu.mode.sizes", Placeholder.component("sizes", sizes(keys))));
+                lore.add(messages.get("menu.mode.click-sizes"));
             } else {
                 lore.add(messages.get("menu.mode.queued",
                         Placeholder.unparsed("queued", String.valueOf(model.queued(mode.key()))),
@@ -72,14 +82,17 @@ public final class ModesMenu implements InventoryHolder {
                     lore.add(messages.get("menu.mode.countdown",
                             Placeholder.unparsed("seconds", String.valueOf(seconds.getAsInt()))));
                 }
-                lore.add(messages.get(model.isQueued(viewer.getUniqueId(), mode.key())
-                        ? "menu.mode.click-leave" : "menu.mode.click-join"));
+                lore.add(messages.get(queued ? "menu.mode.click-leave" : "menu.mode.click-join"));
             }
             meta.lore(lore);
-            meta.setEnchantmentGlintOverride(locked == null && model.isQueued(viewer.getUniqueId(), mode.key()));
+            meta.setEnchantmentGlintOverride(locked == null && queued);
             icon.setItemMeta(meta);
             inventory.setItem(slot, icon);
-            modeBySlot.put(slot, mode.key());
+            if (sized) {
+                sizedBySlot.put(slot, mode);
+            } else {
+                modeBySlot.put(slot, mode.key());
+            }
             slot += 2;
         }
         entry = game.menuEntry(viewer).orElse(null);
@@ -89,6 +102,26 @@ public final class ModesMenu implements InventoryHolder {
     /** The game's extra button, if this slot holds it. */
     Optional<GameType.MenuEntry> entryAt(int slot) {
         return slot == ENTRY_SLOT ? Optional.ofNullable(entry) : Optional.empty();
+    }
+
+    /** "1v1 (1) · 2v2 (0)": each size's name after the mode and how many wait in it. */
+    private Component sizes(List<String> keys) {
+        Component line = Component.empty();
+        for (int i = 0; i < keys.size(); i++) {
+            String key = keys.get(i);
+            line = line.append(Component.text((i == 0 ? "" : " · ") + key.substring(key.lastIndexOf(':') + 1)
+                    + " (" + model.queued(key) + ")"));
+        }
+        return line;
+    }
+
+    /** The mode whose sizes menu this slot opens, if it holds one. */
+    Optional<ModeSpec> sizedAt(int slot) {
+        return Optional.ofNullable(sizedBySlot.get(slot));
+    }
+
+    GameType game() {
+        return game;
     }
 
     Optional<String> modeAt(int slot) {

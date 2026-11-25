@@ -33,6 +33,16 @@ public interface GameType {
 
     List<ModeSpec> modes();
 
+    /**
+     * Team sizes (players per team) this mode's public queue is split into, e.g. {@code [1, 2, 3, 4]}
+     * for 1v1 to 4v4: each size gets its own queue that starts with exactly that many per team, and
+     * the modes menu lets players pick one. Empty (the default): one queue from the mode's minimum
+     * to its maximum. Rooms always use the mode itself.
+     */
+    default List<Integer> queueSizes(ModeSpec mode) {
+        return List.of();
+    }
+
     /** The game's own stat names (the core adds matches, wins, losses, draws), in display order. */
     default List<String> stats() {
         return List.of();
@@ -114,6 +124,30 @@ public interface GameType {
      * players. Called with only zeros when that start fell through, to forget the bots again.
      */
     default void roomBots(List<UUID> players, ModeSpec mode, List<Integer> perTeam, int level) {}
+
+    /**
+     * On/off settings a private room's host can switch for this mode, e.g. paintball's shop. All start
+     * off; public queue matches always play with every option off. A running match reads them through
+     * {@link MatchContext#option}. Empty (the default): none.
+     */
+    default List<RoomOption> roomOptions(ModeSpec mode) {
+        return List.of();
+    }
+
+    /**
+     * One on/off room setting.
+     *
+     * @param id lower-case id the match asks for through {@link MatchContext#option}
+     * @param name shown on the room menu button
+     * @param lore what the option does, under the name
+     * @param icon the button's item
+     * @param requiredLevel the level in this game the host needs to switch it on (1 or less: none)
+     */
+    record RoomOption(String id, Component name, List<Component> lore, ItemStack icon, int requiredLevel) {
+        public RoomOption {
+            lore = List.copyOf(lore);
+        }
+    }
 
     /** A new handler for one match; called when the match starts. */
     MatchHandler newMatch(MatchContext context);

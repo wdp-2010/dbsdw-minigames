@@ -1,7 +1,7 @@
 package be.dbsdw.minigames.paintball.rules;
 
 /**
- * What players earn in the shop modes. Cash is per match and never saved.
+ * What players earn with the shop on and in the bomb mode. Cash is per match and never saved.
  *
  * @param start       cash at the start (and, in the bomb mode, after the sides swap)
  * @param cap         nobody holds more than this

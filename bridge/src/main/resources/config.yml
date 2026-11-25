@@ -8,3 +8,13 @@ minigames:
 # Paste MinigameCore's ticket-secret here (plugins/MinigameCore/config.yml on the minigame server).
 # Both servers must use the same value. Never share it.
 ticket-secret: ""
+
+# Tells survival players when someone waits in a minigame queue, with a click to join that queue.
+queue-notify:
+  # MinigameCore's queue status: its pack.public-url followed by /queues,
+  # e.g. "http://62.83.125.228:25600/queues". Empty = no notifications.
+  status-url: ""
+  # At most one notification per this many minutes.
+  minutes-between: 10
+  # How often the status is read.
+  poll-seconds: 15

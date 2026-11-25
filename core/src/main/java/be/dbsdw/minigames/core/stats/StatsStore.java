@@ -135,6 +135,46 @@ public final class StatsStore {
         }, db);
     }
 
+    /** Sets (not adds) a player's total XP in these games ("account" for all games together). */
+    public CompletableFuture<Void> setXp(UUID id, String name, Map<String, Long> xpByGame) {
+        Map<String, Long> copy = Map.copyOf(xpByGame);
+        return CompletableFuture.runAsync(() -> {
+            try {
+                connection.setAutoCommit(false);
+                try (PreparedStatement who = connection.prepareStatement(
+                        "INSERT INTO names (uuid, name) VALUES (?, ?) ON CONFLICT(uuid) DO UPDATE SET name = excluded.name");
+                     PreparedStatement stat = connection.prepareStatement(
+                        "INSERT INTO stats (uuid, game, stat, value) VALUES (?, ?, 'xp', ?)"
+                                + " ON CONFLICT(uuid, game, stat) DO UPDATE SET value = excluded.value")) {
+                    who.setString(1, id.toString());
+                    who.setString(2, name);
+                    who.executeUpdate();
+                    for (Map.Entry<String, Long> e : copy.entrySet()) {
+                        stat.setString(1, id.toString());
+                        stat.setString(2, e.getKey());
+                        stat.setLong(3, e.getValue());
+                        stat.addBatch();
+                    }
+                    stat.executeBatch();
+                }
+                connection.commit();
+            } catch (SQLException e) {
+                try {
+                    connection.rollback();
+                } catch (SQLException ignored) {
+                    // the original error is thrown
+                }
+                throw new IllegalStateException(e);
+            } finally {
+                try {
+                    connection.setAutoCommit(true);
+                } catch (SQLException ignored) {
+                    // next statement reports it
+                }
+            }
+        }, db);
+    }
+
     /** One player's total XP per game (game id, or "account" for all games), empty if none yet. */
     public CompletableFuture<Map<String, Long>> xp(UUID id) {
         return CompletableFuture.supplyAsync(() -> {

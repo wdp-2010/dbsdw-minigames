@@ -12,6 +12,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalInt;
+import java.util.Set;
 import java.util.UUID;
 import java.util.random.RandomGenerator;
 
@@ -301,6 +302,22 @@ public final class RoomBook {
         return Outcome.OK;
     }
 
+    /**
+     * The host switches a room option on or off (see the game's room options). Options the new mode
+     * of a later {@link #setMode} does not offer are ignored at the start.
+     */
+    public Outcome toggleOption(UUID host, String option) {
+        Outcome check = hostCheck(host);
+        if (check != Outcome.OK) {
+            return check;
+        }
+        Room room = roomByMember.get(host);
+        if (!room.options.remove(option)) {
+            room.options.add(option);
+        }
+        return Outcome.OK;
+    }
+
     /** Checks the room can start, reserves its arena and starts the countdown. */
     public Outcome start(UUID host) {
         return start(host, OptionalInt.empty());
@@ -391,7 +408,7 @@ public final class RoomBook {
                 List<Integer> bots = room.soloTeam.isPresent() ? List.of() : room.botList();
                 room.soloTeam = OptionalInt.empty();
                 events.add(new RoomEvent.Start(room.id, room.mode, room.reserved, teams, room.voice, bots,
-                        room.botLevel));
+                        room.botLevel, Set.copyOf(room.options)));
                 room.reserved = null;
                 room.playing = true;
             } else if (room.ticksLeft % TICKS_PER_SECOND == 0) {
@@ -459,6 +476,8 @@ public final class RoomBook {
         int[] bots;
         /** The bots' level, an index into the game's levels. */
         int botLevel = DEFAULT_BOT_LEVEL;
+        /** Room options the host switched on. */
+        final Set<String> options = new java.util.TreeSet<>();
 
         Room(int id, UUID host, ModeSpec mode) {
             this.id = id;
@@ -559,7 +578,7 @@ public final class RoomBook {
             OptionalInt seconds = reserved == null ? OptionalInt.empty()
                     : OptionalInt.of((ticksLeft + TICKS_PER_SECOND - 1) / TICKS_PER_SECOND);
             return new RoomView(id, host, List.copyOf(members), mode, arena, rule, picks, seconds, playing, voice,
-                    botList(), botLevel);
+                    botList(), botLevel, options);
         }
     }
 }

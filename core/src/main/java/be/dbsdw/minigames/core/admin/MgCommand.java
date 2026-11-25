@@ -8,6 +8,7 @@ import be.dbsdw.minigames.core.arena.ArenaStore;
 import be.dbsdw.minigames.core.arena.ArenaValidator;
 import be.dbsdw.minigames.core.arena.Pos;
 import be.dbsdw.minigames.core.lobby.LobbyService;
+import be.dbsdw.minigames.core.progress.ProgressService;
 import be.dbsdw.minigames.core.stats.Leaderboards;
 import be.dbsdw.minigames.core.stats.StatNames;
 import be.dbsdw.minigames.core.match.GameRegistryImpl;
@@ -29,6 +30,7 @@ import java.util.regex.Pattern;
 import java.util.stream.Stream;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
+import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
@@ -47,17 +49,19 @@ public final class MgCommand implements BasicCommand {
     private final LobbyService lobby;
     private final GameNpc npc;
     private final Leaderboards leaderboards;
+    private final ProgressService progress;
     private final Logger log;
     private final Map<UUID, ArenaDefinition> drafts = new HashMap<>();
 
     public MgCommand(GameRegistryImpl games, ArenaPool pool, ArenaStore store, LobbyService lobby, GameNpc npc,
-                     Leaderboards leaderboards, Logger log) {
+                     Leaderboards leaderboards, ProgressService progress, Logger log) {
         this.games = games;
         this.pool = pool;
         this.store = store;
         this.lobby = lobby;
         this.npc = npc;
         this.leaderboards = leaderboards;
+        this.progress = progress;
         this.log = log;
     }
 
@@ -81,8 +85,47 @@ public final class MgCommand implements BasicCommand {
             case "npc" -> npcCommand(sender, args);
             case "arena" -> arenaCommand(sender, args);
             case "leaderboard" -> leaderboardCommand(sender, args);
+            case "level" -> levelCommand(sender, args);
             default -> usage(sender);
         }
+    }
+
+    /** {@code /mg level set <player> <game|account|all> <level>}: gives a player exactly the XP of that level. */
+    private void levelCommand(CommandSender sender, String[] args) {
+        int max = progress.curve().maxLevel();
+        String usage = "Usage: /mg level set <player> <game|account|all> <level 1-" + max + ">";
+        if (args.length != 5 || !args[1].equals("set")) {
+            error(sender, usage);
+            return;
+        }
+        int level;
+        try {
+            level = Integer.parseInt(args[4]);
+        } catch (NumberFormatException e) {
+            level = 0;
+        }
+        if (level < 1 || level > max) {
+            error(sender, usage);
+            return;
+        }
+        List<String> targets;
+        if (args[3].equals("all")) {
+            targets = Stream.concat(Stream.of(ProgressService.ACCOUNT), games.games().stream().map(GameType::id)).toList();
+        } else if (args[3].equals(ProgressService.ACCOUNT) || games.game(args[3]).isPresent()) {
+            targets = List.of(args[3]);
+        } else {
+            error(sender, "Unknown game " + args[3] + ". Use a game id, account or all.");
+            return;
+        }
+        int chosen = level;
+        progress.setLevel(args[2], targets, chosen, name -> {
+            if (name == null) {
+                error(sender, "No player " + args[2] + " (they must have played before), or the XP could not be saved; see the server log.");
+                return;
+            }
+            log.info("[progress] " + sender.getName() + " set " + name + " to level " + chosen + " in " + targets);
+            ok(sender, name + " is now level " + chosen + " in " + String.join(", ", targets) + ".");
+        });
     }
 
     private void leaderboardCommand(CommandSender sender, String[] args) {
@@ -298,11 +341,12 @@ public final class MgCommand implements BasicCommand {
     public Collection<String> suggest(CommandSourceStack source, String[] args) {
         String last = args.length == 0 ? "" : args[args.length - 1];
         List<String> options = switch (args.length) {
-            case 0, 1 -> List.of("setlobby", "npc", "arena", "leaderboard");
+            case 0, 1 -> List.of("setlobby", "npc", "arena", "leaderboard", "level");
             case 2 -> switch (args[0]) {
                 case "npc" -> List.of("set", "remove");
                 case "arena" -> ARENA_SUB;
                 case "leaderboard" -> List.of("add", "remove");
+                case "level" -> List.of("set");
                 default -> List.of();
             };
             case 3 -> switch (args[0] + " " + args[1]) {
@@ -311,10 +355,14 @@ public final class MgCommand implements BasicCommand {
                 case "arena delete", "arena create" -> pool.all().stream().map(ArenaDefinition::name).toList();
                 case "arena setspawn", "arena setflag" -> List.of("0", "1", "2", "3");
                 case "arena setbounds" -> List.of("1", "2");
+                case "level set" -> Bukkit.getOnlinePlayers().stream().map(Player::getName).toList();
                 default -> List.of();
             };
             case 4 -> args[0].equals("leaderboard") && args[1].equals("add")
-                    ? games.game(args[2]).map(StatNames::of).orElse(List.of()) : List.of();
+                    ? games.game(args[2]).map(StatNames::of).orElse(List.of())
+                    : args[0].equals("level") && args[1].equals("set")
+                    ? Stream.concat(Stream.of("all", ProgressService.ACCOUNT), games.games().stream().map(GameType::id)).toList()
+                    : List.of();
             default -> List.of();
         };
         return options.stream().filter(o -> o.startsWith(last)).toList();
@@ -324,7 +372,8 @@ public final class MgCommand implements BasicCommand {
         Stream.of("/mg setlobby", "/mg npc set <game> | /mg npc remove",
                 "/mg arena create <name> | modes <game:mode,…> | setspawn <team> | setflag <team>",
                 "/mg arena addpowerup | setbounds <1|2> | save | list | delete <name>",
-                "/mg leaderboard add <game> <stat> | /mg leaderboard remove")
+                "/mg leaderboard add <game> <stat> | /mg leaderboard remove",
+                "/mg level set <player> <game|account|all> <level>")
                 .forEach(line -> sender.sendMessage(Component.text(line, NamedTextColor.GRAY)));
     }
 

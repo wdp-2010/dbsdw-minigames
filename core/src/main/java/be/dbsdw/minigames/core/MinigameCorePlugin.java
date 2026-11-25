@@ -18,6 +18,8 @@ import be.dbsdw.minigames.core.progress.XpRules;
 import be.dbsdw.minigames.core.stats.StatsCommands;
 import be.dbsdw.minigames.core.stats.StatsStore;
 import be.dbsdw.minigames.core.queue.QueueBook;
+import be.dbsdw.minigames.core.queue.QueueCommand;
+import be.dbsdw.minigames.core.travel.QueueArrival;
 import be.dbsdw.minigames.core.queue.QueueTimings;
 import be.dbsdw.minigames.core.room.RoomCommand;
 import be.dbsdw.minigames.core.voice.MatchVoice;
@@ -124,15 +126,22 @@ public final class MinigameCorePlugin extends JavaPlugin {
         getServer().getOnlinePlayers().forEach(p -> progress.load(p.getUniqueId()));
         plugins.registerEvents(npc, this);
         plugins.registerEvents(manager, this);
+        plugins.registerEvents(new QueueArrival(this, manager::join, getLogger()), this);
+        if (pack != null) {
+            // Survival's bridge reads this to tell its players where minigame players are waiting.
+            pack.serveText("/queues", manager::statusText);
+        }
 
         CoreTravel commandTravel = travel;
-        MgCommand mg = new MgCommand(games, pool, store, lobby, npc, boards, getLogger());
+        MgCommand mg = new MgCommand(games, pool, store, lobby, npc, boards, progress, getLogger());
         getLifecycleManager().registerEventHandler(LifecycleEvents.COMMANDS, event -> {
             if (commandTravel != null) {
                 event.registrar().register("survival", "Terug naar survival", new SurvivalCommand(commandTravel));
             }
             event.registrar().register("leave", "Verlaat de wachtrij of het spel", new LeaveCommand(manager::leave));
             event.registrar().register("mg", "Minigames beheer", mg);
+            event.registrar().register("queue", "Ga in een wachtrij",
+                    new QueueCommand((p, key) -> manager.join(p, key), manager::openGames, manager::queueKeys));
             event.registrar().register("room", "Speel met je vrienden", new RoomCommand(manager.rooms(), messages));
             event.registrar().register("solo", "Speel alleen tegen een bot", new SoloCommand(manager.solo()::open));
             event.registrar().register("level", "Bekijk je niveau",

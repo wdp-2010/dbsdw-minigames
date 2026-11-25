@@ -59,6 +59,8 @@ final class RunningMatch implements MatchContext {
     /** Unique per match: the prefix of its voice group keys. */
     private final String voiceKey;
     private final TimeWarning timeWarning = new TimeWarning();
+    /** Room options the host switched on; none for public queue matches. */
+    private final java.util.Set<String> options;
 
     /**
      * {@code onRejoin} is told about a player taken back in by {@link #rejoin}. Players are put in
@@ -66,7 +68,8 @@ final class RunningMatch implements MatchContext {
      */
     RunningMatch(GameType game, ModeSpec mode, ArenaView arena, List<List<UUID>> teams, int resultsTicks,
                  Messages messages, Logger log, StatsStore stats, ProgressService progress, Consumer<UUID> onRejoin,
-                 MatchVoice voice, VoiceRule voiceRule, String voiceKey) {
+                 MatchVoice voice, VoiceRule voiceRule, String voiceKey, java.util.Set<String> options) {
+        this.options = java.util.Set.copyOf(options);
         this.onRejoin = onRejoin;
         this.voice = voice;
         this.voiceRule = voiceRule;
@@ -386,6 +389,11 @@ final class RunningMatch implements MatchContext {
         if (stats != null && !deltas.isEmpty()) {
             stats.add(game.id(), names, deltas);
         }
+    }
+
+    @Override
+    public boolean option(String id) {
+        return options.contains(id);
     }
 
     @Override

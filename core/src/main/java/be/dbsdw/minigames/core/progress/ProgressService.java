@@ -6,9 +6,13 @@ import be.dbsdw.minigames.core.api.ModeSpec;
 import be.dbsdw.minigames.core.stats.StatsStore;
 import be.dbsdw.minigames.core.progress.XpRules.Result;
 import java.util.HashMap;
+import java.util.List;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.Optional;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
+import java.util.function.Consumer;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -104,6 +108,55 @@ public final class ProgressService {
             return now;
         });
         showBar(player);
+    }
+
+    /**
+     * Admin: sets a player's level in these games ("account" for the overall level) by giving them
+     * exactly the XP that level takes. Works for offline players who have played before.
+     *
+     * @param done called on the main thread with the player's name, or null when they are unknown or
+     *             the XP could not be saved (logged)
+     */
+    public void setLevel(String player, List<String> games, int level, Consumer<String> done) {
+        if (stats == null) {
+            done.accept(null);
+            return;
+        }
+        long xp = curve.xpFor(level);
+        Player online = Bukkit.getPlayerExact(player);
+        CompletableFuture<Optional<Map.Entry<UUID, String>>> who = online != null
+                ? CompletableFuture.completedFuture(Optional.of(Map.entry(online.getUniqueId(), online.getName())))
+                : stats.profile(player).thenApply(p -> p.map(profile -> Map.entry(profile.id(), profile.name())));
+        who.thenCompose(found -> {
+            if (found.isEmpty()) {
+                return CompletableFuture.completedFuture((Map.Entry<UUID, String>) null);
+            }
+            Map<String, Long> values = new HashMap<>();
+            games.forEach(game -> values.put(game, xp));
+            return stats.setXp(found.get().getKey(), found.get().getValue(), values).thenApply(v -> found.get());
+        }).whenComplete((found, error) -> {
+            if (error != null) {
+                log.log(Level.WARNING, "[progress] setting the level of " + player + " failed", error);
+            }
+            if (!plugin.isEnabled()) {
+                return;
+            }
+            Bukkit.getScheduler().runTask(plugin, () -> {
+                if (error != null || found == null) {
+                    done.accept(null);
+                    return;
+                }
+                Map<String, Long> cached = cache.get(found.getKey());
+                if (cached != null) {
+                    games.forEach(game -> cached.put(game, xp));
+                }
+                Player now = Bukkit.getPlayer(found.getKey());
+                if (now != null) {
+                    showBar(now);
+                }
+                done.accept(found.getValue());
+            });
+        });
     }
 
     public void unload(UUID id) {

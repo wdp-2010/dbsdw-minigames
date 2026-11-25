@@ -100,6 +100,19 @@ Admin commands need `minigames.admin` (ops have it). Positions are taken from wh
   `queue.full-countdown-seconds`, 10, once the queue is full). Players beyond the maximum stay
   queued for the next match. Results show for `match.results-seconds` (10), then everyone returns
   to the lobby. `/leave` leaves the queue or the match.
+- Team sizes: a game can split a mode's public queue into one queue per team size
+  (`GameType#queueSizes`). Paintball team deathmatch has 1v1, 2v2, 3v3 and 4v4
+  (`tdm.queue-sizes` in Paintball's config.yml): clicking TDM in the menu opens a sizes menu, and
+  each size starts with exactly that many players per team. Queue keys look like
+  `paintball:tdm:2v2`; `/queue <key>` joins one. Joining a size while players wait in another size
+  of the same mode shows those, with a clickable **[Wissel]**.
+- Queue notifications in survival: MinigameCore serves the queues with players waiting at
+  `<pack.public-url>/queues` (plain text, needs the pack host). DbsdwBridge reads it
+  (`queue-notify.status-url`, every `poll-seconds`) and tells logged-in Java players about the
+  fullest open queue, with a clickable **[Doe mee]** that runs `/minigames queue <key>`: they travel
+  to the minigame server and land straight in that queue (cookie `dbsdw:queue`). At most one
+  notification per `queue-notify.minutes-between` (10), and none for the same queue with the same
+  count twice in a row.
 - Private rooms (`/room` or the **Speel met vrienden** lobby item, slot 6): the host invites friends
   (menu button or `/room invite <speler>`, clickable **[Meedoen]**, valid 60 s), picks the game (top row), its mode (second row), map and
   team rule (players pick / host assigns / random) and voice chat (per team / everyone together /
@@ -143,8 +156,9 @@ holding the button fires 4 paintballs per second. Three hits and you are out: hi
 for the respawn delay, then back at a team spawn with a short spawn protection (shooting ends it).
 Leaving the arena bounds also counts as out, without a point for anyone.
 
-- **Shop modes** (`paintball:tdm_shop`, `paintball:ctf_shop`, unlocked at `shop.unlock-level`):
-  TDM and CTF with cash per match (eliminations, captures, returns) and a shop behind the emerald
+- **Shop** (room option): in a private room the host can switch **Winkel** on for TDM or CTF
+  (button in the room menu's bottom row; the host needs paintball level `shop.unlock-level`). Public
+  queues always play without it. With the shop on, TDM and CTF give cash per match (eliminations, captures, returns) and a shop behind the emerald
   in slot 8: vest, repair kit, sprint boots, rapid/triple cartridges, paint and smoke grenades.
   Bought items are lost when you go out.
 - **Bomb** (`paintball:bomb`, "Verfbom", unlocked at `bomb.unlock-level`): rounds without respawn.

@@ -84,8 +84,9 @@ public final class PaintballPlugin extends JavaPlugin {
         }
         Messages messages = Messages.load(this);
         PaintballGame game = new PaintballGame(this, settings, messages, messages.raw("mode.tdm"), messages.raw("mode.ctf"),
-                messages.raw("mode.tdm_shop"), messages.raw("mode.ctf_shop"), Math.max(1, c.getInt("shop.unlock-level", 5)),
+                Math.max(1, c.getInt("shop.unlock-level", 5)),
                 messages.raw("mode.bomb"), bomb, cash);
+        game.tdmQueueSizes(c.isList("tdm.queue-sizes") ? c.getIntegerList("tdm.queue-sizes") : List.of(1, 2, 3, 4));
         registry.register(this, game);
         try {
             range = practice(c, game);

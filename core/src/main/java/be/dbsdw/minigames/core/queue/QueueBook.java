@@ -15,8 +15,10 @@ import java.util.UUID;
 import java.util.random.RandomGenerator;
 
 /**
- * Every mode's queue and countdown. A player is in at most one queue. Call {@link #tick()} once per
- * server tick; it reserves arenas, runs countdowns and says when a match should start.
+ * Every public queue and its countdown. A queue has its own key and plays one mode; a mode can have
+ * several queues, one per team size (see {@link QueueSizes}). A player is in at most one queue. Call
+ * {@link #tick()} once per server tick; it reserves arenas, runs countdowns and says when a match
+ * should start.
  */
 public final class QueueBook {
     public enum Toggle { JOINED, LEFT, MOVED }
@@ -35,12 +37,34 @@ public final class QueueBook {
         this.rnd = rnd;
     }
 
+    /** A queue under the mode's own key. */
     public void addMode(ModeSpec mode) {
-        queues.putIfAbsent(mode.key(), new ModeQueue(mode));
+        addQueue(mode.key(), mode);
     }
 
-    /** Drops a mode; returns who was queued for it and releases its reserved arena. */
-    public List<UUID> removeMode(String key) {
+    /** A queue under its own key that starts matches of {@code mode} (its team sizes included). */
+    public void addQueue(String key, ModeSpec mode) {
+        queues.putIfAbsent(key, new ModeQueue(key, mode));
+    }
+
+    /** The mode a queue plays. */
+    public Optional<ModeSpec> mode(String key) {
+        ModeQueue queue = queues.get(key);
+        return queue == null ? Optional.empty() : Optional.of(queue.mode);
+    }
+
+    /** Every queue key, in the order the queues were added. */
+    public List<String> keys() {
+        return List.copyOf(queues.keySet());
+    }
+
+    /** The keys of the queues that play the mode with this key, in the order they were added. */
+    public List<String> keysOf(String modeKey) {
+        return queues.values().stream().filter(q -> q.mode.key().equals(modeKey)).map(q -> q.key).toList();
+    }
+
+    /** Drops a queue; returns who was queued in it and releases its reserved arena. */
+    public List<UUID> removeQueue(String key) {
         ModeQueue queue = queues.remove(key);
         if (queue == null) {
             return List.of();
@@ -75,7 +99,7 @@ public final class QueueBook {
     public Optional<String> queueOf(UUID player) {
         return queues.values().stream()
                 .filter(q -> q.players.contains(player))
-                .map(q -> q.mode.key())
+                .map(q -> q.key)
                 .findFirst();
     }
 
@@ -104,6 +128,21 @@ public final class QueueBook {
         queue.players.addAll(rest);
     }
 
+    /**
+     * The other queues of the same mode as {@code key} (other team sizes) with players waiting, in
+     * the order they were added.
+     */
+    public List<String> waitingSiblings(String key) {
+        ModeQueue queue = queues.get(key);
+        if (queue == null) {
+            return List.of();
+        }
+        return queues.values().stream()
+                .filter(q -> q != queue && q.mode.key().equals(queue.mode.key()) && !q.players.isEmpty())
+                .map(q -> q.key)
+                .toList();
+    }
+
     public int size(String key) {
         ModeQueue queue = queues.get(key);
         return queue == null ? 0 : queue.players.size();
@@ -126,13 +165,15 @@ public final class QueueBook {
     }
 
     private final class ModeQueue {
+        final String key;
         final ModeSpec mode;
         final LinkedHashSet<UUID> players = new LinkedHashSet<>();
         ArenaDefinition arena;
         int ticksLeft;
         boolean waitingAnnounced;
 
-        ModeQueue(ModeSpec mode) {
+        ModeQueue(String key, ModeSpec mode) {
+            this.key = key;
             this.mode = mode;
         }
 
@@ -147,7 +188,7 @@ public final class QueueBook {
                 if (reserved.isEmpty()) {
                     if (!waitingAnnounced) {
                         waitingAnnounced = true;
-                        events.add(new QueueEvent.WaitingForArena(mode.key(), List.copyOf(players)));
+                        events.add(new QueueEvent.WaitingForArena(key, List.copyOf(players)));
                     }
                     return;
                 }
@@ -155,30 +196,30 @@ public final class QueueBook {
                 arena = reserved.get();
                 int seconds = size >= mode.maximum() ? timings.fullCountdownSeconds() : timings.countdownSeconds();
                 ticksLeft = seconds * TICKS_PER_SECOND;
-                events.add(new QueueEvent.CountdownStarted(mode.key(), arena.name(), seconds));
+                events.add(new QueueEvent.CountdownStarted(key, arena.name(), seconds));
                 return;
             }
             if (size < mode.startMinimum()) {
                 stopCountdown();
-                events.add(new QueueEvent.CountdownCancelled(mode.key(), List.copyOf(players)));
+                events.add(new QueueEvent.CountdownCancelled(key, List.copyOf(players)));
                 return;
             }
             int fullTicks = timings.fullCountdownSeconds() * TICKS_PER_SECOND;
             if (size >= mode.maximum() && ticksLeft > fullTicks) {
                 ticksLeft = fullTicks;
-                events.add(new QueueEvent.CountdownTick(mode.key(), timings.fullCountdownSeconds(), starting()));
+                events.add(new QueueEvent.CountdownTick(key, timings.fullCountdownSeconds(), starting()));
                 return;
             }
             ticksLeft--;
             if (ticksLeft == 0) {
                 List<UUID> starting = starting();
                 starting.forEach(players::remove);
-                events.add(new QueueEvent.Start(mode, arena, starting));
+                events.add(new QueueEvent.Start(key, mode, arena, starting));
                 arena = null;
                 return;
             }
             if (ticksLeft % TICKS_PER_SECOND == 0 && ANNOUNCE.contains(ticksLeft / TICKS_PER_SECOND)) {
-                events.add(new QueueEvent.CountdownTick(mode.key(), ticksLeft / TICKS_PER_SECOND, starting()));
+                events.add(new QueueEvent.CountdownTick(key, ticksLeft / TICKS_PER_SECOND, starting()));
             }
         }
 

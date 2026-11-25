@@ -26,6 +26,9 @@ public final class BridgePlugin extends JavaPlugin {
         BridgeTravel travel = new BridgeTravel(this, issuer,
                 getConfig().getString("minigames.host"), getConfig().getInt("minigames.port"), messages);
 
+        QueueNotifier.start(this, travel, messages, getConfig().getString("queue-notify.status-url", ""),
+                getConfig().getInt("queue-notify.minutes-between", 10), getConfig().getInt("queue-notify.poll-seconds", 15));
+
         MinigamesNpc npc = new MinigamesNpc(travel);
         getServer().getPluginManager().registerEvents(npc, this);
         getLifecycleManager().registerEventHandler(LifecycleEvents.COMMANDS, event ->

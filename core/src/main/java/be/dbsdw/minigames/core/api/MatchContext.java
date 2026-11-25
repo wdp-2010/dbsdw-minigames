@@ -51,6 +51,14 @@ public interface MatchContext {
     default void markBots() {
     }
 
+    /**
+     * Whether the room's host switched this option on (see {@link GameType#roomOptions}); always false
+     * in public queue matches.
+     */
+    default boolean option(String id) {
+        return false;
+    }
+
     /** Ends the match with this outcome; ignored after the first call. */
     void finish(MatchOutcome outcome);
 }

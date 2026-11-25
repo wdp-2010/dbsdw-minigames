@@ -10,7 +10,10 @@ import net.kyori.adventure.text.minimessage.tag.resolver.Placeholder;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
 
-/** {@code /minigames} goes to the minigame server; {@code /minigames npc set|remove} manages the NPC (admins). */
+/**
+ * {@code /minigames} goes to the minigame server; {@code /minigames queue <key>} goes there into a
+ * public queue (the queue notification's click); {@code /minigames npc set|remove} manages the NPC (admins).
+ */
 final class MinigamesCommand implements BasicCommand {
     static final String ADMIN_PERMISSION = "minigames.admin";
 
@@ -42,6 +45,14 @@ final class MinigamesCommand implements BasicCommand {
                 default -> player.sendMessage(Component.text("/minigames npc set|remove"));
             }
             return;
+        }
+        if (args.length == 2 && args[0].equalsIgnoreCase("queue")) {
+            String key = args[1].toLowerCase(Locale.ROOT);
+            // Same shape as MinigameCore's queue keys (game:mode or game:mode:2v2); the minigame server checks the rest.
+            if (key.length() <= 64 && key.matches("[a-z0-9_-]+:[a-z0-9_-]+(:[0-9]+(v[0-9]+)+)?")) {
+                travel.sendToMinigames(player, key);
+                return;
+            }
         }
         travel.sendToMinigames(player);
     }

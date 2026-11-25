@@ -6,6 +6,7 @@ import be.dbsdw.minigames.travel.TicketIssuer;
 import be.dbsdw.minigames.travel.TravelConstants;
 import com.viaversion.viaversion.api.Via;
 import fr.xephi.authme.api.v3.AuthMeApi;
+import java.nio.charset.StandardCharsets;
 import java.util.UUID;
 import org.bukkit.Bukkit;
 import org.bukkit.NamespacedKey;
@@ -16,6 +17,8 @@ import org.geysermc.floodgate.api.FloodgateApi;
 /** Sends a survival player to the minigame server with a signed ticket. Folia-safe. */
 public final class BridgeTravel {
     static final NamespacedKey COOKIE = new NamespacedKey(TravelConstants.COOKIE_NAMESPACE, TravelConstants.COOKIE_PATH);
+    static final NamespacedKey QUEUE_COOKIE =
+            new NamespacedKey(TravelConstants.COOKIE_NAMESPACE, TravelConstants.QUEUE_COOKIE_PATH);
 
     private final Plugin plugin;
     private final TicketIssuer issuer;
@@ -33,6 +36,11 @@ public final class BridgeTravel {
     }
 
     public void sendToMinigames(Player player) {
+        sendToMinigames(player, null);
+    }
+
+    /** Sends the player and, with a {@code queueKey}, has the minigame server put them in that public queue. */
+    public void sendToMinigames(Player player, String queueKey) {
         if (issuer == null) {
             refuse(player, "unavailable", "ticket-secret not set");
             return;
@@ -42,8 +50,13 @@ public final class BridgeTravel {
             case NOT_LOGGED_IN -> refuse(player, "not-logged-in", eligibility.name());
             case BEDROCK -> refuse(player, "bedrock", eligibility.name());
             case WRONG_VERSION -> refuse(player, "wrong-version", eligibility.name());
-            case OK -> probeThenTransfer(player);
+            case OK -> probeThenTransfer(player, queueKey);
         }
+    }
+
+    /** Whether the player could travel now (logged in, Java, new enough); call on the player's thread. */
+    boolean eligible(Player player) {
+        return issuer != null && eligibility(player) == Eligibility.OK;
     }
 
     private Eligibility eligibility(Player player) {
@@ -55,7 +68,7 @@ public final class BridgeTravel {
         return Eligibility.check(loggedIn, bedrock, client);
     }
 
-    private void probeThenTransfer(Player player) {
+    private void probeThenTransfer(Player player, String queueKey) {
         UUID id = player.getUniqueId();
         String name = player.getName();
         Bukkit.getAsyncScheduler().runNow(plugin, probe -> {
@@ -67,8 +80,10 @@ public final class BridgeTravel {
                 }
                 player.sendMessage(messages.get("transferring"));
                 player.storeCookie(COOKIE, issuer.issue(id, name, Destination.MINIGAMES));
+                // Always set, so an old queue choice never carries over to a plain visit.
+                player.storeCookie(QUEUE_COOKIE, queueKey == null ? new byte[0] : queueKey.getBytes(StandardCharsets.UTF_8));
                 player.transfer(host, port);
-                plugin.getLogger().info("[travel] " + name + " -> minigames");
+                plugin.getLogger().info("[travel] " + name + " -> minigames" + (queueKey == null ? "" : " (queue " + queueKey + ")"));
             }, null);
         });
     }

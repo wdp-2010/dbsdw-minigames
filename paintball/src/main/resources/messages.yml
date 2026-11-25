@@ -1,7 +1,7 @@
 # Paintball player messages (MiniMessage format).
 # Raise "version" when texts change: servers with an older file get it backed up and replaced.
 # Colours: khaki #D9C78F (headings), field green #9CC05A (good news), amber #FFB52E (alerts, numbers).
-version: 7
+version: 9
 
 game:
   name: "<#D9C78F><bold>Paintball"
@@ -10,9 +10,12 @@ game:
 mode:
   tdm: "<#D9C78F>Teamgevecht"
   ctf: "<#D9C78F>Vlagroof"
-  tdm_shop: "<#D9C78F>Teamgevecht <#FFB52E>met winkel"
-  ctf_shop: "<#D9C78F>Vlagroof <#FFB52E>met winkel"
   bomb: "<#D9C78F>Verfbom <#FFB52E>· rondes"
+
+# The shop a room's host can switch on for team deathmatch and capture the flag (room menu button).
+room-option:
+  shop: "<#FFB52E>Winkel"
+  shop-lore: "<gray>Koop granaten, vesten en meer met geld uit de match"
 
 item:
   gun: "<#D9C78F><bold>Paintgeweer</bold></#D9C78F> <gray>· rechtsklik om te vuren"
@@ -110,7 +113,7 @@ practice:
   down: "<font:dbsdw:hud><white>\uE006</white></font> <#FFB52E><bold>DOELWIT NEER!"
 
 # Playing against bots (/solo, start alone in a room, or bots the room's host adds to the teams).
-# The shop of the shop modes and the bomb mode. Cash is per match: <cash> and <price> are amounts.
+# The shop (rooms with the shop on, and the bomb mode). Cash is per match: <cash> and <price> are amounts.
 shop:
   title: "<#D9C78F>Winkel"
   cash: "<#9CC05A><bold>⛁ <cash>"
@@ -176,11 +179,15 @@ bomb:
   item: "<red><bold>Verfbom</bold></red> <gray>· sluip op de bomplek om te leggen"
   item-lore: "<gray>Houd hem vast en sluip op de bomplek"
   site: "<#FFC21A><bold>BOMPLEK"
+  # Bomb maps have two sites, A and B.
+  site-named: "<#FFC21A><bold>BOMPLEK <site>"
   timer: "<red><bold><seconds></bold></red>"
   attack: "<red><bold>AANVALLEN"
   defend: "<aqua><bold>VERDEDIGEN"
   attack-hint: "<gray>Leg de bom op de plek van <team>"
   defend-hint: "<gray>Houd <team> weg van je bomplek"
+  attack-hint-sites: "<gray>Leg de bom op plek <#FFC21A>A</#FFC21A> of <#FFC21A>B"
+  defend-hint-sites: "<gray>Houd <team> weg van plek <#FFC21A>A</#FFC21A> en <#FFC21A>B"
   round-title: "<#D9C78F><bold>RONDE <round></bold></#D9C78F><dark_gray>/<max>"
   go: "<#9CC05A><bold>GO!"
   swap: "<#FFB52E><bold>WISSEL!</bold></#FFB52E> <gray>De teams ruilen van kant · geld terug op ⛁ <cash>"
@@ -191,6 +198,7 @@ bomb:
   defusing: "<aqua><bold>ONTMANTELEN</bold></aqua> <bar>"
   planted: "<red><bold>DE BOM LIGT!</bold></red> <gray>Nog <white><seconds></white>s"
   planted-by: "<#FFB52E>»</#FFB52E> <player> <red>legt de bom!"
+  planted-by-site: "<#FFB52E>»</#FFB52E> <player> <red>legt de bom op plek <#FFC21A><bold><site></bold></#FFC21A>!"
   defused-by: "<#FFB52E>»</#FFB52E> <player> <aqua>ontmantelt de bom!"
   hint-plant: "<gray>Sluip met de bom in je hand op de <#FFC21A>bomplek"
   hint-kit: "<gray>Sluip bij de bom om hem te ontmantelen"

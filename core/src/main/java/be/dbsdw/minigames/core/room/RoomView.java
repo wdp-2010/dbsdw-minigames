@@ -6,6 +6,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalInt;
+import java.util.Set;
 import java.util.UUID;
 
 /**
@@ -19,14 +20,16 @@ import java.util.UUID;
  * @param voice who hears whom in voice chat during the room's matches
  * @param bots bots the host added, per team
  * @param botLevel the bots' level, an index into the game's levels
+ * @param options the room options the host switched on
  */
 public record RoomView(int id, UUID host, List<UUID> members, ModeSpec mode, Optional<String> arena,
                        RoomTeams.Rule rule, Map<UUID, Integer> picks, OptionalInt secondsLeft, boolean playing,
-                       VoiceRule voice, List<Integer> bots, int botLevel) {
+                       VoiceRule voice, List<Integer> bots, int botLevel, Set<String> options) {
     public RoomView {
         members = List.copyOf(members);
         picks = Map.copyOf(picks);
         bots = List.copyOf(bots);
+        options = Set.copyOf(options);
     }
 
     public int botsIn(int team) {

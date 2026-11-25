@@ -18,7 +18,7 @@ import org.bukkit.inventory.InventoryHolder;
 import org.bukkit.inventory.ItemStack;
 
 /**
- * The shop of the shop modes: the player's cash on top, one button per item. Clicking an item buys
+ * The shop (rooms with the shop on, the bomb mode): the player's cash on top, one button per item. Clicking an item buys
  * it through the match; the menu stays open and redraws, so a player can buy a few things in a row.
  */
 public final class ShopMenu implements InventoryHolder {

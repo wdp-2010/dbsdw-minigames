@@ -456,4 +456,21 @@ class RoomBookTest {
         assertEquals(Outcome.OK, book.setMode(p.get(0), new ModeSpec("other", "x", "X", 2, 2, 2, Set.of())));
         assertEquals(0, view().botCount());
     }
+
+    @Test
+    void hostTogglesOptionsAndTheStartCarriesThem() {
+        room(1);
+        assertTrue(view().options().isEmpty());
+        assertEquals(Outcome.NOT_HOST, book.toggleOption(p.get(1), "shop"));
+        assertEquals(Outcome.OK, book.toggleOption(p.get(0), "shop"));
+        assertEquals(Set.of("shop"), view().options());
+        assertEquals(Outcome.OK, book.toggleOption(p.get(0), "shop"));
+        assertTrue(view().options().isEmpty());
+        assertEquals(Outcome.OK, book.toggleOption(p.get(0), "shop"));
+        assertEquals(Outcome.OK, book.start(p.get(0)));
+        assertEquals(Outcome.COUNTING, book.toggleOption(p.get(0), "shop"));
+        RoomEvent.Start start = (RoomEvent.Start) ticks(RoomBook.COUNTDOWN_SECONDS * 20).stream()
+                .filter(e -> e instanceof RoomEvent.Start).findFirst().orElseThrow();
+        assertEquals(Set.of("shop"), start.options());
+    }
 }
