@@ -195,8 +195,9 @@ public final class VerstopMatch implements MatchHandler {
             Component free = messages.get("solid.free", Placeholder.unparsed("seconds",
                     String.valueOf(Math.max(1, (settings.solidTicks() + 19) / 20))));
             Component locked = messages.get("solid.locked");
+            Component floor = messages.get("solid.floor");
             for (Disguise d : hidden.values()) {
-                d.hider.sendActionBar(d.solid() ? locked : free);
+                d.hider.sendActionBar(d.solid() ? locked : dugFloor(d.hider.getLocation().getBlock()) ? floor : free);
             }
         }
     }
@@ -271,7 +272,7 @@ public final class VerstopMatch implements MatchHandler {
         if (d.solid()) {
             return;
         }
-        if (d.still.stillFor(now) >= settings.solidTicks() && Disguise.canSolidify(feet)) {
+        if (d.still.stillFor(now) >= settings.solidTicks() && Disguise.canSolidify(feet) && !dugFloor(feet)) {
             d.solidify(feet, all);
             d.hider.sendActionBar(messages.get("solid.locked"));
             PackItems.play(d.hider, PackAssets.SOUND_LOCK, 0.7f, 1f);
@@ -444,6 +445,12 @@ public final class VerstopMatch implements MatchHandler {
             p.sendActionBar(messages.get("build.place-full"));
             return;
         }
+        for (Disguise d : hidden.values()) {
+            if (boxesIn(d.hider, target)) {
+                p.sendActionBar(messages.get(d.hider.equals(p) ? "build.boxed-in" : "build.boxes-other"));
+                return;
+            }
+        }
         remember(target, true);
         BlockData data = m.createBlockData();
         if (data instanceof Orientable o && o.getAxes().contains(axis(face))) {
@@ -456,6 +463,46 @@ public final class VerstopMatch implements MatchHandler {
         placed.put(p.getUniqueId(), used + 1);
         p.sendActionBar(messages.get("build.placed", Placeholder.unparsed("left",
                 String.valueOf(BlockRules.left(settings.placeLimit(), used + 1)))));
+    }
+
+    /**
+     * Whether a block at {@code target} would leave the player's feet and head spaces walled in on every
+     * side and above, so nobody can seal a hider into a hole (or a pocket in a wall).
+     */
+    private static boolean boxesIn(Player p, Block target) {
+        Block feet = p.getLocation().getBlock();
+        Block head = feet.getRelative(0, 1, 0);
+        if (!target.equals(feet.getRelative(0, 2, 0)) && !neighbour(feet, target) && !neighbour(head, target)) {
+            return false;
+        }
+        BlockFace[] sides = {BlockFace.NORTH, BlockFace.SOUTH, BlockFace.EAST, BlockFace.WEST};
+        for (Block cell : new Block[] {feet, head}) {
+            for (BlockFace f : sides) {
+                if (!closed(cell.getRelative(f), target)) {
+                    return false;
+                }
+            }
+        }
+        return closed(head.getRelative(0, 1, 0), target);
+    }
+
+    /**
+     * Whether {@code feet} is a hole dug into the floor: it was a solid block when the match started and
+     * is open to the sky two blocks up. A hider may not lock there (they would just be a floor tile, or a
+     * block at the bottom of a shaft). A pocket dug into a wall keeps a roof and is still fine.
+     */
+    private boolean dugFloor(Block feet) {
+        BlockData was = original.get(feet);
+        return was != null && !was.getMaterial().isAir() && was.getMaterial().isSolid()
+                && feet.getRelative(0, 2, 0).isPassable();
+    }
+
+    private static boolean neighbour(Block cell, Block target) {
+        return cell.getLocation().distanceSquared(target.getLocation()) <= 1.01;
+    }
+
+    private static boolean closed(Block b, Block target) {
+        return b.equals(target) || !b.isPassable();
     }
 
     /** A player hits a block: breaks it at once, unless they hold the seeker's sword. */
