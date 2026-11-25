@@ -17,6 +17,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
+import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.logging.Logger;
 import net.kyori.adventure.audience.Audience;
@@ -121,13 +122,21 @@ public final class PackHost {
      * queue status the survival server reads. {@code text} is called on an HTTP thread.
      */
     public void serveText(String path, Supplier<String> text) {
+        serveQuery(path, query -> text.get());
+    }
+
+    /**
+     * Like {@link #serveText}, with the request's raw query string (null when there is none) passed to
+     * {@code text}, which is called on an HTTP thread and may block for a moment.
+     */
+    public void serveQuery(String path, Function<String, String> text) {
         server.createContext(path, exchange -> {
             try (exchange) {
                 if (!exchange.getRequestMethod().equals("GET") || !exchange.getRequestURI().getPath().equals(path)) {
                     exchange.sendResponseHeaders(404, -1);
                     return;
                 }
-                byte[] body = text.get().getBytes(StandardCharsets.UTF_8);
+                byte[] body = text.apply(exchange.getRequestURI().getRawQuery()).getBytes(StandardCharsets.UTF_8);
                 exchange.getResponseHeaders().set("Content-Type", "text/plain; charset=utf-8");
                 exchange.getResponseHeaders().set("Cache-Control", "no-store");
                 exchange.sendResponseHeaders(200, body.length == 0 ? -1 : body.length);

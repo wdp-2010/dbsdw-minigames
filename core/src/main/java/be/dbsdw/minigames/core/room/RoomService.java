@@ -143,7 +143,7 @@ public final class RoomService {
             return;
         }
         log.info("[room] " + player.getName() + " plays " + mode.key() + " solo");
-        start(player);
+        start(player, true);
     }
 
     public void invite(Player host, Player target) {
@@ -237,6 +237,14 @@ public final class RoomService {
 
     /** The start button and {@code /room start}: starts, or cancels a running countdown. */
     public void start(Player host) {
+        start(host, false);
+    }
+
+    /**
+     * {@code solo}: {@code /solo} started the room, so the game may take over for a host alone (pick a
+     * bot). From the room itself only games without room bots do: their host adds bots in the room menu.
+     */
+    private void start(Player host, boolean solo) {
         Optional<RoomView> room = book.roomOf(host.getUniqueId());
         // A host below the mode's level cannot start it; cancelling a countdown is always fine.
         if (room.isPresent() && !room.get().counting() && room.get().host().equals(host.getUniqueId())) {
@@ -252,6 +260,7 @@ public final class RoomService {
         // Alone without bots in the room: the game may take over (e.g. pick a chess bot or paintball bots).
         if (room.isPresent() && !room.get().counting() && !room.get().playing() && room.get().members().size() == 1
                 && room.get().botCount() == 0 && room.get().host().equals(host.getUniqueId())
+                && (solo || hooks.botLevels(room.get().mode()).isEmpty())
                 && hooks.startAlone(host, room.get().mode(), team -> startAlone(host, team))) {
             log.info("[room] " + host.getName() + " pressed start alone; " + room.get().mode().key() + " takes over");
             return;

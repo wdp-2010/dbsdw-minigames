@@ -163,6 +163,67 @@ public final class ProgressService {
         cache.remove(id);
     }
 
+    /** Most players one {@link #levelsText} request may ask about. */
+    private static final int LEVELS_MAX = 200;
+
+    /**
+     * The survival server's {@code /levels?game=<id>&ids=<uuid>,<uuid>,...}: those players' levels in
+     * that game, one {@code uuid<TAB>level} line each (see QueueStatus#decodeLevels). Players online here
+     * come from the cache, others from the database (waits up to a few seconds; HTTP thread). Players
+     * whose XP cannot be read are left out. Empty for a bad request.
+     */
+    public String levelsText(String query) {
+        String game = null;
+        List<UUID> ids = new java.util.ArrayList<>();
+        for (String part : query == null ? new String[0] : query.split("&")) {
+            int eq = part.indexOf('=');
+            String name = eq < 0 ? part : part.substring(0, eq);
+            String value = eq < 0 ? "" : java.net.URLDecoder.decode(part.substring(eq + 1),
+                    java.nio.charset.StandardCharsets.UTF_8);
+            if (name.equals("game") && value.matches("[a-z0-9_-]+")) {
+                game = value;
+            } else if (name.equals("ids")) {
+                for (String id : value.split(",")) {
+                    if (ids.size() >= LEVELS_MAX) {
+                        break;
+                    }
+                    try {
+                        ids.add(UUID.fromString(id.trim()));
+                    } catch (IllegalArgumentException e) {
+                        // skip it
+                    }
+                }
+            }
+        }
+        if (game == null || ids.isEmpty()) {
+            return "";
+        }
+        Map<UUID, Integer> levels = new LinkedHashMap<>();
+        Map<UUID, CompletableFuture<Map<String, Long>>> pending = new LinkedHashMap<>();
+        for (UUID id : ids) {
+            long cached = xp(id, game);
+            if (cached >= 0) {
+                levels.put(id, curve.levelOf(cached));
+            } else if (stats != null) {
+                pending.put(id, stats.xp(id));
+            }
+        }
+        long until = System.nanoTime() + java.util.concurrent.TimeUnit.SECONDS.toNanos(2);
+        for (Map.Entry<UUID, CompletableFuture<Map<String, Long>>> e : pending.entrySet()) {
+            try {
+                long wait = Math.max(0, until - System.nanoTime());
+                Map<String, Long> xp = e.getValue().get(wait, java.util.concurrent.TimeUnit.NANOSECONDS);
+                levels.put(e.getKey(), curve.levelOf(xp.getOrDefault(game, 0L)));
+            } catch (InterruptedException ex) {
+                Thread.currentThread().interrupt();
+                break;
+            } catch (java.util.concurrent.ExecutionException | java.util.concurrent.TimeoutException ex) {
+                // left out: the survival server treats them as level 1
+            }
+        }
+        return be.dbsdw.minigames.travel.QueueStatus.encodeLevels(levels);
+    }
+
     /** Total XP in a game (or {@link #ACCOUNT}), or -1 until the player's XP is loaded. */
     public long xp(UUID id, String game) {
         Map<String, Long> xp = cache.get(id);

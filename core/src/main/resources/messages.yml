@@ -1,7 +1,7 @@
 # Player messages (MiniMessage format).
 # Raise "version" when texts change: servers with an older file get it backed up and replaced.
 # Colours: khaki #D9C78F (headings), field green #9CC05A (good news), amber #FFB52E (alerts, numbers).
-version: 12
+version: 13
 
 no-ticket: "<red>Je kunt hier alleen binnenkomen via survival.<newline><gray>Typ daar <white>/minigames</white>."
 unavailable: "<red>De minigames zijn even dicht. Probeer het straks opnieuw."
@@ -45,6 +45,8 @@ menu:
     # Modes with one queue per team size (e.g. TDM 1v1 to 4v4): the mode opens the sizes menu.
     sizes: "<gray>Kies: <white><sizes></white>"
     click-sizes: "<#9CC05A>▶ Klik om te kiezen hoeveel tegen hoeveel"
+    # Modes without a public queue (GameType#publicQueue), e.g. paintball's Verfbom.
+    rooms-only: "<gray>Alleen in een room met vrienden: <white>/room"
   sizes:
     title: "<font:dbsdw:menu><white>\uF800\uE100\uF801</white></font><mode>"
     back: "<gray>◀ Terug"

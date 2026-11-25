@@ -112,7 +112,11 @@ Admin commands need `minigames.admin` (ops have it). Positions are taken from wh
   fullest open queue, with a clickable **[Doe mee]** that runs `/minigames queue <key>`: they travel
   to the minigame server and land straight in that queue (cookie `dbsdw:queue`). At most one
   notification per `queue-notify.minutes-between` (10), and none for the same queue with the same
-  count twice in a row.
+  count twice in a row. A queue that takes a level is only told to players with that level: the
+  bridge asks `<pack.public-url>/levels?game=<id>&ids=<uuid>,...` (one `uuid<TAB>level` line each).
+  Each player hears of the fullest open queue they may join; when nobody in survival may join any,
+  nothing is said and the 10 minutes do not start. Update MinigameCore and DbsdwBridge together
+  (the status lines got two fields; the bridge still reads the old ones).
 - Private rooms (`/room` or the **Speel met vrienden** lobby item, slot 6): the host invites friends
   (menu button or `/room invite <speler>`, clickable **[Meedoen]**, valid 60 s), picks the game (top row), its mode (second row), map and
   team rule (players pick / host assigns / random) and voice chat (per team / everyone together /
@@ -121,7 +125,8 @@ Admin commands need `minigames.admin` (ops have it). Positions are taken from wh
   stats. A room holds an arena only from start to match end. Players in a room can't use the
   public queue. In games with bots (paintball) the host adds bots right in the team rows, next to
   the players: the grey pane **+ Bot toevoegen** after a team's heads adds one, clicking a bot's head
-  takes it out, the zombie head (slot 47) sets their level. A bot takes a team slot like a player;
+  takes it out, the zombie head (slot 47) sets their level. Start alone without bots in such a room
+  starts short-handed; only `/solo` opens the bot picker. A bot takes a team slot like a player;
   players without a team fill the team smallest with its bots. `/room leave|kick|start`, `/leave` in the lobby also leaves the room. Design:
   `docs/superpowers/specs/2026-11-22-private-rooms-design.md`.
 
@@ -161,7 +166,8 @@ Leaving the arena bounds also counts as out, without a point for anyone.
   queues always play without it. With the shop on, TDM and CTF give cash per match (eliminations, captures, returns) and a shop behind the emerald
   in slot 8: vest, repair kit, sprint boots, rapid/triple cartridges, paint and smoke grenades.
   Bought items are lost when you go out.
-- **Bomb** (`paintball:bomb`, "Verfbom", unlocked at `bomb.unlock-level`): rounds without respawn.
+- **Bomb** (`paintball:bomb`, "Verfbom", unlocked at `bomb.unlock-level`): rooms and `/solo` only, no
+  public queue (`GameType#publicQueue`; the modes menu says "Alleen in een room"). Rounds without respawn.
   The attackers carry the paint bomb to the defenders' flag spot (the bomb site) and sneak there
   with it in hand to plant it; defenders sneak next to it to defuse (faster with a defuse kit). A
   10 s buy phase starts each round; round wins and losses pay cash. Sides swap at half time; first

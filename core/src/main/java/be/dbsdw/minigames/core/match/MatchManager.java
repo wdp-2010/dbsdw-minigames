@@ -119,6 +119,9 @@ public final class MatchManager implements MenuModel, RoomHooks, Listener, Match
 
     /** The mode's public queue, or one per team size when the game splits it (GameType#queueSizes). */
     private void addQueues(GameType game, ModeSpec mode) {
+        if (!game.publicQueue(mode)) {
+            return;
+        }
         List<Integer> sizes;
         try {
             sizes = game.queueSizes(mode).stream().filter(n -> n != null && n >= 1).distinct().toList();
@@ -662,9 +665,11 @@ public final class MatchManager implements MenuModel, RoomHooks, Listener, Match
             if (size == 0 || mode == null) {
                 continue;
             }
-            Component game = registry.game(mode.gameId()).map(GameType::displayName).orElse(Component.empty());
+            Optional<GameType> type = registry.game(mode.gameId());
+            Component game = type.map(GameType::displayName).orElse(Component.empty());
             String name = MiniMessage.miniMessage().serialize(game.append(Component.text(" ")).append(queueName(key)));
-            result.add(new QueueStatus(key, name, size, mode.startMinimum(), mode.maximum()));
+            int level = type.map(t -> t.requiredLevel(mode)).orElse(0);
+            result.add(new QueueStatus(key, name, size, mode.startMinimum(), mode.maximum(), mode.gameId(), level));
         }
         return result;
     }

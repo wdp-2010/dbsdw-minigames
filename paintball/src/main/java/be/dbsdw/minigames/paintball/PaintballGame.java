@@ -165,6 +165,12 @@ public final class PaintballGame implements GameType {
         return mode.id().equals("tdm") ? tdmQueueSizes : List.of();
     }
 
+    /** The bomb mode (it always has the shop) is played in rooms only, not in a public queue. */
+    @Override
+    public boolean publicQueue(ModeSpec mode) {
+        return !isBomb(mode);
+    }
+
     @Override
     public List<ModeSpec> modes() {
         return List.of(tdm, ctf, bomb);
@@ -186,7 +192,10 @@ public final class PaintballGame implements GameType {
         return true;
     }
 
-    /** A room's host pressed start alone: pick the bots, then the room starts with the host on a random team. */
+    /**
+     * {@code /solo}: pick the bots, then the room starts with the host on a random team. (In a room the
+     * host adds bots with the room menu's bot buttons instead; see RoomService#start.)
+     */
     @Override
     public boolean startAlone(Player host, ModeSpec mode, IntConsumer startOnTeam) {
         BotMenu.open(host, this, mode, choice -> {

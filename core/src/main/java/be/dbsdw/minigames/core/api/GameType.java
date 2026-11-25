@@ -43,6 +43,14 @@ public interface GameType {
         return List.of();
     }
 
+    /**
+     * Whether the mode has a public queue. False: it is played in private rooms only, and the modes
+     * menu says so. True by default.
+     */
+    default boolean publicQueue(ModeSpec mode) {
+        return true;
+    }
+
     /** The game's own stat names (the core adds matches, wins, losses, draws), in display order. */
     default List<String> stats() {
         return List.of();

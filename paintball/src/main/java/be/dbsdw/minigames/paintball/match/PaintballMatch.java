@@ -47,6 +47,7 @@ import java.util.UUID;
 import java.util.concurrent.ThreadLocalRandom;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
+import net.kyori.adventure.text.format.TextColor;
 import net.kyori.adventure.text.minimessage.tag.resolver.Placeholder;
 import org.bukkit.Bukkit;
 import org.bukkit.Color;
@@ -1839,7 +1840,7 @@ public final class PaintballMatch implements MatchHandler {
         if (p.isSneaking() && Gear.isBomb(p.getInventory().getItemInMainHand()) && onSite(p.getLocation())) {
             long held = holds.merge(id, 1L, Long::sum);
             p.sendActionBar(messages.get("bomb.planting",
-                    Placeholder.component("bar", progressBar(held, bombRules.plantTicks(), NamedTextColor.RED))));
+                    Placeholder.component("bar", progressBar(held, bombRules.plantTicks(), TextColor.color(0xFFB52E)))));
             if (held % 5 == 1) {
                 p.getWorld().playSound(p.getLocation(), Sound.BLOCK_NOTE_BLOCK_HAT, 0.8f, 1.5f);
             }
@@ -1891,7 +1892,7 @@ public final class PaintballMatch implements MatchHandler {
                 long need = loadout.has(id, ShopItem.DEFUSE_KIT) ? bombRules.kitDefuseTicks() : bombRules.defuseTicks();
                 long held = holds.merge(id, 1L, Long::sum);
                 p.sendActionBar(messages.get("bomb.defusing",
-                        Placeholder.component("bar", progressBar(held, need, NamedTextColor.AQUA))));
+                        Placeholder.component("bar", progressBar(held, need, TextColor.color(0x9CC05A)))));
                 if (held % 6 == 1) {
                     p.getWorld().playSound(p.getLocation(), Sound.BLOCK_TRIPWIRE_CLICK_ON, 0.8f, 1.6f);
                 }
@@ -2038,7 +2039,7 @@ public final class PaintballMatch implements MatchHandler {
         return bot.index % 2 == 0 ? Optional.of(target) : Optional.empty();
     }
 
-    private static Component progressBar(long done, long need, NamedTextColor colour) {
+    private static Component progressBar(long done, long need, TextColor colour) {
         int filled = (int) Math.min(20, done * 20 / Math.max(1, need));
         return Component.text("|".repeat(filled), colour).append(Component.text("|".repeat(20 - filled), NamedTextColor.DARK_GRAY));
     }

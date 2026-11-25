@@ -130,6 +130,8 @@ public final class MinigameCorePlugin extends JavaPlugin {
         if (pack != null) {
             // Survival's bridge reads this to tell its players where minigame players are waiting.
             pack.serveText("/queues", manager::statusText);
+            // ...and this, so it only tells players whose level lets them join a queue.
+            pack.serveQuery("/levels", progress::levelsText);
         }
 
         CoreTravel commandTravel = travel;

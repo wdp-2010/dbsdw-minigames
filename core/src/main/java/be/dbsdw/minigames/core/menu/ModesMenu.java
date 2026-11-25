@@ -59,7 +59,8 @@ public final class ModesMenu implements InventoryHolder {
                 break;
             }
             List<String> keys = model.queueKeys(mode);
-            boolean sized = !keys.equals(List.of(mode.key()));
+            boolean roomsOnly = keys.isEmpty();
+            boolean sized = !roomsOnly && !keys.equals(List.of(mode.key()));
             ItemStack icon = game.modeIcon(mode);
             ItemMeta meta = icon.getItemMeta();
             meta.itemName(MiniMessage.miniMessage().deserialize(mode.displayName()));
@@ -68,6 +69,8 @@ public final class ModesMenu implements InventoryHolder {
             boolean queued = keys.stream().anyMatch(k -> model.isQueued(viewer.getUniqueId(), k));
             if (locked != null) {
                 lore.add(locked);
+            } else if (roomsOnly) {
+                lore.add(messages.get("menu.mode.rooms-only"));
             } else if (!model.anyArena(mode)) {
                 lore.add(messages.get("menu.mode.no-arena"));
             } else if (sized) {
@@ -90,7 +93,7 @@ public final class ModesMenu implements InventoryHolder {
             inventory.setItem(slot, icon);
             if (sized) {
                 sizedBySlot.put(slot, mode);
-            } else {
+            } else if (!roomsOnly) {
                 modeBySlot.put(slot, mode.key());
             }
             slot += 2;

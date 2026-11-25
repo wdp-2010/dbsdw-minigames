@@ -7,6 +7,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
+import java.util.Map;
+import java.util.UUID;
 import java.util.Optional;
 import org.junit.jupiter.api.Test;
 
@@ -60,5 +62,43 @@ class QueueStatusTest {
         QueueAnnouncer a = new QueueAnnouncer(Duration.ofMinutes(10));
         assertTrue(a.next(List.of(q("a:b", 0)), T0).isEmpty());
         assertEquals("a:b", a.next(List.of(q("a:b", 1), q("a:c", 1)), T0).orElseThrow().key());
+    }
+
+    private static QueueStatus leveled(String key, int queued, int level) {
+        return new QueueStatus(key, key, queued, 2, 4, "paintball", level);
+    }
+
+    @Test
+    void levelAndGameRoundTripAndOldLinesStillRead() {
+        QueueStatus bomb = leveled("paintball:bomb", 1, 5);
+        assertEquals(List.of(bomb), QueueStatus.decode(QueueStatus.encode(List.of(bomb))));
+        QueueStatus old = QueueStatus.decode("chess:classic\t1\t2\t2\tSchaak\n").getFirst();
+        assertEquals("chess", old.game());
+        assertFalse(old.leveled());
+    }
+
+    @Test
+    void levelsRoundTrip() {
+        UUID a = UUID.fromString("00000000-0000-0000-0000-000000000001");
+        Map<UUID, Integer> levels = Map.of(a, 7);
+        assertEquals(levels, QueueStatus.decodeLevels(QueueStatus.encodeLevels(levels) + "junk\n"));
+    }
+
+    @Test
+    void eachPlayerGetsTheBiggestQueueTheirLevelAllows() {
+        QueueAnnouncer a = new QueueAnnouncer(Duration.ofMinutes(10));
+        List<QueueStatus> c = a.candidates(List.of(q("paintball:tdm:1v1", 1), leveled("paintball:bomb", 3, 5)), T0);
+        assertEquals("paintball:bomb", QueueAnnouncer.firstAllowed(c, g -> 5).orElseThrow().key());
+        assertEquals("paintball:tdm:1v1", QueueAnnouncer.firstAllowed(c, g -> 4).orElseThrow().key());
+        assertTrue(QueueAnnouncer.firstAllowed(List.of(leveled("paintball:bomb", 3, 5)), g -> 1).isEmpty());
+    }
+
+    @Test
+    void candidatesWithoutAnnouncingKeepTheGapOpen() {
+        QueueAnnouncer a = new QueueAnnouncer(Duration.ofMinutes(10));
+        assertEquals(1, a.candidates(List.of(q("a:b", 1)), T0).size());
+        assertEquals(1, a.candidates(List.of(q("a:b", 1)), T0.plusSeconds(1)).size());
+        a.announced(q("a:b", 1), T0.plusSeconds(1));
+        assertTrue(a.candidates(List.of(q("a:c", 2)), T0.plusSeconds(2)).isEmpty());
     }
 }
