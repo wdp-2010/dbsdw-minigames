@@ -226,6 +226,33 @@ that the seekers can walk to the hiders, that no floor reaches the edge, and tha
 block (barrel, hay, spruce and oak log, crafting table, composter, moss, pumpkin) stands next to
 walkable floor at least 10 times.
 
+**Bomb maps** (`paintball:bomb` only, 2026-11-25). Built like a Counter-Strike map: not rotated,
+attackers' spawn at one end, defenders' spawn at the other, both bomb sites on the defenders' side.
+Sites are arena flags `2` (A) and `3` (B); each site has a big yellow letter on a dark board (the
+`letter()` helper in `molenwaard.py`) so players know which one they are on. Both modules' `report()`
+adds the walking distance from each spawn to each site; aim for the attackers at roughly twice the
+defenders' distance (about 100 against 40 to 60 blocks), so the defenders get there first.
+
+- **Molenwaard** (124 × 92 at x 300..423, z 600..691, ground at y -55). A wooded river valley:
+  attackers in a woodcutters' camp in the west, defenders at a forester's lodge in the east. A
+  creek runs north to south through the middle with only three crossings: a stony ford (north,
+  then the open meadow to A), a covered timber bridge (middle, to the farmhouse and paths to both
+  sites) and a narrow footbridge into a long drying barn with slatted walls that comes out on B.
+  Site A is the cobbled yard of a watermill (wheel in a mill race, hay wagon, leaning millstone,
+  sacks); site B is a timber yard of log stacks under a log gantry crane with a hanging load, with
+  a saw shed and the yard office carrying the B. Distances: attackers 102 / 109, defenders 44 / 53.
+- **Kapelbos** (110 × 124 at x 300..409, z 750..873, ground at y -55). A hilly wood round a
+  village: attackers in an old quarry in the south (derrick, cut blocks, tool hut), defenders in
+  the parsonage yard in the north. West: a sheep pasture with dry-stone walls and a field barn,
+  then up through the graveyard and its lychgate to site A, a ruined chapel on a two-block hill
+  (apse, buttresses, tall open windows, a bell turret, the south-east corner fallen in on a
+  diagonal with rubble). Middle: a sunken lane between hedges up to the village square (well,
+  market stalls under striped awnings, two cottages) and the inn, with church path and cart
+  track on to the sites. East: a dry ravine four blocks deep through dense wood, crossed by a log
+  bridge, that climbs out next to site B, the charcoal burners' yard with smoking earth kilns, a
+  charcoal cart and a lean-to shed with the B on its back wall. Distances: attackers 103 / 116,
+  defenders 37 / 60.
+
 `build.py` takes a map's own `MODES` and `report()` when it has them (otherwise paintball and the
 paintball checks), and writes `flags: {}` for maps without flags.
 

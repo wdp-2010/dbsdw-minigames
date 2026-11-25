@@ -1,0 +1,15 @@
+walkable floor cells: 10045
+attackers (spawn 0) spawns on walkable floor: yes
+defenders (spawn 1) spawns on walkable floor: yes
+site A reachable: yes
+site B reachable: yes
+attackers (spawn 0): spawn pairs with a clear line to an enemy spawn: 0 of 36
+defenders (spawn 1): spawn pairs with a clear line to an enemy spawn: 0 of 36
+floor with full cover within 3 blocks: 75% (aim 55-85)
+far pairs (30+ blocks) that see each other: 8% (aim 5-25), longest seen 112
+ladders nobody can reach: 0 []
+fence/wall posts with a slab or carpet on top: 0 []
+attackers to site A: 102 blocks
+attackers to site B: 109 blocks
+defenders to site A: 44 blocks
+defenders to site B: 53 blocks

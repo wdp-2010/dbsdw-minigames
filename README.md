@@ -166,6 +166,10 @@ Leaving the arena bounds also counts as out, without a point for anyone.
   with it in hand to plant it; defenders sneak next to it to defuse (faster with a defuse kit). A
   10 s buy phase starts each round; round wins and losses pay cash. Sides swap at half time; first
   to `bomb.win-rounds` wins. Any arena with flags works once it lists the mode.
+  Bomb maps (Molenwaard, Kapelbos) list only `paintball:bomb` and have two sites, A and B, on the
+  defenders' side: arena flags `2` and `3`. There spawn `0` is always the attackers' spawn and
+  spawn `1` the defenders', so the teams swap spawns at half time; plant on either site. Bots pick
+  one site to attack per round and the defending bots split over both.
 - **TDM:** first team to the elimination target wins; at the time limit the leader wins, equal
   scores are a draw.
 - **CTF:** walk into the enemy flag to take it (you glow and wear it), bring it to your own flag
